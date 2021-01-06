@@ -11,4 +11,4 @@ that sort.
 
 Most of my notes are on my website:
 
-[http://cholla.mmto.org/ebaz4205] (http://cholla.mmto.org/ebaz4205)
+http://cholla.mmto.org/ebaz4205
