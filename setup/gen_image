@@ -1,0 +1,46 @@
+#!/bin/python3
+
+import sys
+
+in_file = "grab.out"
+out_file = "bitcoin.img"
+
+# get rid of lines like this:
+# nand dump 0x0
+# Page 00000000 dump:
+# Page 00002000 dump:
+# zynq-uboot> nand dump 0x2000
+
+def do_file ( infile, of ) :
+#    print ( "Processing: " + infile )
+    f = open ( infile, "r" )
+
+    count = 0
+    while True :
+        line = f.readline().strip()
+        if line == "" :
+            break
+        if line[0] == '#' :
+            continue
+
+        if line.startswith("nand") :
+            continue
+        if line.startswith("Page") :
+            continue
+        if line.startswith("zynq") :
+            continue
+
+        # w = line.split()[1:17]
+        w = line.split()
+        #print ( " Got " + str(len(w)) + " items" )
+
+        of.write ( bytes ( [int(x, 16) for x in w] ) )
+        #count += 1
+        #if count >= 1024 :
+        #    break
+
+    f.close()
+
+of = open ( out_file, "wb" )
+do_file ( in_file, of )
+of.close()

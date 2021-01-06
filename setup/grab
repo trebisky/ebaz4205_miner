@@ -1,0 +1,98 @@
+#!/bin/python3
+
+# First do: dnf install python3-pyserial
+
+import os
+import serial
+
+# This is a program to read out the entire 128M
+# flash memory chip on the EBAZ4205
+# This talks to U-Boot on the EBAZ
+#
+# Tom Trebisky  1-6-2021
+#
+# I started it at 9:56 PM and it finished at
+# 8:37 AM the next day (about 11 hours)
+# The resulting file is 414440912 bytes
+# (414M)
+#
+# Note that running the program to convert the dump
+# into a binary image takes less than a minute on
+# my desktop machine
+
+device = "/dev/ttyUSB0"
+
+#setup_cmd = "picocom --noreset -b 57600 /dev/ttyUSB1"
+setup_cmd = "picocom -qrX -b 115200 " + device
+print ( setup_cmd )
+
+os.system ( setup_cmd )
+
+ser = serial.Serial ( device, 115200, timeout=3 )
+print ( "Using port " + ser.name)
+
+# The way this works, we get the U-boot prompt
+# when things are all done, but readline doesn't
+# return to us (it waits for a newline), so the
+# timeout is what finishes the job for us.
+#
+# Note that it is fortunate I did not use this is
+# the final run, the timeout delays would have taken
+# the run time from 11 hours to perhaps 50 or more.
+def fetch_block_EZ ( offset ) :
+    off = str(offset)
+    print ( "Fetch " + off )
+    uboot = "nand dump " + off + "\r"
+    ser.write ( uboot.encode('ascii') )
+    while True:
+        line = ser.readline().decode('ascii').strip()
+        if line == '' :
+            break
+        print ( line )
+
+# This is intended to be an improvement on the above
+# It watches for "OOB:" and after it sees that line
+# reads and discards 8 lines.
+def fetch_block ( out_file, off ) :
+    print ( "Fetch " + off )
+    uboot = "nand dump " + off + "\r"
+    ser.write ( uboot.encode('ascii') )
+
+    skip = False
+    skip_count = 0
+    while True:
+        line = ser.readline().decode('ascii').strip()
+        if line == '' :
+            break
+        if line == "OOB:" :
+            skip = True
+        if not skip :
+            #print ( line )
+            out_file.write ( line + "\n" )
+        else :
+            skip_count += 1
+            #print ( "Skip ( " + str(skip_count) + " ): " +  line )
+        if skip_count == 9 :
+            break
+
+def dump_flash ( file, size ) :
+    off = 0
+    file = open ( file, "w" )
+
+    while off < size:
+        fetch_block ( file, hex(off) )
+        off += 2048
+    file.close()
+
+#fetch_block ( "0" )
+#fetch_block ( "800" )
+
+#size = 2048*4
+size = 1024 * 128 * 1024
+
+dump_flash ( "grab.out", size )
+
+print ( "Done" )
+ser.close()
+
+# THE END
