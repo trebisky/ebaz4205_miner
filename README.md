@@ -8,3 +8,7 @@ above all else a substantial FPGA.
 This repository contains my research efforts with the board I have.
 Ultimately I will be doing bare metal programming and things of
 that sort.
+
+Most of my notes are on my website:
+
+    http://cholla.mmto.org/ebaz4205/
