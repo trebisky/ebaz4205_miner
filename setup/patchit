@@ -1,0 +1,222 @@
+#!/bin/python3
+
+# First do: dnf install python3-pyserial
+
+import os
+import serial
+
+# patchit
+#
+# This program manipulates U-Boot over a serial link.
+# The idea is to install a patched 128K block onto
+# the flash on my EBAZ4205 board.
+# The patched block is part of the U-boot image and
+# contains the U-boot env settings.
+# My patching changes these so that U-boot will boot
+# my experimental image via TFTP by default
+#
+# Tom Trebisky  1-6-2021
+#
+# This is another "U-boot as a serial protocol" concept
+# things.  
+#
+# Our 256M of ram is aliased in 4 locations in th first
+# 1G of the address space.
+# We use the start of one of these aliases (0x20000000)
+# as a scratch area.
+#
+# We avoid readline and do single character reads
+# since we don't want to have to endure a timeout
+# waiting to read our prompt
+
+device = "/dev/ttyUSB0"
+TIMEOUT = 3
+# tftpboot has longer pauses
+TIMEOUT = 10
+
+ser = serial.Serial ( device, 115200, timeout=TIMEOUT )
+print ( "Using port " + ser.name)
+
+# -----------------------------------------------------------------------
+
+# sync --
+# Send something to U-boot, then read and flush output
+# until we see the expected prompt.
+# Just sending a return is not the best thing because
+# U-boot will repeat the last command, whatever it might be.
+# Sending "true" seems almost ideal
+#
+# ser.read() returns a byte array (with one byte)
+# decode('ascii') turns that into a string
+#
+# Lines received from U-boot end with \r\n
+#
+# The prompt we expect is "zynq-uboot> " (with a space at the end)
+# Among other things, we need to flush the echo of our command.
+
+def sync () :
+    cmd = "true\r"
+    #cmd = "version\r"
+    ser.write ( cmd.encode('ascii') )
+    resp = ""
+    valid = False
+    while True:
+        ch = ser.read().decode('ascii')
+        #ch = ser.read()
+        #print ( ch )
+        #print ( type(ch) )
+        if ch == '' :
+            print ( "timeout in sync *!" )
+            break
+        if ch == '\r' :
+            continue
+        if ch == '\n' :
+            # We at least flush the echo
+            #print ( "Flush: " + resp )
+            resp = ""
+            continue
+        resp += ch
+        if resp == "zynq-uboot> " :
+            #print ( "prompt !!" )
+            valid = True
+            break
+    return valid
+
+def read ( addr ) :
+    cmd = "md.l " + hex(addr) + " 1\r"
+    ser.write ( cmd.encode('ascii') )
+
+    resp = ""
+    first = True
+    while True:
+        ch = ser.read().decode('ascii')
+        if ch == '' :
+            print ( "timeout in read *!" )
+            break
+        if ch == '\r' :
+            continue
+        if ch == '\n' :
+            if first :
+                # first response is echo, discard
+                first = False
+            else :
+                #print ( "Flush: " + resp )
+                rv = resp
+            resp = ""
+            continue
+        resp += ch
+        if resp == "zynq-uboot> " :
+            #print ( "prompt !!" )
+            break
+    return rv.split()[1]
+
+def write ( addr, value ) :
+    cmd = "mw.l " + hex(addr) + " " + hex(value) + " 1\r"
+    ser.write ( cmd.encode('ascii') )
+
+    resp = ""
+    while True:
+        ch = ser.read().decode('ascii')
+        if ch == '' :
+            print ( "timeout in write *!" )
+            break
+        if ch == '\r' :
+            continue
+        if ch == '\n' :
+            # The only response to this is the echo
+            resp = ""
+            continue
+        resp += ch
+        if resp == "zynq-uboot> " :
+            break
+    return
+
+def command ( cmd ) :
+    rcmd = cmd + '\r'
+    ser.write ( rcmd.encode('ascii') )
+
+    resp = ""
+    first = True
+    while True:
+        ch = ser.read().decode('ascii')
+        if ch == '' :
+            print ( "timeout in command *!" )
+            break
+        if ch == '\r' :
+            continue
+        if ch == '\n' :
+            if first :
+                # first response is echo, discard
+                first = False
+            else :
+                print ( resp )
+            resp = ""
+            continue
+        resp += ch
+        if resp == "zynq-uboot> " :
+            break
+    return
+
+def setenv ( tag, val ) :
+    ucmd = "setenv " + tag + " " + val
+    command ( ucmd )
+
+def printenv ( tag ) :
+    ucmd = "printenv " + tag
+    command ( ucmd )
+
+# -----------------------------------------------------------------------
+
+def boot_kyu () :
+    sync ()
+
+    #command ( "bdinfo" )
+    #command ( "version" )
+
+    setenv ( "ipaddr", "192.168.0.80" )
+    setenv ( "serverip", "192.168.0.5" )
+    #printenv ( "serverip" )
+    setenv ( "bootaddr", "0x20000000" )
+    setenv ( "boot_tftp", "\"echo Booting Kyu via tftp ; tftpboot ${bootaddr} bitcoin.bin; go ${bootaddr}\"" )
+    #command ( "run boot_tftp" )
+
+# tftpboot just loads the file from the network.
+def load_file ( bootfile ) :
+    setenv ( "ipaddr", "192.168.0.80" )
+    setenv ( "serverip", "192.168.0.5" )
+    setenv ( "ramaddr", "0x20000000" )
+    command ( "tftpboot ${ramaddr} " + bootfile )
+
+def write_nand ( offset ) :
+    nand_offset = hex(offset)
+    command ( "nand device 0" )
+    command ( "nand erase " + nand_offset + " 20000" )
+    command ( "nand write ${ramaddr} " + nand_offset + " 20000" )
+
+# Offsets into NAND -- these are byte offsets in hex
+# They are on 128K "block" boundaries, which are the "quanta" that
+# can be erased all at once on flash
+# Note that my scan indicates all the blocks from 0x6a20000 to
+#  the end of the device are blank.
+# nand bad" shows the last five blocks (starting at 0x7f60000) to be bad.
+
+NAND_UBOOT = 0x260000   # block 19
+NAND_TEST = 0x7000000
+
+def main () :
+    sync ()
+
+    load_file ( "b19.img" )
+    write_nand ( NAND_TEST )
+
+    # end with this to leave something benign in U-boots memory
+    command ( "test" )
+
+# -----------------------------------------------------------------------
+
+main ()
+
+print ( "Done" )
+ser.close()
+
+# THE END

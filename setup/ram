@@ -1,0 +1,213 @@
+#!/bin/python3
+
+# First do: dnf install python3-pyserial
+
+import os
+import serial
+
+# The idea here is to scan for RAM on the EBAZ4205
+#
+# Tom Trebisky  1-6-2021
+#
+# This is another "U-boot as a serial protocol" concept
+# things.  
+#
+# The TRM in section 4 shows DDR ram in the range:
+# 0 - 0x3fff_ffff
+# We have 256M of DDR ram, so 0xY000_0000 to 0xYfff_ffff
+# or something like that.
+#
+# We avoid readline and do single character reads
+# since we don't want to have to endure a timeout
+# waiting to read our prompt
+
+device = "/dev/ttyUSB0"
+
+#setup_cmd = "picocom --noreset -b 57600 /dev/ttyUSB1"
+setup_cmd = "picocom -qrX -b 115200 " + device
+#print ( setup_cmd )
+
+os.system ( setup_cmd )
+
+ser = serial.Serial ( device, 115200, timeout=3 )
+print ( "Using port " + ser.name)
+
+# -----------------------------------------------------------------------
+
+# sync --
+# Send something to U-boot, then read and flush output
+# until we see the expected prompt.
+# Just sending a return is not the best thing because
+# U-boot will repeat the last command, whatever it might be.
+# Sending "true" seems almost ideal
+#
+# ser.read() returns a byte array (with one byte)
+# decode('ascii') turns that into a string
+#
+# Lines received from U-boot end with \r\n
+#
+# The prompt we expect is "zynq-uboot> " (with a space at the end)
+# Among other things, we need to flush the echo of our command.
+
+def sync () :
+    cmd = "true\r"
+    #cmd = "version\r"
+    ser.write ( cmd.encode('ascii') )
+    resp = ""
+    valid = False
+    while True:
+        ch = ser.read().decode('ascii')
+        #ch = ser.read()
+        #print ( ch )
+        #print ( type(ch) )
+        if ch == '' :
+            print ( "timeout in sync *!" )
+            break
+        if ch == '\r' :
+            continue
+        if ch == '\n' :
+            # We at least flush the echo
+            #print ( "Flush: " + resp )
+            resp = ""
+            continue
+        resp += ch
+        if resp == "zynq-uboot> " :
+            #print ( "prompt !!" )
+            valid = True
+            break
+    return valid
+
+def read ( addr ) :
+    cmd = "md.l " + hex(addr) + " 1\r"
+    ser.write ( cmd.encode('ascii') )
+
+    resp = ""
+    first = True
+    while True:
+        ch = ser.read().decode('ascii')
+        if ch == '' :
+            print ( "timeout in read *!" )
+            break
+        if ch == '\r' :
+            continue
+        if ch == '\n' :
+            if first :
+                # first response is echo, discard
+                first = False
+            else :
+                #print ( "Flush: " + resp )
+                rv = resp
+            resp = ""
+            continue
+        resp += ch
+        if resp == "zynq-uboot> " :
+            #print ( "prompt !!" )
+            break
+    return rv.split()[1]
+
+def write ( addr, value ) :
+    cmd = "mw.l " + hex(addr) + " " + hex(value) + " 1\r"
+    ser.write ( cmd.encode('ascii') )
+
+    resp = ""
+    while True:
+        ch = ser.read().decode('ascii')
+        if ch == '' :
+            print ( "timeout in write *!" )
+            break
+        if ch == '\r' :
+            continue
+        if ch == '\n' :
+            # The only response to this is the echo
+            resp = ""
+            continue
+        resp += ch
+        if resp == "zynq-uboot> " :
+            break
+    return
+
+# -----------------------------------------------------------------------
+
+size = 0x40000000
+step = 0x00010000   # 64k
+step = 0x00020000   # 128k
+step = 0x00040000   # 256k
+step = 0x00080000   # 512k
+step = 0x00100000   # 1M
+
+probe_val = 0xdeadbeef
+
+def probe ( addr ) :
+    is_ram = True
+    x = read ( addr )
+    orig = int(x,16)
+
+    write ( addr, probe_val )
+    x = read ( addr )
+    test = int(x,16)
+    if test != probe_val :
+        is_ram = False
+
+    write ( addr, orig )
+    x = read ( addr )
+    test = int(x,16)
+    if test != orig :
+        print ( hex(addr) + " restore fails" )
+        return
+    if is_ram :
+        print ( hex(addr) + " RAM" )
+    else :
+        print ( hex(addr) + " --" )
+
+def ram_test () :
+    sync ()
+
+    addr = 0
+    while addr < size :
+        probe ( addr )
+        addr += step
+
+def ocm_test () :
+    sync ()
+
+    probe ( 0xfffc0000 )
+    probe ( 0xfffd0000 )
+    probe ( 0xfffe0000 )
+    probe ( 0xffff0000 )
+
+def alias_test () :
+    sync ()
+    start = 0
+
+    x = read ( start )
+    orig = int(x,16)
+    write ( start, probe_val )
+
+    addr = step
+    while addr < size :
+        x = read ( addr )
+        test = int(x,16)
+        if test == probe_val :
+            print ( hex(addr) + " alias" )
+        addr += step
+
+    write ( start, orig )
+
+# x = read ( addr )
+# print ( x )
+# orig = int(x,16)
+# write ( addr, 0xdeadbeef )
+# print ( read ( addr ) )
+# write ( addr, orig )
+# print ( read ( addr ) )
+
+# -----------------------------------------------------------------------
+
+#ram_test ()
+#ocm_test ()
+alias_test ()
+
+print ( "Done" )
+ser.close()
+
+# THE END

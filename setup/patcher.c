@@ -89,9 +89,14 @@ main ( int argc, char **argv )
     add_env ( "bootaddr=0x20000000" );
     add_env ( "boot_kyu=echo Booting Kyu via dhcp ; dhcp ${bootaddr}; go ${bootaddr}" );
     add_env ( "boot_tftp=echo Booting Kyu via tftp ; tftpboot ${bootaddr} bitcoin.bin; go ${bootaddr}" );
-    add_env ( "bootcmd=run boot_kyu" );
+    // Go with tftp, dhcp gets weird ideas about the filename (C0A80050.img)
+    // This is the IP address converted to hex, but it should be using bitcoin.bin
     add_env ( "bootcmd=run boot_tftp" );
+    // add_env ( "bootcmd=run boot_kyu" );
     add_env ( "" );
+
+    /* XXX ??? Does U-Boot do a CRC check on the env information ? */
+    /* And what about our boot address ? */
 
     write_file ( image );
 
