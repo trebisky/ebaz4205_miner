@@ -182,6 +182,10 @@ def boot_kyu () :
 
 # tftpboot just loads the file from the network.
 def load_file ( bootfile ) :
+    # We normally wouldn't need this, but I screwed
+    # up the first time I patched and omitted it
+    setenv ( "ethaddr", "00:0a:35:00:01:22" )
+
     setenv ( "ipaddr", "192.168.0.80" )
     setenv ( "serverip", "192.168.0.5" )
     setenv ( "ramaddr", "0x20000000" )
@@ -206,8 +210,9 @@ NAND_TEST = 0x7000000
 def main () :
     sync ()
 
-    load_file ( "b19.img" )
-    write_nand ( NAND_TEST )
+    load_file ( "b19p.img" )
+    #write_nand ( NAND_TEST )
+    write_nand ( NAND_UBOOT )
 
     # end with this to leave something benign in U-boots memory
     command ( "test" )

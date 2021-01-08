@@ -85,6 +85,7 @@ main ( int argc, char **argv )
     init_env ();
     add_env ( "ipaddr=192.168.0.80" );
     add_env ( "serverip=192.168.0.5" );
+    add_env ( "ethaddr=00:0a:35:00:01:22" );
     add_env ( "bootdelay=3" );
     add_env ( "bootaddr=0x20000000" );
     add_env ( "boot_kyu=echo Booting Kyu via dhcp ; dhcp ${bootaddr}; go ${bootaddr}" );
