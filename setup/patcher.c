@@ -9,6 +9,7 @@
 #include <string.h>
 
 char *infile = "b19.img";
+char *outfile = "b19p.img";
 
 #define IM_SIZE		128*1024
 #define ENV_OFFSET	0xbb5a
@@ -37,6 +38,17 @@ read_file ( char *buf )
 }
 
 void
+write_file ( char *buf )
+{
+    int f;
+    int n;
+
+    f = creat ( outfile, 0664 );
+    n = write ( f, buf, IM_SIZE );
+    close ( f );
+}
+
+void
 dump_env ( char *env )
 {
     char *p;
@@ -49,10 +61,41 @@ dump_env ( char *env )
 
 }
 
+static char *ip;
+
+void
+init_env ( void )
+{
+    ip = &image[ENV_OFFSET];
+}
+
+void
+add_env ( char *s )
+{
+    strcpy ( ip, s );
+    ip += strlen(s) + 1;
+}
+
 int
 main ( int argc, char **argv )
 {
     read_file ( image );
+    dump_env ( &image[ENV_OFFSET] );
+
+    init_env ();
+    add_env ( "ipaddr=192.168.0.80" );
+    add_env ( "serverip=192.168.0.5" );
+    add_env ( "bootdelay=3" );
+    add_env ( "bootaddr=0x20000000" );
+    add_env ( "boot_kyu=echo Booting Kyu via dhcp ; dhcp ${bootaddr}; go ${bootaddr}" );
+    add_env ( "boot_tftp=echo Booting Kyu via tftp ; tftpboot ${bootaddr} bitcoin.bin; go ${bootaddr}" );
+    add_env ( "bootcmd=run boot_kyu" );
+    add_env ( "bootcmd=run boot_tftp" );
+    add_env ( "" );
+
+    write_file ( image );
+
+    printf ( "\n" );
     dump_env ( &image[ENV_OFFSET] );
 }
 
