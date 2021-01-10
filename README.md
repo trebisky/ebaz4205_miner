@@ -12,3 +12,8 @@ that sort.
 Most of my notes are on my website:
 
 http://cholla.mmto.org/ebaz4205
+
+Here are the projects you will find here:
+
+* setup - my process to configure U-Boot for network tftp booting
+* fish - why "hello world" for a first program?
