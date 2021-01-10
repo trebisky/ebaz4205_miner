@@ -17,3 +17,5 @@ Here are the projects you will find here:
 
 * setup - my process to configure U-Boot for network tftp booting
 * fish - why "hello world" for a first program?
+* button - watch for the button connected to the gpio
+* printf - I add a little printf to the button demo
