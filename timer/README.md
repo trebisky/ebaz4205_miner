@@ -1,15 +1,17 @@
-Get timer interrupts working on the EBAZ4205
-
-*** Still in progress, not working yet.
+Get timer and uart interrupts on the EBAZ4205
 
 Copied from /u1/Projects/OrangePi/Archive/inter_kyu
 
-Nothing done yet, but will need to reviews the lds
-file and especially the Makefile (pull my Makefile
-from ../prf in this project.
+This was first made to work with a serial rcv interrupt,
+then a simple timer driver as added.
 
-For the Orange Pi this was a quick hack pulling all
-kinds of stuff from Kyu.  My comments follow:
+This gets timer interrupts at 1000 Hz, reporting on them
+continuously at 1 Hz on the console.
+Keypresses generate interrupts which are reported.
+
+The Orange Pi version this was derived from was a
+quick hack pulling all kinds of stuff from Kyu.
+My comments on that from the Orange Pi archive follow:
 
 ----
 

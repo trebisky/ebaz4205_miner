@@ -105,8 +105,7 @@ uart_handler ( int xxx )
 	struct zynq_uart *up = UART_BASE;
 	int c;
 
-	printf ( "Uart interrupt %d\n", xxx );
-	show_reg ( "Uart interrupt, istatus: ", &up->istatus );
+	// printf ( "Uart interrupt %d\n", xxx );
 
 	// ACK the interrupt 
 	up->istatus = IE_RXTRIG;
@@ -115,7 +114,12 @@ uart_handler ( int xxx )
 	// up->id = IE_RXE | IE_TXE;
 
 	c = up->fifo;
-	printf ( "Received: %x %d\n", c, c );
+	// show_reg ( "Uart interrupt, istatus: ", &up->istatus );
+	// printf ( "Received: %x %d\n", c, c );
+	c &= 0x7f;
+	if ( c < ' ' )
+	    c = '.';
+	printf ( "Uart interrupt, istatus: %h char = %x %c\n", &up->istatus, c, c );
 }
 
 /* THE END */

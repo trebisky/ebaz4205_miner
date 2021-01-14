@@ -321,10 +321,11 @@ main ( void )
 	i = 0;
 	for ( ;; ) {
 	    ms_delay ( 1000 );
-	    asm volatile ("add %0, sp, #0" : "=r"(cur_sp) );
 	    cur_count = timer_count;
 	    i++;
-	    printf ( "Count: %d sp = %h %d %d\n", timer_count, cur_sp, cur_count-last_count, i );
+	    // asm volatile ("add %0, sp, #0" : "=r"(cur_sp) );
+	    // printf ( "Count: %d sp = %h %d %d\n", timer_count, cur_sp, cur_count-last_count, i );
+	    printf ( "Count: %d %d %d\n", timer_count, cur_count-last_count, i );
 	    last_count = cur_count;
 	}
 }
