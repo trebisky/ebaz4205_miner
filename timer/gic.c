@@ -3,24 +3,32 @@
  * The GIC is the ARM "Generic Interrupt Controller"
  * It has two sections, "cpu" and "dist"
  *
+ * The GIC in the Allwinner is the PL400
+ * See the PL400 TRM and
+ * the ARM GIC architecture specification, version 2.0
+ *
+ * The GIC in the Zynq-7000 is the earlier PL390
+ * This code works for either
+ *
  * Tom Trebisky  1-4-2017
+ * Tom Trebisky  1-14-2021
  */
 
 /* The H3 defines 157 interrupts (0-156)
  * We treat this as 160, more or less
  */
-#define NUM_IRQ		157
+#define NUM_IRQ_H3		157
+#define NUM_IRQ_ZYNQ		92
 
-#define IRQ_UART0	32
-#define IRQ_TIMER0	50
-#define IRQ_ETHER	114
+/* Never used */
+#define NUM_IRQ		NUM_IRQ_ZYNQ
 
 #define NUM_CONFIG	10
 #define NUM_TARGET	40
 #define NUM_PRIO	40
 #define NUM_MASK	5
 
-struct h3_gic_dist {
+struct gic_dist {
 	volatile unsigned long ctrl;		/* 0x00 */
 	volatile unsigned long type;		/* 0x04 */
 	volatile unsigned long iidr;		/* 0x08 */
@@ -46,7 +54,7 @@ struct h3_gic_dist {
 	volatile unsigned long soft;		/* 0xf00 */
 };
 
-struct h3_gic_cpu {
+struct gic_cpu {
 	volatile unsigned long ctrl;		/* 0x00 */
 	volatile unsigned long primask;		/* 0x04 */
 	volatile unsigned long binpoint;	/* 0x08 */
@@ -56,8 +64,15 @@ struct h3_gic_cpu {
 	volatile unsigned long high_pri;	/* 0x18 */
 };
 
+#ifdef notdef
+/* Allwinner H3 */
 #define GIC_DIST_BASE	((struct h3_gic_dist *) 0x01c81000)
 #define GIC_CPU_BASE	((struct h3_gic_cpu *) 0x01c82000)
+#endif
+
+/* Zynq-7000 */
+#define GIC_DIST_BASE	((struct gic_dist *) 0xf8f01000)
+#define GIC_CPU_BASE	((struct gic_cpu *)  0xf8f00100)
 
 #define	G0_ENABLE	0x01
 #define	G1_ENABLE	0x02
@@ -90,7 +105,7 @@ void printf ( char *, ... );
 void
 gic_enable ( int irq )
 {
-	struct h3_gic_dist *gp = GIC_DIST_BASE;
+	struct gic_dist *gp = GIC_DIST_BASE;
 	int x = irq / 32;
 	unsigned long mask = 1 << (irq%32);
 
@@ -98,9 +113,19 @@ gic_enable ( int irq )
 }
 
 void
+gic_disable ( int irq )
+{
+	struct gic_dist *gp = GIC_DIST_BASE;
+	int x = irq / 32;
+	unsigned long mask = 1 << (irq%32);
+
+	gp->eclear[x] = mask;
+}
+
+void
 gic_unpend ( int irq )
 {
-	struct h3_gic_dist *gp = GIC_DIST_BASE;
+	struct gic_dist *gp = GIC_DIST_BASE;
 	int x = irq / 32;
 	unsigned long mask = 1 << (irq%32);
 
@@ -110,7 +135,7 @@ gic_unpend ( int irq )
 void
 gic_handler ( void )
 {
-	struct h3_gic_cpu *cp = GIC_CPU_BASE;
+	struct gic_cpu *cp = GIC_CPU_BASE;
 	int irq;
 
 	irq = cp->iack;
@@ -122,11 +147,7 @@ gic_handler ( void )
 	    // return;
 	}
 
-	if ( irq == IRQ_TIMER0 )
-	    timer_handler ( 0 );
-
 	cp->eoi = irq;
-	gic_unpend ( IRQ_TIMER0 );
 
 	// uart_putc ( '.' );
 	// uart_putc ( '\n' );
@@ -138,7 +159,7 @@ gic_handler ( void )
 int
 gic_irqwho ( void )
 {
-	struct h3_gic_cpu *cp = GIC_CPU_BASE;
+	struct gic_cpu *cp = GIC_CPU_BASE;
 
 	return cp->iack;
 }
@@ -146,7 +167,7 @@ gic_irqwho ( void )
 void
 gic_irqack ( int irq )
 {
-	struct h3_gic_cpu *cp = GIC_CPU_BASE;
+	struct gic_cpu *cp = GIC_CPU_BASE;
 
 	cp->eoi = irq;
 	gic_unpend ( irq );
@@ -155,8 +176,8 @@ gic_irqack ( int irq )
 void
 gic_init ( void )
 {
-	struct h3_gic_dist *gp = GIC_DIST_BASE;
-	struct h3_gic_cpu *cp = GIC_CPU_BASE;
+	struct gic_dist *gp = GIC_DIST_BASE;
+	struct gic_cpu *cp = GIC_CPU_BASE;
 	unsigned long *p;
 	int i;
 
@@ -193,8 +214,6 @@ gic_init ( void )
 	for ( i=0; i<NUM_MASK; i++ )
 	    gp->pclear[i] = 0xffffffff;
 
-	gic_enable ( IRQ_TIMER0 );
-
 	gp->ctrl = G0_ENABLE;
 
 	/* ** now initialize the per CPU stuff.
@@ -214,6 +233,7 @@ gic_init ( void )
 	cp->ctrl = 1;
 }
 
+#ifdef notdef
 extern volatile int timer_count;
 
 /* This is TIMER 0 */
@@ -222,7 +242,7 @@ extern volatile int timer_count;
 void
 gic_check ( void )
 {
-	struct h3_gic_dist *gp = GIC_DIST_BASE;
+	struct gic_dist *gp = GIC_DIST_BASE;
 
 	printf ( " GIC pending: %08x %08x %d\n", gp->pset[0], gp->pset[1], timer_count );
 }
@@ -230,7 +250,7 @@ gic_check ( void )
 void
 gic_poll ( void )
 {
-	struct h3_gic_dist *gp = GIC_DIST_BASE;
+	struct gic_dist *gp = GIC_DIST_BASE;
 
 	for ( ;; ) {
 	    // ms_delay ( 2000 );
@@ -252,5 +272,6 @@ gic_watch ( void )
 	    gic_check ();
 	}
 }
+#endif
 
 /* THE END */

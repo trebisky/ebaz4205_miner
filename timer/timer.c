@@ -39,8 +39,9 @@ timer_ack ( void )
 
 /* Called at interrupt level */
 void
-timer_handler ( int junk )
+timer_handler ( int xxx )
 {
+	printf ( "Timer interrupt %d\n", xxx );
         timer_count++;
         timer_ack ();
 }

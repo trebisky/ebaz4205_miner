@@ -418,9 +418,9 @@ irq_hookup ( int irq, irq_fptr func, void *arg )
 	if ( func ) {
 	    irq_table[irq].func = func;
 	    irq_table[irq].arg = arg;
-	    // intcon_ena ( irq );
+	    gic_enable ( irq );
 	} else {
-	    // intcon_dis ( irq );
+	    gic_disable ( irq );
 	    irq_table[irq].func = (irq_fptr) 0;
 	    irq_table[irq].arg = (void *) 0;
 	}

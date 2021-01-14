@@ -52,6 +52,7 @@ struct zynq_uart {
 #define UART_CLOCK	100000000
 
 /* Bits in the IE register */
+#define IE_RXTRIG	BIT(0)
 #define IE_RXE		BIT(1)
 #define IE_TXE		BIT(3)
 
@@ -69,7 +70,11 @@ uart_init ( void )
 	 * at least so far, we just make some tweaks here
 	 * to let us fool around with interrupts.
 	 */
-	up->ie = IE_RXE | IE_TXE;
+
+	up->rfifo = 1;
+	up->ie = IE_RXTRIG;
+
+	// up->ie = IE_RXE | IE_TXE;
 
 	irq_hookup ( IRQ_UART, uart_handler, 0 );
 }
@@ -97,9 +102,20 @@ uart_puts ( char *s )
 void
 uart_handler ( int xxx )
 {
-	// ACK the interrupt 
-	printf ( "Uart interrupt\n" );
-}
+	struct zynq_uart *up = UART_BASE;
+	int c;
 
+	printf ( "Uart interrupt %d\n", xxx );
+	show_reg ( "Uart interrupt, istatus: ", &up->istatus );
+
+	// ACK the interrupt 
+	up->istatus = IE_RXTRIG;
+
+	// disable the interrupt
+	// up->id = IE_RXE | IE_TXE;
+
+	c = up->fifo;
+	printf ( "Received: %x %d\n", c, c );
+}
 
 /* THE END */

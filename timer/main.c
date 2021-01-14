@@ -289,12 +289,11 @@ main ( void )
 	int x;
 
 	init_thread ();
-
+	gic_init ();
 	uart_init();
 
 	uart_puts("\n" );
-	// uart_puts("Eat more fish!\n");
-	printf ("Eat more fish!\n");
+	printf ("Starting timer/interrupt test\n");
 
 	// led_init ();
 	// status_on ();
@@ -303,8 +302,6 @@ main ( void )
 
 	ccnt_enable ( 0 );
 	ccnt_reset ();
-
-	gic_init ();
 
 	timer_init ( 10000 );
 	// timer_init ( 1000 );
@@ -316,7 +313,6 @@ main ( void )
 
 	printf ( "Enabling IRQ\n" );
 	ms_delay ( 100 );
-
 	enable_irq ();
 
 	// timer_watch ();

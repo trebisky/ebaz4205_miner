@@ -28,7 +28,7 @@ ARM_ELF_FLAGS += -Wno-unused-function $(ABI)
 
 
 OBJS = start.o main.o prf.o serial.o gpio.o timer.o bbb_irq.o show_regs.o gic.o
-OBJS = start.o main.o prf.o serial.o timer.o bbb_irq.o show_regs.o gic.o
+OBJS = start.o main.o prf.o uart.o timer.o bbb_irq.o show_regs.o gic.o
 
 TARGET = interrupts.bin
 
