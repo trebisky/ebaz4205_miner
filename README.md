@@ -19,3 +19,4 @@ Here are the projects you will find here:
 * fish - why "hello world" for a first program?
 * button - watch for the button connected to the gpio
 * printf - I add a little printf to the button demo
+* timer - basic interrupts

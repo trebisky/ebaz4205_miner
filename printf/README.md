@@ -1,11 +1,8 @@
-This is my second bit of "bare metal" code for the EBAZ4205
+This is a thrid bit of "bare metal" code for the EBAZ4205
 
 Tom Trebisky  1-8-2021
 
-This program prints reads gpio input bank 0 and watches
-for the value to change.  The idea is to print (via the serial
-port) when I push and release the button.
+This is just the button demo with a printf function added.
 
-It works!  The code takes every manner of short cut rather than
-designing general interfaces, but at this stage we are just doing
-simple proof of concept experiments.
+Note that the button is quite slow with the RC filter that is on
+the board.  Not my doing.  It certainly avoids noise or bounce issues.
