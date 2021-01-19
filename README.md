@@ -20,3 +20,4 @@ Here are the projects you will find here:
 * button - watch for the button connected to the gpio
 * printf - I add a little printf to the button demo
 * timer - basic interrupts
+* amp - asymmetric multiprocessing (get second core running)

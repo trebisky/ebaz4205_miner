@@ -156,12 +156,61 @@ shex8( char *buf, char *end, int val )
         return shex2(buf,end,val);
 }
 
+/*
+ * Bear in mind that the PUTCHAR macro messes with "buf" and
+ * expects to be able to modify it.
+ *
+ *   #define PUTCHAR(x)      if ( buf <= end ) *buf++ = (x)
+ */
+
+static char *
+inject ( char *buf, char *end, va_list args, int code, int fill, int zfill )
+{
+	int c;
+	char *p;
+
+	if ( code == 'd' ) {
+	    buf = sprintn ( buf, end, va_arg(args,int) );
+	    return buf;
+	}
+	if ( code == 'x' ) {
+	    buf = shex2 ( buf, end, va_arg(args,int) & 0xff );
+	    return buf;
+	}
+	/* My non standard additions */
+	if ( code == 'h' || code == 'X' ) {
+	    buf = shex8 ( buf, end, va_arg(args,int) );
+	    return buf;
+	}
+	if ( code == 'c' ) {
+            PUTCHAR( va_arg(args,int) );
+	    return buf;
+	}
+	if ( code == 's' ) {
+	    p = va_arg(args,char *);
+	    // printf ( "Got: %s\n", p );
+	    while ( c = *p++ )
+		PUTCHAR(c);
+	    return buf;
+	}
+
+	/* unrecognized character, do nothing */
+	return buf;
+}
+
+/* Here is the heart of it.
+ * In truth this ought to get turned into a state machine.
+ * It was simply enough before adding code to deal with "prefix" values
+ * Where a prefix is the digits in things like %4d and %08x
+ */
+
 static void
 asnprintf (char *abuf, unsigned int size, const char *fmt, va_list args)
 {
     char *buf, *end;
     int c;
     char *p;
+    int fill, zfill, start;
 
     buf = abuf;
     end = buf + size - 1;
@@ -175,7 +224,29 @@ asnprintf (char *abuf, unsigned int size, const char *fmt, va_list args)
             PUTCHAR(c);
             continue;
         }
+
+	/* handle prefix digits */
+	fill = 0;
+	zfill = 0;
+	start = 1;
+	while ( *fmt ) {
+	    c = *fmt;
+	    if ( c < '0' || c > '9' )
+		break;
+	    fill = fill*10 + c - '0';;
+	    if ( start && c == '0' )
+		zfill = 1;
+	    start = 0;
+	    fmt++;
+	}
+
+	if ( ! c )
+	    break;
 	c = *fmt++;
+
+	buf = inject ( buf, end, args, c, fill, zfill );
+
+#ifdef notdef
 	if ( c == 'd' ) {
 	    buf = sprintn ( buf, end, va_arg(args,int) );
 	    continue;
@@ -184,6 +255,7 @@ asnprintf (char *abuf, unsigned int size, const char *fmt, va_list args)
 	    buf = shex2 ( buf, end, va_arg(args,int) & 0xff );
 	    continue;
 	}
+	/* My non standard additions */
 	if ( c == 'h' || c == 'X' ) {
 	    buf = shex8 ( buf, end, va_arg(args,int) );
 	    continue;
@@ -199,7 +271,9 @@ asnprintf (char *abuf, unsigned int size, const char *fmt, va_list args)
 		PUTCHAR(c);
 	    continue;
 	}
+#endif
     }
+
     if ( buf > end )
 	buf = end;
     PUTCHAR('\0');

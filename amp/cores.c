@@ -23,11 +23,19 @@ volatile int core_signal;
 void
 start_core ( void )
 {
+	int sp;
+
 	core_signal = 0xf00;
 
+	/* This actually works */
 	(*(unsigned long *) UART_FIFO) = '$';
 
 	printf ( "New core started\n" );
+
+	asm volatile ("add %0, sp, #0\n" :"=r"(sp));
+	printf ( "Core1 SP = %h\n", sp );
+
+	printf ( "Core1 spinning\n" );
 	for ( ;; ) ;
 }
 
@@ -41,6 +49,8 @@ start_core2 ( void )
 	(*(unsigned long *) UART_FIFO) = '$';
 
 	printf ( "New core started\n" );
+
+	printf ( "Core1 spinning\n" );
 	for ( ;; ) ;
 }
 
@@ -58,6 +68,42 @@ unsigned int core_stack = 0x0f000000;
  * by U-Boot.  There is nothing magic about this other than it is near
  * the end of DDR ram.
  */
+#define OCM_BASE	0xfffc0000
+#define OCM_SIZE	(256 * 1024)
+
+void
+search_ocm ( void )
+{
+	int *ip;
+	int n;
+	int i;
+	int val;
+
+	n = OCM_SIZE / sizeof(int);
+
+	val = 0xe320f002;	/* wfe */
+	ip = (int *) OCM_BASE;
+	for ( i=0; i<n; i++ ) {
+	    if ( ip[i] == val )
+		printf ( "WFE at %h\n", &ip[i] );
+	}
+
+	val = 0xe320f003;	/* wfi */
+	ip = (int *) OCM_BASE;
+	for ( i=0; i<n; i++ ) {
+	    if ( ip[i] == val )
+		printf ( "WFI at %h\n", &ip[i] );
+	}
+}
+
+/* The following code is just "trash" code to give me
+ * information.  In particular, I wanted to know the binary
+ * encoding of these instructions, which can be fetched from
+ * the dump file.
+20001620:       e320f004        sev
+20001624:       e320f002        wfe
+20001628:       e320f003        wfi
+*/
 
 void
 ez_core ( void )
@@ -66,6 +112,9 @@ ez_core ( void )
 
 	x = core_stack;
 	printf ( "Core stack = %h\n", x );
+	asm volatile ("sev\n");
+	asm volatile ("wfe\n");
+	asm volatile ("wfi\n");
 }
 
 /* This is in start.S */
@@ -103,10 +152,7 @@ mem_copy ( char *s, char *d, int num )
 	}
 }
 
-#define OCM_BASE	0xfffc0000
 #define OCM_LOOP	0xfffffe00
-
-#define OCM_SIZE	(256 * 1024)
 
 void
 core_test ( void )
@@ -114,9 +160,13 @@ core_test ( void )
 	vfptr *vp;
 	vfptr *rp;
 	int i;
+	int *ip;
 
 	/* Caching could be causing trouble here. */
 	core_signal = 0;
+
+	ip = (int *) MAGIC_LOCATION;
+	printf ( "Magic found with %h\n", *ip );
 
 	vp = (vfptr *) MAGIC_LOCATION;
 
@@ -148,27 +198,45 @@ core_test ( void )
 	*vp = (vfptr) OCM_BASE;
 #endif
 
+	dump_ocm ();
+	search_ocm ();
+
 	// dump_ocm ();
 	// printf ( "\n" );
 
 	// show_reg ( "Magic: ", vp );
 	// ez_core ();
 
-	*vp = uart_core;
-	arm_sev ();
+	// This works and yielded the first success.
+	// *vp = uart_core;
+
+	// try this (direct jump to C code)
+	// this works! (even the calls to printf)
+	*vp = start_core;
+
+	// arm_sev ();
+	asm volatile ("sev\n");
 
 	ms_delay ( 1500 );
+	printf ( "\n" );
 
 	// Test this routine in core0
 	// uart_core ();
 
-	for ( i=0; i<60; i++ ) {
-	    ms_delay ( 1000 );
+	// for ( i=0; i<60; i++ ) {
+	for ( i=0; i<5; i++ ) {
+	    ms_delay ( 2000 );
 	    uart_puts ( "." );
 	    if ( core_signal ) {
 		printf ( "Eureka: %h\n", core_signal );
+		core_signal = 0;
+		break;
 	    }
 	}
+
+	printf ( "\n" );
+	printf ( "Done, core0 spinning\n" );
+	for ( ;; ) ;
 }
 
 /* I was curious what was in the block of instructions in OCM.
@@ -193,9 +261,33 @@ FFFFFEE0  00000000 00000000 00000000 00000000
 */
 
 static void
+dump_lll ( void *addr, int n )
+{
+        unsigned int *p;
+        int i;
+
+        p = (unsigned int *) addr;
+
+        printf ( "dumping %d lines\n", n );
+
+        while ( n-- ) {
+            // printf ( "%08x  ", (long) addr );
+            printf ( "%h  ",  addr );
+
+            for ( i=0; i<4; i++ )
+                printf ( "%h ", *p++ );
+                // printf ( "%08x ", *p++ );
+
+            printf ( "\n" );
+            addr += 16;
+        }
+}
+
+
+static void
 dump_ocm ( void )
 {
-	dump_l ( 0xffffffe00, 32 );
+	dump_lll ( (void *) 0xfffffe00, 128 );
 }
 
 /* THE END */

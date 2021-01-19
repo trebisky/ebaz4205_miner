@@ -112,6 +112,8 @@ dump_l ( void *addr, int n )
 
         p = (unsigned long *) addr;
 
+	printf ( "dumping %d lines\n", n );
+
         while ( n-- ) {
             // printf ( "%08x  ", (long) addr );
             printf ( "%h  ", (long) addr );

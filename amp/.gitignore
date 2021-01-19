@@ -6,3 +6,5 @@
 *.ORIG
 OLD
 OLD/*
+hack
+hack.out

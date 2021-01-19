@@ -47,6 +47,11 @@ DUMP = arm-linux-gnu-objdump -d
 
 dump:	$(TARGET).dump
 
+dump2:
+	$(DUMP) prf.o >extra1.dump
+	$(DUMP) hack.out >extra.dump
+
+
 $(TARGET).dump:       $(TARGET).elf
 	$(DUMP) $(TARGET).elf >$(TARGET).dump
 
@@ -64,3 +69,6 @@ LINKER = -Wl,--build-id=none
 
 $(TARGET).elf: $(OBJS)
 	$(CC) -o $@ -nostdlib $(OBJS) -T basic.lds $(LINKER) $(LIBS)
+
+hack:	hack.c
+	cc -o hack hack.c

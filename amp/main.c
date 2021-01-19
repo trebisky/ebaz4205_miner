@@ -276,7 +276,7 @@ show_sp ( void )
 	int cur_sp;
 
 	asm volatile ("add %0, sp, #0" : "=r"(cur_sp) );
-	printf ( "Current SP = %h\n", cur_sp );
+	printf ( "Core0, current SP = %h\n", cur_sp );
 }
 
 void
@@ -301,6 +301,7 @@ main ( void )
 	printf ( "Enabling IRQ\n" );
 	ms_delay ( 100 );
 	enable_irq ();
+
 	show_sp ();
 
 	/* These projects tend to be a series of experiments.
