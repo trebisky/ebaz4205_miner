@@ -167,6 +167,14 @@ core_test ( void )
 
 	ip = (int *) MAGIC_LOCATION;
 	printf ( "Magic found with %h\n", *ip );
+	printf ( "Magic found with %08x\n", *ip );
+	printf ( "Magic found with %h\n", *ip );
+	printf ( "Magic found with %016x\n", *ip );
+	printf ( "Magic found with %16x\n", *ip );
+	i = 345;
+	printf ( "test: %d\n", i );
+	printf ( "test: %5d\n", i );
+	printf ( "test: %05d\n", i );
 
 	vp = (vfptr *) MAGIC_LOCATION;
 
@@ -198,7 +206,7 @@ core_test ( void )
 	*vp = (vfptr) OCM_BASE;
 #endif
 
-	dump_ocm ();
+	// dump_ocm ();
 	search_ocm ();
 
 	// dump_ocm ();

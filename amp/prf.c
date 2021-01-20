@@ -66,7 +66,7 @@ sprintf ( char *buf, char *fmt, ... )
 
 #define PUTCHAR(x)      if ( buf <= end ) *buf++ = (x)
 
-static const char hex_table[] = "0123456789ABCDEF";
+static const char hex_table[] = "0123456789abcdef";
 
 // #define HEX(x)  ((x)<10 ? '0'+(x) : 'A'+(x)-10)
 #define HEX(x)  hex_table[(x)]
@@ -97,6 +97,26 @@ sprintnb ( char *buf, char *end, int n, int b)
         return buf;
 }
 #endif
+
+static char *
+sprinth ( char *buf, char *end, unsigned int n )
+{
+        char prbuf[16];
+        char *cp;
+
+        cp = prbuf;
+
+        do {
+            *cp++ = hex_table[n%16];
+            n /= 16;
+        } while (n);
+
+        do {
+            PUTCHAR(*--cp);
+        } while (cp > prbuf);
+
+        return buf;
+}
 
 static char *
 sprintn ( char *buf, char *end, int n )
@@ -163,18 +183,41 @@ shex8( char *buf, char *end, int val )
  *   #define PUTCHAR(x)      if ( buf <= end ) *buf++ = (x)
  */
 
+static int
+strlen ( char *s )
+{
+	int rv = 0;
+
+	while ( *s++ )
+	    rv++;
+	return rv;
+}
+
+static char *
+out_with_fill ( char *buf, char *end, char *str, int fill, int zfill )
+{
+	int n;
+	int c;
+
+	n = strlen ( str );
+	while ( n++ < fill )
+	    PUTCHAR ( zfill ? '0' : ' ' );
+	while ( c = *str++ )
+	    PUTCHAR(c);
+
+	return buf;
+}
+
 static char *
 inject ( char *buf, char *end, va_list args, int code, int fill, int zfill )
 {
 	int c;
 	char *p;
+	char valbuf[20];
+	char *valend;
 
-	if ( code == 'd' ) {
-	    buf = sprintn ( buf, end, va_arg(args,int) );
-	    return buf;
-	}
-	if ( code == 'x' ) {
-	    buf = shex2 ( buf, end, va_arg(args,int) & 0xff );
+	if ( code == 'c' ) {
+            PUTCHAR( va_arg(args,int) );
 	    return buf;
 	}
 	/* My non standard additions */
@@ -182,15 +225,27 @@ inject ( char *buf, char *end, va_list args, int code, int fill, int zfill )
 	    buf = shex8 ( buf, end, va_arg(args,int) );
 	    return buf;
 	}
-	if ( code == 'c' ) {
-            PUTCHAR( va_arg(args,int) );
-	    return buf;
-	}
+
+	/* only fill applies here */
 	if ( code == 's' ) {
 	    p = va_arg(args,char *);
-	    // printf ( "Got: %s\n", p );
-	    while ( c = *p++ )
-		PUTCHAR(c);
+	    buf = out_with_fill ( buf, end, p, fill, 0 );
+	    return buf;
+	}
+
+	/* fill and zfill may both apply to these */
+	if ( code == 'd' ) {
+	    // buf = sprintn ( buf, end, va_arg(args,int) );
+	    valend = sprintn ( valbuf, &valbuf[20], va_arg(args,int) );
+	    *valend = '\0';
+	    buf = out_with_fill ( buf, end, valbuf, fill, zfill );
+	    return buf;
+	}
+	if ( code == 'x' ) {
+	    // buf = shex2 ( buf, end, va_arg(args,int) & 0xff );
+	    valend = sprinth ( valbuf, &valbuf[20], va_arg(args,int) );
+	    *valend = '\0';
+	    buf = out_with_fill ( buf, end, valbuf, fill, zfill );
 	    return buf;
 	}
 
