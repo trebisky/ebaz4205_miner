@@ -274,19 +274,54 @@ void gic_init ( void );
 
 extern volatile int timer_count;
 
+void timer_test ( void )
+{
+	int i;
+	int last_count;
+	int cur_count;
+
+	last_count = 0;
+
+	i = 0;
+	for ( ;; ) {
+	    ms_delay ( 1000 );
+	    cur_count = timer_count;
+	    i++;
+	    // asm volatile ("add %0, sp, #0" : "=r"(cur_sp) );
+	    // printf ( "Count: %d sp = %h %d %d\n", timer_count, cur_sp, cur_count-last_count, i );
+	    printf ( "Count: %d %d %d\n", timer_count, cur_count-last_count, i );
+	    last_count = cur_count;
+	}
+}
+
+/* Doing some kind of sleep is better than just spinning.
+ * Using the WFE is experimental and seems to work fine.
+ * The ms_delay is almost certainly not needed.
+ */
+void snooze ( void )
+{
+	printf ( "Snoozing ...\n" );
+	for ( ;; ) {
+
+	    asm volatile ("wfe");
+
+	    // ms_delay ( 1000 );
+	    ms_delay ( 2 );
+	}
+}
+
 void
 main ( void )
 {
+#ifdef notdef
 	int count1;
 	int count2;
 	int tick = 0;
 	int val;
 	int msecs;
-	int i;
-	int last_count;
-	int cur_count;
 	int cur_sp;
 	int x;
+#endif
 
 	init_thread ();
 	gic_init ();
@@ -309,7 +344,7 @@ main ( void )
 	// timer_one ( 2000 );
 
 	timer_count = 0;
-	last_count = timer_count;
+	// last_count = timer_count;
 
 	printf ( "Enabling IRQ\n" );
 	ms_delay ( 100 );
@@ -318,16 +353,9 @@ main ( void )
 	// timer_watch ();
 	// gic_watch ();
 
-	i = 0;
-	for ( ;; ) {
-	    ms_delay ( 1000 );
-	    cur_count = timer_count;
-	    i++;
-	    // asm volatile ("add %0, sp, #0" : "=r"(cur_sp) );
-	    // printf ( "Count: %d sp = %h %d %d\n", timer_count, cur_sp, cur_count-last_count, i );
-	    printf ( "Count: %d %d %d\n", timer_count, cur_count-last_count, i );
-	    last_count = cur_count;
-	}
+	// timer_test ();
+
+	snooze ();
 }
 
 /* THE END */
