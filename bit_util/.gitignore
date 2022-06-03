@@ -1,0 +1,4 @@
+*.o
+bitread
+*.bit
+*.bin
