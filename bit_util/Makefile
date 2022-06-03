@@ -5,6 +5,9 @@ all: bitread
 bitread: bitread.c
 	cc -o bitread bitread.c
 
+install: bitread
+	cp bitread /usr/local/bin
+
 # ---------
 
 # Just read and list information
@@ -29,3 +32,8 @@ count:	ORIG.bin
 prog:
 	#openFPGALoader --verbose-level 2 -c xvc-client --file-type bit clocks_wrapper.bit
 	openFPGALoader -c xvc-client --file-type bit clocks_wrapper.bit
+
+clean:
+	rm -f *.bin
+	rm -f *.bit
+	rm -f *.o bitread

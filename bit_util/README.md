@@ -4,7 +4,7 @@ bit_util
 
 Utilities to manipulate Xilinx bitstream files.
 
-"bit_read" is a C program that can read a Xilinx bitstream file.
+"bitread" is a C program that can read a Xilinx bitstream file.
 It can:
 
 1. Just list the header information
@@ -17,5 +17,5 @@ I learned from the openFPGALoader project, which deserves your attention.
 I found a way to use that project to load a .bit file into the Zynq PL on
 the Ebaz board (see my Makefile).
 
-Someday I intend to create a program "bit_load" that would do what
+Someday I intend to create a program "bitload" that would do what
 openFPGALoader does, communicating to the XVC protocol.
