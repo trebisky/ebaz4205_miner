@@ -328,7 +328,7 @@ main ( void )
 	uart_init();
 
 	uart_puts("\n" );
-	printf ("Starting timer/interrupt test\n");
+	printf ("Starting blink1 test\n");
 
 	// led_init ();
 	// status_on ();
@@ -349,6 +349,10 @@ main ( void )
 	printf ( "Enabling IRQ\n" );
 	ms_delay ( 100 );
 	enable_irq ();
+
+	devcfg_init ();
+
+	pl_load ( (void *) 0 );
 
 	// timer_watch ();
 	// gic_watch ();

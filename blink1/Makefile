@@ -26,8 +26,8 @@ ARM_ELF_FLAGS += -Wno-implicit-function-declaration
 ARM_ELF_FLAGS += -Wno-unused-function $(ABI)
 
 
-OBJS = start.o main.o prf.o serial.o gpio.o timer.o bbb_irq.o show_regs.o gic.o
-OBJS = start.o main.o prf.o uart.o timer.o arm_irq.o arm_regs.o gic.o
+# OBJS = start.o main.o prf.o serial.o gpio.o timer.o bbb_irq.o show_regs.o gic.o
+OBJS = start.o main.o prf.o uart.o timer.o arm_irq.o arm_regs.o gic.o devcfg.o
 
 TARGET = blink1.bin
 

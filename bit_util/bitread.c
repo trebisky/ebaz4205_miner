@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 
@@ -22,8 +23,9 @@ char bin_path[128];
  * 2083850 bytes
  */
 
-#define IM_SIZE	2200000
+int quiet = 0;
 
+#define IM_SIZE	2200000
 u_char image[IM_SIZE];
 
 u_char *bin_buf;
@@ -45,14 +47,24 @@ int bin_size;
  */
 
 void
+error ( char *msg )
+{
+	fprintf ( stderr, "Error: %s\n", msg );
+	exit ( 1 );
+}
+
+void
 read_image ( char *path )
 {
 	int fd;
 	int n;
 
 	fd = open ( path, O_RDONLY );
+	if ( fd < 0 )
+	    error ( "Cannot open input file" );
 	n = read ( fd, image, IM_SIZE );
-	printf ( "%d bytes read\n", n );
+	if ( ! quiet )
+	    printf ( "%d bytes read\n", n );
 	close ( fd );
 }
 
@@ -104,25 +116,29 @@ read_header ( void )
 	    len = ntohs ( *(u_short *) &image[pos] );
 	    pos += 2;
 
-	    if ( type == 'a' )
-		printf ( "Project: %s\n", &image[pos] );
-	    else if ( type == 'b' )
-		printf ( "Device: %s\n", &image[pos] );
-	    else if ( type == 'c' )
-		date = &image[pos];
-	    else if ( type == 'd' ) {
-		time = &image[pos];
-		printf ( "Date: %s  %s\n", date, time );
-	    } else {
-		printf ( "Type: %c, len, pos = %d %d\n", type, len, pos );
-		printf ( "%c: %s\n", type, &image[pos] );
+	    if ( ! quiet ) {
+		if ( type == 'a' )
+		    printf ( "Project: %s\n", &image[pos] );
+		else if ( type == 'b' )
+		    printf ( "Device: %s\n", &image[pos] );
+		else if ( type == 'c' )
+		    date = &image[pos];
+		else if ( type == 'd' ) {
+		    time = &image[pos];
+		    printf ( "Date: %s  %s\n", date, time );
+		} else {
+		    printf ( "Type: %c, len, pos = %d %d\n", type, len, pos );
+		    printf ( "%c: %s\n", type, &image[pos] );
+		}
 	    }
 
 	    pos += len;
 	}
 
-	printf ( "Header size: %d bytes\n", pos );
-	printf ( "Data size: %d bytes\n", len );
+	if ( ! quiet ) {
+	    printf ( "Header size: %d bytes\n", pos );
+	    printf ( "Data size: %d bytes\n", len );
+	}
 
 	bin_buf = &image[pos];
 	bin_size = len;
@@ -141,25 +157,101 @@ write_binary ( void )
 	printf ( "extract %s\n", bin_path );
 
 	fd = open ( bin_path, O_WRONLY | O_CREAT | O_TRUNC, 0644 );
+	if ( fd < 0 )
+	    error ( "Cannot open output file" );
 	write ( fd, bin_buf, bin_size );
 	close ( fd );
 }
+
+/* The PCAP counts in words of 32 bits when it sends the bitstream to the PL,
+ * so we round/pad this to tidy multiple of 4
+ */
+
+#define ZFLAG	0x80000000
+#define EFLAG	0xC0000000
 
 void
 write_code ( void )
 {
 	u_int *ip;
-	int i;
+	int i, j;
 	int len;
+	int rem;
+	int wsize = sizeof(u_int);
+	int state;
+	int count;
+	int zcount;
+	u_int *datap;
 
-	len = bin_size / sizeof(u_int);
+	if ( bin_size % wsize ) {
+	    rem = bin_size % wsize;
+	    memset ( &bin_buf[bin_size], 0, wsize-rem );
+	    bin_size += wsize - rem;
+	    printf ( "Padded to %d bytes, (%d words)\n", bin_size, bin_size/wsize );
+	}
 
+	len = bin_size / wsize;
 	ip = (u_int *) bin_buf;
+
+	zcount = 0;
+	count = 0;
+	if ( *ip )
+	    state = 1;
+	else
+	    state = 0;
+
+	printf ( "unsigned int pl_comp_data[] = {\n" );
 	for ( i=0; i<len; i++ ) {
-	    if ( *ip )
-		printf ( "%5d: %08x\n", i, *ip );
+	    if ( *ip ) {
+		if ( state ) {
+		    ++count;
+		} else {
+		    zcount = count;
+		    // printf ( " Z: %d\n", count );
+		    count = 1;
+		    state = 1;
+		    datap = ip;
+		}
+	    } else {
+		if ( state ) {
+		    // printf ( "NZ: %d\n", count );
+		    printf ( "  0x%08x, 0x%08x,\n", ZFLAG | zcount, count );
+		    // printf ( "  DATA\n" );
+		    for ( j=0; j<count; j++ )
+			printf ( "  0x%08x,\n", datap[j] );
+		    count = 1;
+		    state = 0;
+		} else {
+		    ++count;
+		}
+	    }
 	    ip++;
 	}
+	printf ( "  0x%08x };\n", EFLAG );
+
+#ifdef notdef
+	for ( i=0; i<len; i++ ) {
+	    if ( *ip ) {
+		if ( state ) {
+		    ++count;
+		} else {
+		    zcount = count;
+		    printf ( " Z: %d\n", count );
+		    count = 1;
+		    state = 1;
+		}
+	    } else {
+		if ( state ) {
+		    printf ( "NZ: %d\n", count );
+		    count = 1;
+		    state = 0;
+		} else {
+		    ++count;
+		}
+	    }
+	    ip++;
+	}
+#endif
 }
 
 
@@ -182,6 +274,9 @@ main ( int argc, char **argv )
 	    argv++;
 	}
 
+	if ( option == 'c' )
+	    quiet = 1;
+
 	read_image ( bit_path );
 	read_header ();
 
@@ -192,6 +287,7 @@ main ( int argc, char **argv )
 	if ( option == 'c' ) {
 	    write_code ();
 	}
+	return 0;
 }
 
 /* THE END */

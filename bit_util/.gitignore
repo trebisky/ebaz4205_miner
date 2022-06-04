@@ -2,3 +2,5 @@
 bitread
 *.bit
 *.bin
+test.c
+test.o
