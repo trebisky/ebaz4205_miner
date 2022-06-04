@@ -4,3 +4,6 @@ bitread
 *.bin
 test.c
 test.o
+pl_data.c
+pl_data.o
+test_data

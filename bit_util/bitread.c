@@ -197,21 +197,25 @@ write_code ( void )
 	    rem = bin_size % wsize;
 	    memset ( &bin_buf[bin_size], 0, wsize-rem );
 	    bin_size += wsize - rem;
-	    printf ( "Padded to %d bytes, (%d words)\n", bin_size, bin_size/wsize );
+	    printf ( "// Padded to %d bytes, (%d words)\n", bin_size, bin_size/wsize );
 	}
+
+	printf ( "//data\n" );
 
 	len = bin_size / wsize;
 	ip = (u_int *) bin_buf;
 
 	zcount = 0;
 	count = 0;
-	if ( *ip )
+	if ( *ip ) {
 	    state = 1;
-	else
+	    datap = ip;
+	} else
 	    state = 0;
 
 	printf ( "unsigned int pl_comp_data[] = {\n" );
 	for ( i=0; i<len; i++ ) {
+	    // printf ( "Look %4d: %08x\n", i, *ip );
 	    if ( *ip ) {
 		if ( state ) {
 		    ++count;
@@ -221,6 +225,7 @@ write_code ( void )
 		    count = 1;
 		    state = 1;
 		    datap = ip;
+		    // printf ( "Mark: %08x\n", *datap );
 		}
 	    } else {
 		if ( state ) {
@@ -237,6 +242,17 @@ write_code ( void )
 	    }
 	    ip++;
 	}
+
+	// printf ( "END END END %d %d\n", zcount, count );
+
+	if ( zcount )
+	    printf ( "  0x%08x,\n", ZFLAG | zcount );
+	if ( count ) {
+	    printf ( "  0x%08x,\n", count );
+	    for ( j=0; j<count; j++ )
+		printf ( "  0x%08x,\n", datap[j] );
+	}
+
 	printf ( "  0x%08x };\n", EFLAG );
 
 #ifdef notdef
