@@ -27,7 +27,7 @@ ARM_ELF_FLAGS += -Wno-unused-function $(ABI)
 
 
 # OBJS = start.o main.o prf.o serial.o gpio.o timer.o bbb_irq.o show_regs.o gic.o
-OBJS = start.o main.o prf.o uart.o timer.o arm_irq.o arm_regs.o gic.o devcfg.o
+OBJS = start.o main.o prf.o uart.o timer.o arm_irq.o arm_regs.o gic.o devcfg.o pl_data.o
 
 TARGET = blink1.bin
 
@@ -40,8 +40,11 @@ TARGET = blink1.bin
 .S.o:
 	        $(CC) -o $@ -c $<
 
-
 all: install
+
+pl_data.o:	blink.bit
+	bitread -c blink.bit >pl_data.c
+	$(CC) -c $(ARM_ELF_FLAGS) -nostdlib -c pl_data.c
 
 install: $(TARGET)
 	cp $(TARGET) /var/lib/tftpboot/bitcoin.bin
@@ -57,6 +60,7 @@ dump:       blink1.elf
 
 clean:
 	rm -rf *.bin *.elf *.o *.dump
+	rm -rf pl_data.c
 
 obj:
 	$(CROSS)objdump -h main.o

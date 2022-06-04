@@ -16,7 +16,9 @@ typedef unsigned char u_char;
 typedef unsigned short u_short;
 typedef unsigned int u_int;
 
-char *bit_path = "clocks_wrapper.bit";
+//char *bit_path = "clocks_wrapper.bit";
+char *bit_path = "no_file_here.bit";
+
 char bin_path[128];
 
 /* The current file is over 2M in size
@@ -163,8 +165,16 @@ write_binary ( void )
 	close ( fd );
 }
 
-/* The PCAP counts in words of 32 bits when it sends the bitstream to the PL,
- * so we round/pad this to tidy multiple of 4
+/* Convert the bitstream binary into C source.
+ * I invented a simple quick and dirty compression scheme that
+ *  just aims to compress big runs of zeros.
+ * The emphasis is on simplicity for now.
+ *
+ * The first "customer" for this will be the ebaz "blink1" project
+ * so you can look for the decompressor there.
+ *
+ * The PCAP counts in words of 32 bits when it sends the bitstream to the PL,
+ * so we round/pad this to a tidy multiple of 4 bytes.
  */
 
 #define ZFLAG	0x80000000
@@ -254,7 +264,7 @@ write_code ( void )
 #endif
 }
 
-
+/* default option is just to list the header info and exit */
 int option = 'l';
 
 int
@@ -265,7 +275,7 @@ main ( int argc, char **argv )
 	argc--;
 	argv++;
 
-	while ( argc ) {
+	while ( argc && argv[0][0] == '-' ) {
 	    p = *argv;
 	    if ( *p == '-' && p[1] ) {
 		option = p[1];
@@ -273,6 +283,11 @@ main ( int argc, char **argv )
 	    argc--;
 	    argv++;
 	}
+
+	if ( argc < 1 )
+	    error ( "usage: bitread file.bit" );
+
+	bit_path = argv[0];
 
 	if ( option == 'c' )
 	    quiet = 1;

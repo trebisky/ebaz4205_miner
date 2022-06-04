@@ -100,10 +100,10 @@ pl_load_image ( char *image, int size )
 	 * As near as I can tell, writing into these 4 registers
 	 * sets things in motion.
 	 */
-	dp->src_addr = ((u_int) image) | PCAP_LAST_XFER;
-	dp->dst_addr = PL_ADDRESS;
-	dp->src_len = size;
-	dp->dst_len = 0;
+	dp->dma_src_addr = ((u32) image) | PCAP_LAST_XFER;
+	dp->dma_dst_addr = PL_ADDRESS;
+	dp->dma_src_len = size;
+	dp->dma_dst_len = 0;
 }
 
 static char im[4];

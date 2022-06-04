@@ -1,3 +1,4 @@
 *.o
 blink1.bin
 *.elf
+pl_data.c
