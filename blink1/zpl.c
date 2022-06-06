@@ -10,21 +10,6 @@
  */
 #define TJT
 
-#ifndef TJT
-#include <common.h>
-#include <console.h>
-#include <cpu_func.h>
-#include <log.h>
-#include <asm/cache.h>
-#include <asm/io.h>
-#include <fs.h>
-#include <zynqpl.h>
-#include <linux/delay.h>
-#include <linux/sizes.h>
-#include <asm/arch/hardware.h>
-#include <asm/arch/sys_proto.h>
-#endif
-
 #ifdef TJT
 typedef unsigned char u8;
 typedef unsigned short u16;
@@ -68,7 +53,6 @@ typedef unsigned long ulong;
 
 #include "hardware.h"
 #include "fpga.h"
-// #include "xilinx.h"
 
 // "debug" is defined in include/log.h
 
@@ -171,7 +155,7 @@ typedef unsigned long ulong;
                 (((__u32)(x) & (__u32)0xff000000UL) >> 24) ))
 
 
-#  define __arch__swab32(x) ___swab32(x)
+#define __arch__swab32(x) ___swab32(x)
 
 static __inline__ __attribute__((const))
 __u32 __fswab32(__u32 x)
@@ -203,19 +187,15 @@ __u32 __fswab32(__u32 x)
 #define DEVCFG_MCTRL_RFIFO_FLUSH	0x00000002
 #define DEVCFG_MCTRL_WFIFO_FLUSH	0x00000001
 
-#ifndef TJT
-#ifndef CONFIG_SYS_FPGA_WAIT
-#define CONFIG_SYS_FPGA_WAIT CONFIG_SYS_HZ/100	/* 10 ms */
-#endif
-
-#ifndef CONFIG_SYS_FPGA_PROG_TIME
-#define CONFIG_SYS_FPGA_PROG_TIME	(CONFIG_SYS_HZ * 4) /* 4 s */
-#endif
-#endif
-
 #define DUMMY_WORD	0xffffffff
 
-/* Xilinx binary format header */
+/* Xilinx binary format header
+ * This matches what I see in a "xyz.bin" file extracted
+ * from "xyz.bit" produced by Vivado.
+ * This is big endian.  If this matches with
+ * the buffer presented to this code, then 
+ * the buffer needs to be swapped.
+ */
 static const u32 bin_format[] = {
 	DUMMY_WORD, /* Dummy words */
 	DUMMY_WORD,
@@ -231,9 +211,6 @@ static const u32 bin_format[] = {
 	DUMMY_WORD,
 	0xaa995566, /* Sync word */
 };
-
-#define SWAP_NO		1
-#define SWAP_DONE	2
 
 /* ------------------------------------------------------------- */
 /* ------------------------------------------------------------- */
@@ -254,88 +231,9 @@ get_timer(unsigned long base)
 /* ------------------------------------------------------------- */
 /* ------------------------------------------------------------- */
 
-#ifndef TJT
-#include <common.h>
-#include <asm/io.h>
-#include <malloc.h>
-#include <asm/arch/hardware.h>
-#include <asm/arch/sys_proto.h>
-#endif
-
 #define SLCR_LOCK_MAGIC		0x767B
 #define SLCR_UNLOCK_MAGIC	0xDF0D
 
-#define SLCR_NAND_L2_SEL		0x10
-#define SLCR_NAND_L2_SEL_MASK		0x1F
-
-#define SLCR_USB_L1_SEL			0x04
-
-#define SLCR_IDCODE_MASK	0x1F000
-#define SLCR_IDCODE_SHIFT	12
-
-/*
- * zynq_slcr_mio_get_status - Get the status of MIO peripheral.
- *
- * @peri_name: Name of the peripheral for checking MIO status
- * @get_pins: Pointer to array of get pin for this peripheral
- * @num_pins: Number of pins for this peripheral
- * @mask: Mask value
- * @check_val: Required check value to get the status of  periph
- */
-struct zynq_slcr_mio_get_status {
-	const char *peri_name;
-	const int *get_pins;
-	int num_pins;
-	u32 mask;
-	u32 check_val;
-};
-
-static const int nand8_pins[] = {
-	0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13
-};
-
-static const int nand16_pins[] = {
-	16, 17, 18, 19, 20, 21, 22, 23
-};
-
-static const int usb0_pins[] = {
-	28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39
-};
-
-static const int usb1_pins[] = {
-	40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51
-};
-
-static const struct zynq_slcr_mio_get_status mio_periphs[] = {
-	{
-		"nand8",
-		nand8_pins,
-		ARRAY_SIZE(nand8_pins),
-		SLCR_NAND_L2_SEL_MASK,
-		SLCR_NAND_L2_SEL,
-	},
-	{
-		"nand16",
-		nand16_pins,
-		ARRAY_SIZE(nand16_pins),
-		SLCR_NAND_L2_SEL_MASK,
-		SLCR_NAND_L2_SEL,
-	},
-	{
-		"usb0",
-		usb0_pins,
-		ARRAY_SIZE(usb0_pins),
-		SLCR_USB_L1_SEL,
-		SLCR_USB_L1_SEL,
-	},
-	{
-		"usb1",
-		usb1_pins,
-		ARRAY_SIZE(usb1_pins),
-		SLCR_USB_L1_SEL,
-		SLCR_USB_L1_SEL,
-	},
-};
 
 static int slcr_lock = 1; /* 1 means locked, 0 means unlocked */
 
@@ -408,6 +306,10 @@ void zynq_slcr_devcfg_enable(void)
 	zynq_slcr_lock();
 }
 
+#ifndef TJT
+#define SLCR_IDCODE_MASK	0x1F000
+#define SLCR_IDCODE_SHIFT	12
+
 u32 zynq_slcr_get_boot_mode(void)
 {
 	/* Get the bootmode register value */
@@ -418,38 +320,6 @@ u32 zynq_slcr_get_idcode(void)
 {
 	return (readl(&slcr_base->pss_idcode) & SLCR_IDCODE_MASK) >>
 							SLCR_IDCODE_SHIFT;
-}
-
-#ifndef TJT
-/*
- * zynq_slcr_get_mio_pin_status - Get the MIO pin status of peripheral.
- *
- * @periph: Name of the peripheral
- *
- * Returns count to indicate the number of pins configured for the
- * given @periph.
- */
-int zynq_slcr_get_mio_pin_status(const char *periph)
-{
-	const struct zynq_slcr_mio_get_status *mio_ptr;
-	int val, j;
-	int mio = 0;
-	u32 i;
-
-	for (i = 0; i < ARRAY_SIZE(mio_periphs); i++) {
-		if (strcmp(periph, mio_periphs[i].peri_name) == 0) {
-			mio_ptr = &mio_periphs[i];
-			for (j = 0; j < mio_ptr->num_pins; j++) {
-				val = readl(&slcr_base->mio_pin
-						[mio_ptr->get_pins[j]]);
-				if ((val & mio_ptr->mask) == mio_ptr->check_val)
-					mio++;
-			}
-			break;
-		}
-	}
-
-	return mio;
 }
 #endif
 
@@ -492,20 +362,7 @@ static void v7_dcache_clean_inval_range(u32 start, u32 stop, u32 line_len)
         }
 }
 
-static void v7_dcache_inval_range(u32 start, u32 stop, u32 line_len)
-{
-        u32 mva;
-
-        if (!check_cache_range(start, stop))
-                return;
-
-        for (mva = start; mva < stop; mva = mva + line_len) {
-                /* DCIMVAC - Invalidate data cache by MVA to PoC */
-                asm volatile ("mcr p15, 0, %0, c7, c6, 1" : : "r" (mva));
-        }
-}
-
-int check_cache_range(unsigned long start, unsigned long stop)
+static int check_cache_range(unsigned long start, unsigned long stop)
 {
         int ok = 1;
 
@@ -521,6 +378,19 @@ int check_cache_range(unsigned long start, unsigned long stop)
         }
 
         return ok;
+}
+
+static void v7_dcache_inval_range(u32 start, u32 stop, u32 line_len)
+{
+        u32 mva;
+
+        if (!check_cache_range(start, stop))
+                return;
+
+        for (mva = start; mva < stop; mva = mva + line_len) {
+                /* DCIMVAC - Invalidate data cache by MVA to PoC */
+                asm volatile ("mcr p15, 0, %0, c7, c6, 1" : : "r" (mva));
+        }
 }
 
 #define ARMV7_DCACHE_INVAL_RANGE        1
@@ -551,9 +421,10 @@ static void v7_dcache_maint_range(u32 start, u32 stop, u32 range_op)
         dsb();
 }
 
-// __weak
-void v7_outer_cache_flush_range(u32 start, u32 end) {}
-
+/* This routine is the only public cache entry point
+ * and it is now in cache.c
+ */
+#ifdef NO_CFILE
 /*
  * Flush range(clean & invalidate) from all levels of D-cache/unified
  * cache used:
@@ -565,12 +436,23 @@ void flush_dcache_range(unsigned long start, unsigned long stop)
 
         v7_dcache_maint_range(start, stop, ARMV7_DCACHE_CLEAN_INVAL_RANGE);
 
-        v7_outer_cache_flush_range(start, stop);
+        // v7_outer_cache_flush_range(start, stop);
 }
+#endif
 
 /* ------------------------------------------------------------- */
 /* ------------------------------------------------------------- */
 
+#define SWAP_NO		1
+#define SWAP_DONE	2
+
+/* TJT 6-6-2022
+ * I am confident my buffer is OK as is and am
+ * short circuiting a bunch of the preparation stuff
+ */
+#define BYPASS
+
+#ifndef BYPASS
 /*
  * Load the whole word from unaligned buffer
  * Keep in your mind that it is byte loading on little-endian system
@@ -597,6 +479,13 @@ load_word(const void *buf, u32 swap)
 	return word;
 }
 
+/* The bin_format pattern will match a Vivado .bin file as is.
+ * BUT - that means the buffer needs to be swapped!
+ * If this matches the buffer, with a swap (as is checked
+ * below) then the buffer is OK.  It seems a bit odd to store
+ * a pattern for "what will not work", but that is how it was
+ * done, presumably taking the Vivado output as "gospel".
+ */
 static u32
 check_header(const void *buf)
 {
@@ -620,19 +509,32 @@ check_header(const void *buf)
 		    (__swab32(pattern) == bin_format[i])) {
 			pattern = __swab32(pattern);
 			swap = SWAP_DONE;
-			debug("%s: data swapped - let's swap\n", __func__);
+			/* What the heck do they mean by this?
+			 * This is senseless and misleading.
+			 * If this message is triggered it means
+			 * that the buffer is AOK.
+			 * So I changed as follows.
+			 */
+			//debug("%s: data swapped - let's swap\n", __func__);
+			debug("%s: data swapped - looks good!\n", __func__);
 		}
 
-		debug("%s: %d/%x: pattern %x/%x bin_format\n", __func__, i,
+		debug("%s: %d/%X: pattern %X/%X bin_format\n", __func__, i,
 		      (u32)&test[i], pattern, bin_format[i]);
+
 		if (pattern != bin_format[i]) {
 			debug("%s: Bitstream is not recognized\n", __func__);
 			return 0;
 		}
 	}
 
-	debug("%s: Found bitstream header at %x %s swapinng\n", __func__,
-	      (u32)buf, swap == SWAP_NO ? "without" : "with");
+	//debug("%s: Found bitstream header at %X %s swapping\n", __func__,
+	//      (u32)buf, swap == SWAP_NO ? "without" : "with");
+	debug("%s: Found bitstream header at %X\n", __func__);
+	if ( swap == SWAP_NO )
+	    debug("%s: Found bitstream unswapped (but swapped it for you)\n", __func__ );
+	else
+	    debug("%s: Found bitstream already swapped (that is good!)\n", __func__ );
 
 	return swap;
 }
@@ -640,18 +542,20 @@ check_header(const void *buf)
 static void *
 check_data(u8 *buf, size_t bsize, u32 *swap)
 {
-	u32 word, p = 0; /* possition */
+	u32 word, p = 0; /* position */
 
 	/* Because buf doesn't need to be aligned let's read it by chars */
 	for (p = 0; p < bsize; p++) {
 		word = load_word(&buf[p], SWAP_NO);
-		debug("%s: word %x %x/%x\n", __func__, word, p, (u32)&buf[p]);
+		debug("%s: word %X %X/%X\n", __func__, word, p, (u32)&buf[p]);
 
 		/* Find the first bitstream dummy word */
 		if (word == DUMMY_WORD) {
-			debug("%s: Found dummy word at position %x/%x\n",
+			debug("%s: Found dummy word at position %X/%X\n",
 			      __func__, p, (u32)&buf[p]);
 			*swap = check_header(&buf[p]);
+
+			/* ?? this is usually either 1 or 2 */
 			if (*swap) {
 				/* FIXME add full bitstream checking here */
 				return &buf[p];
@@ -665,8 +569,10 @@ check_data(u8 *buf, size_t bsize, u32 *swap)
 	}
 	return NULL;
 }
+#endif
 
-static int zynq_dma_transfer(u32 srcbuf, u32 srclen, u32 dstbuf, u32 dstlen)
+static int
+zynq_dma_transfer(u32 srcbuf, u32 srclen, u32 dstbuf, u32 dstlen)
 {
 	unsigned long ts;
 	u32 isr_status;
@@ -720,7 +626,8 @@ zynq_dma_xfer_init ( bitstream_type bstype )
 	clrbits_le32(&devcfg_base->mctrl, DEVCFG_MCTRL_PCAP_LPBK);
 
 	/* Must be BIT_FULL */
-	if (bstype != BIT_PARTIAL && bstype != BIT_NONE) {
+	// if (bstype != BIT_PARTIAL && bstype != BIT_NONE) {
+	if (bstype == BIT_FULL) {
 		zynq_slcr_devcfg_disable();
 
 		/* Setting PCFG_PROG_B signal to high */
@@ -745,6 +652,7 @@ zynq_dma_xfer_init ( bitstream_type bstype )
 			mdelay(5);
 
 		/* Polling the PCAP_INIT status for Reset */
+		/* XXX - I think this should poll the invert */
 		ts = get_timer(0);
 		while (readl(&devcfg_base->status) & DEVCFG_STATUS_PCFG_INIT) {
 			if (get_timer(ts) > CONFIG_SYS_FPGA_WAIT) {
@@ -815,6 +723,7 @@ zynq_dma_xfer_init ( bitstream_type bstype )
 	return FPGA_SUCCESS;
 }
 
+#ifndef BYPASS
 static u32 *
 zynq_align_dma_buffer(u32 *buf, u32 len, u32 swap)
 {
@@ -836,6 +745,11 @@ zynq_align_dma_buffer(u32 *buf, u32 len, u32 swap)
 		printf("%s: Align buffer at %x to %x(swap %d)\n", __func__,
 		       (u32)buf, (u32)new_buf, swap);
 
+		printf ( "Buffer found badly aligned\n" );
+		if ( swap == SWAP_NO )
+		    printf ( "Moving it\n" );
+		else
+		    printf ( "Moving it and swapping contents\n" );
 		for (i = 0; i < (len/4); i++)
 			new_buf[i] = load_word(&buf[i], swap);
 
@@ -844,7 +758,8 @@ zynq_align_dma_buffer(u32 *buf, u32 len, u32 swap)
 		/* For bitstream which are aligned */
 		u32 *new_buf = (u32 *)buf;
 
-		printf("%s: Bitstream is not swapped(%d) - swap it\n", __func__, swap);
+		// printf("%s: Bitstream is not swapped(%d) - swap it\n", __func__, swap);
+		printf ( "Swapping buffer contents\n" );
 
 		for (i = 0; i < (len/4); i++)
 			new_buf[i] = load_word(&buf[i], swap);
@@ -864,7 +779,9 @@ zynq_validate_bitstream (const void *buf,
 	u32 *buf_start;
 	u32 diff;
 
+	printf ( "Validate this: %X\n", buf );
 	buf_start = check_data((u8 *)buf, blocksize, swap);
+	printf ( "Check data returns: %X\n", buf_start );
 
 	if (!buf_start)
 		return FPGA_FAIL;
@@ -888,6 +805,7 @@ zynq_validate_bitstream (const void *buf,
 
 	return 0;
 }
+#endif
 
 //static int zynq_load(xilinx_desc *desc, const void *buf, size_t bsize,
 //		     bitstream_type bstype)
@@ -897,22 +815,27 @@ zynq_load ( const void *buf, size_t bsize, bitstream_type bstype)
 	unsigned long ts; /* Timestamp */
 	u32 isr_status, swap;
 
+	#ifdef BYPASS
+	if (zynq_dma_xfer_init ( bstype) )
+		return FPGA_FAIL;
+	#else
 	/*
 	 * send bsize inplace of blocksize as it was not a bitstream
 	 * in chunks
 	 */
-	if (zynq_validate_bitstream ( buf, bsize, bsize, &swap,
-				    &bstype))
+	if (zynq_validate_bitstream ( buf, bsize, bsize, &swap, &bstype))
 		return FPGA_FAIL;
 
 	buf = zynq_align_dma_buffer((u32 *)buf, bsize, swap);
+	#endif
 
 	debug("%s: Source = 0x%X\n", __func__, (u32)buf);
 	debug("%s: Size = %d\n", __func__, bsize);
 
 	/* flush(clean & invalidate) d-cache range buf */
-	flush_dcache_range((u32)buf, (u32)buf +
-			   roundup(bsize, ARCH_DMA_MINALIGN));
+	flush_dcache_buffer ( (u32)buf, bsize );
+	// flush_dcache_range((u32)buf, (u32)buf +
+	// 		   roundup(bsize, ARCH_DMA_MINALIGN));
 
 	if (zynq_dma_transfer((u32)buf | 1, bsize >> 2, 0xffffffff, 0))
 		return FPGA_FAIL;
@@ -934,16 +857,18 @@ zynq_load ( const void *buf, size_t bsize, bitstream_type bstype)
 
 	debug("%s: FPGA config done\n", __func__);
 
-	if (bstype != BIT_PARTIAL)
+	if (bstype == BIT_FULL)
 		zynq_slcr_devcfg_enable();
 
 	// puts("INFO:post config was not run, please run manually if needed\n");
-	printf("INFO:post config was not run, please run manually if needed\n");
+	// printf("INFO:post config was not run, please run manually if needed\n");
 
 	return FPGA_SUCCESS;
 }
 
-/* TJT - here are the two "public" entry points I introduced */
+/* TJT - here are the two "public" entry points I introduced.
+ * Note that bsize is in bytes.
+ */
 
 int
 zynq_load_full ( const void *buf, size_t bsize )
@@ -951,167 +876,18 @@ zynq_load_full ( const void *buf, size_t bsize )
 	return zynq_load ( buf, bsize, BIT_FULL );
 }
 
+/* This does nothing useful for me.
+ * Note that it will skip most of the initialization in zynq_dma_xfer_init()
+ * so it isn't surprising that it does not work.
+ * It must be useful for something ...
+ */
 int
 zynq_load_partial ( const void *buf, size_t bsize )
 {
+	printf ( "\n" );
+	printf ( "PARTIAL is known to NOT work ******************\n" );
+	printf ( "\n" );
 	return zynq_load ( buf, bsize, BIT_PARTIAL );
 }
 
-#if defined(CONFIG_CMD_FPGA_LOADFS) && !defined(CONFIG_SPL_BUILD)
-static int zynq_loadfs(xilinx_desc *desc, const void *buf, size_t bsize,
-		       fpga_fs_info *fsinfo)
-{
-	unsigned long ts; /* Timestamp */
-	u32 isr_status, swap;
-	u32 partialbit = 0;
-	loff_t blocksize, actread;
-	loff_t pos = 0;
-	int fstype;
-	char *interface, *dev_part;
-	const char *filename;
-
-	blocksize = fsinfo->blocksize;
-	interface = fsinfo->interface;
-	dev_part = fsinfo->dev_part;
-	filename = fsinfo->filename;
-	fstype = fsinfo->fstype;
-
-	if (fs_set_blk_dev(interface, dev_part, fstype))
-		return FPGA_FAIL;
-
-	if (fs_read(filename, (u32) buf, pos, blocksize, &actread) < 0)
-		return FPGA_FAIL;
-
-	if (zynq_validate_bitstream(desc, buf, bsize, blocksize, &swap,
-				    &partialbit))
-		return FPGA_FAIL;
-
-	dcache_disable();
-
-	do {
-		buf = zynq_align_dma_buffer((u32 *)buf, blocksize, swap);
-
-		if (zynq_dma_transfer((u32)buf | 1, blocksize >> 2,
-				      0xffffffff, 0))
-			return FPGA_FAIL;
-
-		bsize -= blocksize;
-		pos   += blocksize;
-
-		if (fs_set_blk_dev(interface, dev_part, fstype))
-			return FPGA_FAIL;
-
-		if (bsize > blocksize) {
-			if (fs_read(filename, (u32) buf, pos, blocksize, &actread) < 0)
-				return FPGA_FAIL;
-		} else {
-			if (fs_read(filename, (u32) buf, pos, bsize, &actread) < 0)
-				return FPGA_FAIL;
-		}
-	} while (bsize > blocksize);
-
-	buf = zynq_align_dma_buffer((u32 *)buf, blocksize, swap);
-
-	if (zynq_dma_transfer((u32)buf | 1, bsize >> 2, 0xffffffff, 0))
-		return FPGA_FAIL;
-
-	dcache_enable();
-
-	isr_status = readl(&devcfg_base->int_sts);
-
-	/* Check FPGA configuration completion */
-	ts = get_timer(0);
-	while (!(isr_status & DEVCFG_ISR_PCFG_DONE)) {
-		if (get_timer(ts) > CONFIG_SYS_FPGA_WAIT) {
-			printf("%s: Timeout wait for FPGA to config\n",
-			       __func__);
-			return FPGA_FAIL;
-		}
-		isr_status = readl(&devcfg_base->int_sts);
-	}
-
-	debug("%s: FPGA config done\n", __func__);
-
-	if (!partialbit)
-		zynq_slcr_devcfg_enable();
-
-	return FPGA_SUCCESS;
-}
-#endif
-
-#ifndef TJT
-struct xilinx_fpga_op zynq_op = {
-	.load = zynq_load,
-#if defined(CONFIG_CMD_FPGA_LOADFS) && !defined(CONFIG_SPL_BUILD)
-	.loadfs = zynq_loadfs,
-#endif
-};
-#endif
-
-#ifdef CONFIG_CMD_ZYNQ_AES
-/*
- * Load the encrypted image from src addr and decrypt the image and
- * place it back the decrypted image into dstaddr.
- */
-int zynq_decrypt_load(u32 srcaddr, u32 srclen, u32 dstaddr, u32 dstlen,
-		      u8 bstype)
-{
-	u32 isr_status, ts;
-
-	if (srcaddr < SZ_1M || dstaddr < SZ_1M) {
-		printf("%s: src and dst addr should be > 1M\n",
-		       __func__);
-		return FPGA_FAIL;
-	}
-
-	/* Check AES engine is enabled */
-	if (!(readl(&devcfg_base->ctrl) &
-	      DEVCFG_CTRL_PCFG_AES_EN_MASK)) {
-		printf("%s: AES engine is not enabled\n", __func__);
-		return FPGA_FAIL;
-	}
-
-	if (zynq_dma_xfer_init(bstype)) {
-		printf("%s: zynq_dma_xfer_init FAIL\n", __func__);
-		return FPGA_FAIL;
-	}
-
-	writel((readl(&devcfg_base->ctrl) | DEVCFG_CTRL_PCAP_RATE_EN_MASK),
-	       &devcfg_base->ctrl);
-
-	debug("%s: Source = 0x%08X\n", __func__, (u32)srcaddr);
-	debug("%s: Size = %zu\n", __func__, srclen);
-
-	/* flush(clean & invalidate) d-cache range buf */
-	flush_dcache_range((u32)srcaddr, (u32)srcaddr +
-			roundup(srclen << 2, ARCH_DMA_MINALIGN));
-	/*
-	 * Flush destination address range only if image is not
-	 * bitstream.
-	 */
-	if (bstype == BIT_NONE && dstaddr != 0xFFFFFFFF)
-		flush_dcache_range((u32)dstaddr, (u32)dstaddr +
-				   roundup(dstlen << 2, ARCH_DMA_MINALIGN));
-
-	if (zynq_dma_transfer(srcaddr | 1, srclen, dstaddr | 1, dstlen))
-		return FPGA_FAIL;
-
-	if (bstype == BIT_FULL) {
-		isr_status = readl(&devcfg_base->int_sts);
-		/* Check FPGA configuration completion */
-		ts = get_timer(0);
-		while (!(isr_status & DEVCFG_ISR_PCFG_DONE)) {
-			if (get_timer(ts) > CONFIG_SYS_FPGA_WAIT) {
-				printf("%s: Timeout wait for FPGA to config\n",
-				       __func__);
-				return FPGA_FAIL;
-			}
-			isr_status = readl(&devcfg_base->int_sts);
-		}
-		printf("%s: FPGA config done\n", __func__);
-		zynq_slcr_devcfg_enable();
-	}
-
-	return FPGA_SUCCESS;
-}
-#endif
+/* THE END */

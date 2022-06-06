@@ -37,10 +37,16 @@ struct devcfg {
 
 
 /* Bits in the control register */
-#define CTRL_PL_RESET	BIT(30)
-#define CTRL_PCAP_PR	BIT(27)
+#define CTRL_PL_RESET	BIT(30)		/* PROG B */
+#define CTRL_PCAP_PR	BIT(27)		/* partial */
 #define CTRL_PCAP_MODE	BIT(26)
 #define CTRL_RATE	BIT(25)
+
+#ifdef notdef
+#define DEVCFG_CTRL_PCFG_PROG_B         0x40000000
+#define DEVCFG_CTRL_PCAP_RATE_EN_MASK   0x02000000
+#endif
+
 
 #define CTRL_NIDEN	0x10		/* non invasive debug enable */
 
@@ -59,47 +65,201 @@ struct devcfg {
 #define IS_D_P_DONE	BIT(12)
 #define IS_PL_DONE	BIT(2)
 
+#define ST_FATAL	0x00740040
+#define ST_ERROR	0x00340840
+
+
 #define DEVCFG_BASE ((struct devcfg *) 0xF8007000)
 
 /* -------------------------------------------------------- */
 /* -------------------------------------------------------- */
+
+/* From U-boot hardware.h
+ */
+struct slcr {
+        vu32 scl; /* 0x0 */
+        vu32 slcr_lock; /* 0x4 */
+        vu32 slcr_unlock; /* 0x8 */
+        vu32 __reserved0_1[61];
+        vu32 arm_pll_ctrl; /* 0x100 */
+        vu32 ddr_pll_ctrl; /* 0x104 */
+        vu32 io_pll_ctrl; /* 0x108 */
+        vu32 __reserved0_2[5];
+        vu32 arm_clk_ctrl; /* 0x120 */
+        vu32 ddr_clk_ctrl; /* 0x124 */
+        vu32 dci_clk_ctrl; /* 0x128 */
+        vu32 aper_clk_ctrl; /* 0x12c */
+        vu32 __reserved0_3[2];
+        vu32 gem0_rclk_ctrl; /* 0x138 */
+        vu32 gem1_rclk_ctrl; /* 0x13c */
+        vu32 gem0_clk_ctrl; /* 0x140 */
+        vu32 gem1_clk_ctrl; /* 0x144 */
+        vu32 smc_clk_ctrl; /* 0x148 */
+        vu32 lqspi_clk_ctrl; /* 0x14c */
+        vu32 sdio_clk_ctrl; /* 0x150 */
+        vu32 uart_clk_ctrl; /* 0x154 */
+        vu32 spi_clk_ctrl; /* 0x158 */
+        vu32 can_clk_ctrl; /* 0x15c */
+        vu32 can_mioclk_ctrl; /* 0x160 */
+        vu32 dbg_clk_ctrl; /* 0x164 */
+        vu32 pcap_clk_ctrl; /* 0x168 */
+        vu32 __reserved0_4[1];
+        vu32 fpga0_clk_ctrl; /* 0x170 */
+        vu32 __reserved0_5[3];
+        vu32 fpga1_clk_ctrl; /* 0x180 */
+        vu32 __reserved0_6[3];
+        vu32 fpga2_clk_ctrl; /* 0x190 */
+        vu32 __reserved0_7[3];
+        vu32 fpga3_clk_ctrl; /* 0x1a0 */
+        vu32 __reserved0_8[8];
+        vu32 clk_621_true; /* 0x1c4 */
+        vu32 __reserved1[14];
+        vu32 pss_rst_ctrl; /* 0x200 */
+        vu32 __reserved2[15];
+        vu32 fpga_rst_ctrl; /* 0x240 */
+        vu32 __reserved3[5];
+        vu32 reboot_status; /* 0x258 */
+        vu32 boot_mode; /* 0x25c */
+        vu32 __reserved4[116];
+        vu32 trust_zone; /* 0x430 XXX */
+        vu32 __reserved5_1[63];
+        vu32 pss_idcode; /* 0x530 */
+        vu32 __reserved5_2[51];
+        vu32 ddr_urgent; /* 0x600 */
+        vu32 __reserved6[6];
+        vu32 ddr_urgent_sel; /* 0x61c */
+        vu32 __reserved7[56];
+        vu32 mio_pin[54]; /* 0x700 - 0x7D4 */
+        vu32 __reserved8[74];
+        vu32 lvl_shftr_en; /* 0x900 */
+        vu32 __reserved9[3];
+        vu32 ocm_cfg; /* 0x910 */
+};
+
+#define SLCR_BASE ((struct slcr *) 0xF8000000)
+
+/* SLCR stuff */
+
 /* SLCR - System Level Control Registers.
  * TRM section 4.3 and B.28 (page 1570)
  * There are a lot more of these, but these
  * are the ones we need to manipulate to load PL images
  */
 
-struct slcr_lock {
-	vu32	secure_lock;	/* 00 */
-	vu32	wp_lock;	/* 04 */
-	vu32	wp_unlock;	/* 08 */
-};
+#define SLCR_LOCK_MAGIC		0x767B
+#define SLCR_UNLOCK_MAGIC	0xDF0D
 
-struct slcr_misc {
-	vu32	level_shift;	/* 00 */
-};
+static int slcr_locked = 1; /* 1 means locked, 0 means unlocked */
 
-/* TRM chapter 26 (reset) */
-/* There are a myriad of registers before and after, this is a total hack.
- */
-struct slcr_pcap_clock {
-	vu32	clock;	/* 00 */
-};
+static void
+slcr_lock(void)
+{
+	struct slcr *sp = SLCR_BASE;
 
+	if ( ! slcr_locked ) {
+		sp->slcr_lock = SLCR_LOCK_MAGIC;
+		// writel(SLCR_LOCK_MAGIC, &slcr_base->slcr_lock);
+		slcr_locked = 1;
+	}
+}
 
-#define SLCR_LOCK_BASE ((struct slcr_lock *) 0xF8000000)
-#define SLCR_MISC_BASE ((struct slcr_misc *) 0xF8000900)
+static void
+slcr_unlock(void)
+{
+	struct slcr *sp = SLCR_BASE;
 
-#define SLCR_PCAP_CLOCK_BASE ((struct slcr_pcap_clock *) 0xF8000168)
+	if (slcr_locked) {
+		sp->slcr_unlock = SLCR_UNLOCK_MAGIC;
+		// writel(SLCR_UNLOCK_MAGIC, &slcr_base->slcr_unlock);
+		slcr_locked = 0;
+	}
+}
 
-#define SLCR_LOCK_KEY		0x767b
-#define SLCR_UNLOCK_KEY		0xdf0d
+#ifdef notdef
+/* Reset the entire system */
+void
+zynq_slcr_cpu_reset(void)
+{
+	/*
+	 * Unlock the SLCR then reset the system.
+	 * Note that this seems to require raw i/o
+	 * functions or there's a lockup?
+	 */
+	zynq_slcr_unlock();
+
+	/*
+	 * Clear 0x0F000000 bits of reboot status register to workaround
+	 * the FSBL not loading the bitstream after soft-reboot
+	 * This is a temporary solution until we know more.
+	 */
+	clrbits_le32(&slcr_base->reboot_status, 0xF000000);
+
+	writel(1, &slcr_base->pss_rst_ctrl);
+}
+#endif
+
+static void
+slcr_fpga_disable(void)
+{
+	// u32 reg_val;
+	struct slcr *sp = SLCR_BASE;
+
+	slcr_unlock();
+
+	/* Disable AXI interface by asserting FPGA resets */
+	// writel(0xF, &slcr_base->fpga_rst_ctrl);
+	sp->fpga_rst_ctrl = 0xf;
+
+	/* Disable Level shifters before setting PS-PL */
+	// reg_val = readl(&slcr_base->lvl_shftr_en);
+	// reg_val &= ~0xF;
+	// writel(reg_val, &slcr_base->lvl_shftr_en);
+	sp->lvl_shftr_en &= ~0xf;
+
+	/* Set Level Shifters DT618760 */
+	// writel(0xA, &slcr_base->lvl_shftr_en);
+	sp->lvl_shftr_en = 0xa;
+
+	slcr_lock();
+}
+
+static void
+slcr_fpga_enable(void)
+{
+	struct slcr *sp = SLCR_BASE;
+
+	slcr_unlock();
+
+	/* Set Level Shifters DT618760 */
+	// writel(0xF, &slcr_base->lvl_shftr_en);
+	sp->lvl_shftr_en = 0xf;
+
+	/* Enable AXI interface by de-asserting FPGA resets */
+	// writel(0x0, &slcr_base->fpga_rst_ctrl);
+	sp->fpga_rst_ctrl = 0;
+
+	slcr_lock();
+}
+
+/* Does not seem to be needed */
+static void
+slcr_pcap_clock_enable ( void )
+{
+	struct slcr *sp = SLCR_BASE;
+
+	slcr_unlock ();
 
 #define SLCR_PCAP_CLOCK_ENA	1
+	/* Enable the PCAP clock */
+	sp->pcap_clk_ctrl |= SLCR_PCAP_CLOCK_ENA;
 
-#define SLCR_LS_DISABLE		0
-#define SLCR_LS_PSPL		0xa
-#define SLCR_LS_ALL		0xf
+	printf ( "clock = %X\n", sp->pcap_clk_ctrl );
+	/* I find this set 0x0501
+	 * which is divisor = 5, source = IO PLL
+	 */
+
+	slcr_lock ();
+}
 
 /* -------------------------------------------------------- */
 /* -------------------------------------------------------- */
@@ -113,104 +273,107 @@ devcfg_selftest ( void )
 {
 	struct devcfg *dp = DEVCFG_BASE;
 	u32 save;
-	int rv = 2;
+	int rv = 0;
 
 	/* Set a sane control register value.
 	 * Note that PCAP and such are enabled
 	 */
-	printf ( "Self test, control reg = %X\n", dp->control );
-	dp->control = 0x4c006000;
-	printf ( "Self test, control reg = %X\n", dp->control );
+	// printf ( "Self test, control reg = %X\n", dp->control );
+	// dp->control = 0x4c006000;
+	// printf ( "Self test, control reg = %X\n", dp->control );
 
-	if ( dp->control & CTRL_NIDEN )
-	    return 1;
-	
 	save = dp->control;
 
 	dp->control |= CTRL_NIDEN;
-	if ( dp->control & CTRL_NIDEN )
-	    rv = 0;
+	if ( ! (dp->control & CTRL_NIDEN) )
+	    rv = 1;
+
+	dp->control &= ~CTRL_NIDEN;
+	if ( (dp->control & CTRL_NIDEN) )
+	    rv = 2;
 
 	dp->control = save;
-
-	if ( dp->control & CTRL_NIDEN )
-	    return 3;
 
 	return rv;
 }
 
-/* If we set this bit low, then download a bitstream via JTAG
- * it seems to load, but does not run.
- * If we set it low, a running bitstream seems to stop
- * the DONE led goes out and any LED action being caused by
- * the PL stops.
- *
- * The bit is high after reboot, and I can download a bitstream
- * via JTAG.  Setting this bit high when it is already high
- * does nothing - the bitstream continues to run.
- * If I set it low, the bitstream stops, as described above.
- * Setting it high again does not resume the bitstream.
- */
-static void
-pl_reset ( int what )
+int
+pl_setup ( void )
 {
 	struct devcfg *dp = DEVCFG_BASE;
-
-	printf ( "PL reset, control reg = %X\n", dp->control );
-	if ( what )
-	    dp->control |= CTRL_PL_RESET;
-	else
-	    dp->control &= ~CTRL_PL_RESET;
-	printf ( "PL reset, control reg = %X\n", dp->control );
-}
-
-void
-devcfg_init ( void )
-{
-	struct devcfg *dp = DEVCFG_BASE;
-	struct slcr_lock *lockp = SLCR_LOCK_BASE;
-	struct slcr_pcap_clock *cp = SLCR_PCAP_CLOCK_BASE;
-	struct slcr_misc *mp = SLCR_MISC_BASE;
 	int s;
+	unsigned int tmo;
 
-	printf ( "Devcfg at %X\n", dp );
+	// printf ( "Devcfg at %X\n", dp );
 
 	// printf ( "mctrl is at: %X\n", &dp->mctrl );
-	printf ( "status = %X\n", dp->status );
+	// printf ( "status = %X\n", dp->status );
 
-	s = devcfg_selftest ();
-	if ( s )
+	if ( devcfg_selftest () ) {
 	    printf ( "Self test fails: %d\n", s );
-	else
-	    printf ( "Self test OK\n" );
+	    return 1;
+	}
+
+	/* Clear internal PCAP loopback */
+	dp->mctrl &= ~MC_LOOPBACK;
 
 	/* Unlock the devcfg interface.
 	 * Writing this magic value does it, but as near
 	 * as I can tell, it has already been done.
 	 */
-	dp->unlock = 0x757BDF0D;
+	// dp->unlock = 0x757BDF0D;
 
 	/* U-boot also writes this as part of
 	 * the unlock sequence.
 	 */
-	dp->rom_shadow = 0xffffffff;
+	// dp->rom_shadow = 0xffffffff;
 
-	/* Example code unlocks, then locks each time it fiddles
-	 * with a SLCR register, but I just unlock it and leave it.
+	// printf ( "control = %X\n", dp->control );
+
+	dp->control |= CTRL_PL_RESET;	/* Prog B */
+	dp->control &= ~CTRL_PL_RESET;	/* Prog B */
+
+	/* Poll the INIT bit.
+	 * Wait for it to be clear.
 	 */
-	lockp->wp_unlock = SLCR_UNLOCK_KEY;
+	tmo = 999999;
+	while ( --tmo && (dp->status & ST_PL_INIT) )
+	    ;
 
-	/* Enable the PCAP clock */
-	cp->clock |= SLCR_PCAP_CLOCK_ENA;
-	printf ( "clock = %X\n", cp->clock );
-	/* I find this set 0x0501
-	 * which is divisor = 5, source = IO PLL
-	 */
+	if ( ! tmo ) {
+	    printf ( "PL reset timed out\n" );
+	    return 1;
+	}
+	// printf ( "PL reset: %d\n", tmo );
 
-	/* Enable the level shifters */
-	mp->level_shift = SLCR_LS_PSPL;
+	dp->control |= CTRL_PL_RESET;	/* Prog B */
 
-	printf ( "control = %X\n", dp->control );
+	/* Now wait for the bit to be set */
+	tmo = 999999;
+	while ( --tmo && ! (dp->status & ST_PL_INIT) )
+	    ;
+
+	if ( ! tmo ) {
+	    printf ( "PL ready timed out\n" );
+	    return 1;
+	}
+
+	/* clear all interrupts, or try to anyhow */
+	dp->i_status = 0xffffffff;
+
+	if ( dp->i_status & ST_FATAL ) {
+	    printf ( "PL devconfig fatal errors set: %X\n", dp->status );
+	    return 1;
+	}
+
+	/* Is DMA busy? */
+	if ( dp->status & ST_DMA_Q_FULL ) {
+	    printf ( "DMA queue full - PL busy\n" );
+	    return 1;
+	}
+
+	/* --------------------------------------------- */
+	/* These things are usually OK, but be sure */
 
 	/* Clear 1/4 rate bit */
 	dp->control &= ~CTRL_RATE;
@@ -221,7 +384,9 @@ devcfg_init ( void )
 	/* Enable PCAP */
 	dp->control |= CTRL_PCAP_MODE;
 
-	printf ( "control = %X\n", dp->control );
+	// printf ( "control = %X\n", dp->control );
+
+	return 0;
 }
 
 #define PCAP_LAST_XFER		1
@@ -229,39 +394,23 @@ devcfg_init ( void )
 /* The example code makes this 0xffffffff and then ORs on
  * the last transfer bit, which of course accomplishes nothing.
  * The TRM says the last 2 bits must be 01 and must match the
- * same bits in the source address, so we do this.
+ * same bits in the source address, but using all ones works.
  */
 // #define PL_ADDRESS		0xfffffffd
 #define PL_ADDRESS		0xffffffff
 
-/* Load a bitstream image into the PL.
- * Size is in 32 bit words.
- */
 void
-pl_load_image ( char *image, int size )
+pl_dma ( char *image, int size )
 {
 	struct devcfg *dp = DEVCFG_BASE;
 	int tmo;
 
-	/* Is DMA busy? */
-	if ( dp->status & ST_DMA_Q_FULL ) {
-	    printf ( "devcfg DMA queue full\n" );
-	    return;
-	}
-
-	/* Is the PL ready */
-	if ( ! (dp->status & ST_PL_INIT) ) {
-	    printf ( "devcfg PL not ready\n" );
-	    return;
-	}
-
+#ifdef notdef
 	printf ( "Devcfg I status: %X\n", dp->i_status );
 	/* clear by writing to the bit */
 	dp->i_status = ( IS_DMA_DONE | IS_D_P_DONE | IS_PL_DONE );
 	printf ( "Devcfg I status: %X\n", dp->i_status );
-
-	/* Clear internal PCAP loopback */
-	dp->mctrl &= ~MC_LOOPBACK;
+#endif
 
 	/* Now, set up DMA
 	 * When the 2 last bits of an address are
@@ -269,32 +418,58 @@ pl_load_image ( char *image, int size )
 	 * As near as I can tell, writing into these 4 registers
 	 * sets things in motion.
 	 */
-	printf ( "Set DMA for %X, %d words\n", image, size );
-	printf ( "DMA write count: %d\n",  dp->write_count );
+	// printf ( "Set DMA for %X, %d words\n", image, size );
+	// printf ( "DMA write count: %d\n",  dp->write_count );
 
 	dp->dma_src_addr = ((u32) image) | PCAP_LAST_XFER;
 	dp->dma_dst_addr = PL_ADDRESS;
-
-	printf ( "DMA write count: %d\n",  dp->write_count );
 
 	/* sizes are in counts of 4 byte words */
 	dp->dma_src_len = size;
 	dp->dma_dst_len = 0;
 
-	printf ( "Polling for DMA done\n" );
-	for ( tmo = 500000; tmo; tmo-- )
+	// printf ( "Polling for DMA done\n" );
+	// for ( tmo = 500000; tmo; tmo-- )
+	for ( tmo = 999999; tmo; tmo-- )
 	    if ( dp->i_status & IS_DMA_DONE )
 		break;
-	printf ( "Devcfg I status: %X, %d\n", dp->i_status, tmo );
+	/* I see this finishing with tmo = 367320 (starting with 500000 */
+	// printf ( "Devcfg I status: %X, %d\n", dp->i_status, tmo );
 
-	printf ( "Polling for PL done\n" );
+#ifdef notdef
+	// printf ( "Polling for PL done\n" );
 	for ( tmo = 500000; tmo; tmo-- )
 	    if ( dp->i_status & IS_PL_DONE )
 		break;
-	printf ( "Devcfg I status: %X, %d\n", dp->i_status, tmo );
+	// This is always ready the first check, I see 500000
+	// printf ( "Devcfg I status: %X, %d\n", dp->i_status, tmo );
+#endif
 
-	printf ( "DMA write count: %d\n",  dp->write_count );
-	printf ( "DMA read count: %d\n",  dp->read_count );
+	if ( dp->i_status & ST_ERROR ) {
+	    printf ( "PL transfer ended with errors: %X\n", dp->i_status );
+	}
+
+	/* These show 520935 for write, 0 for read */
+	// printf ( "DMA write count: %d\n",  dp->write_count );
+	// printf ( "DMA read count: %d\n",  dp->read_count );
+
+	dp->i_status = IS_DMA_DONE | IS_PL_DONE;
+}
+
+/* Load a bitstream image into the PL.
+ * Size is in 32 bit words.
+ */
+void
+pl_load_image ( char *image, int size )
+{
+	slcr_fpga_disable ();
+	if ( pl_setup () ) {
+	    printf ( "PL setup failed\n" );
+	    return;
+	}
+	pl_dma ( image, size );
+	slcr_fpga_enable ();
+
 }
 
 /* ----------------------------------------------------------- */
@@ -335,16 +510,23 @@ pl_load ( void )
 
 	size = pl_expand ( im, pl_comp_data );
 
-	printf ( "PL image of %d words, loaded to %X\n", size, im );
+	// printf ( "PL image of %d words, loaded to buffer at: %X\n", size, im );
 
 	swap_em ( (u32 *) im, size );
 
-	// pl_load_image ( im, size );
-	zynq_load_full ( im, size*4 );
-	// zynq_load_partial ( im, size );
+	/* These call the code taken from uboot (in zpl.c)
+	 * "full" works, "partial" does not.
+	 */
+	// zynq_load_full ( im, size*4 );
 
-	printf ( "Done loading PL image\n" );
-	printf ( "Should be running now\n" );
+	// NO! zynq_load_partial ( im, size*4 );
+
+	flush_dcache_buffer ( im, size*4 );
+	pl_load_image ( im, size );
+
+	printf ( "PL image done loading and should be running\n" );
+	//printf ( "Done loading PL image\n" );
+	//printf ( "Should be running now\n" );
 }
 
 #define ZFLAG   0x80000000
@@ -395,6 +577,34 @@ wait_char ( void )
 	return rv;
 }
 
+/* This was used once for some experiments.
+ *
+ * If we set this bit low, then download a bitstream via JTAG
+ * it seems to load, but does not run.
+ * If we set it low, a running bitstream seems to stop
+ * the DONE led goes out and any LED action being caused by
+ * the PL stops.
+ *
+ * The bit is high after reboot, and I can download a bitstream
+ * via JTAG.  Setting this bit high when it is already high
+ * does nothing - the bitstream continues to run.
+ * If I set it low, the bitstream stops, as described above.
+ * Setting it high again does not resume the bitstream.
+ */
+static void
+pl_reset ( int what )
+{
+	struct devcfg *dp = DEVCFG_BASE;
+
+	printf ( "PL reset, control reg = %X\n", dp->control );
+	if ( what )
+	    dp->control |= CTRL_PL_RESET;
+	else
+	    dp->control &= ~CTRL_PL_RESET;
+	printf ( "PL reset, control reg = %X\n", dp->control );
+}
+
+
 /* This is a hook called by main()
  *  to allow testing.
  */
@@ -403,7 +613,6 @@ pl_test ( void )
 {
 	int cc;
 
-	devcfg_init ();
 	pl_load ();
 
 #ifdef notdef
