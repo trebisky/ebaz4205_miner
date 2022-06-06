@@ -61,6 +61,14 @@ struct zynq_uart {
 
 void uart_handler ( int );
 
+/* This is a hackish way of allowing keyboard input.
+ * We have this single character "buffer" that holds
+ * the most recently received character.
+ * Consumers can poll this, and should clear it if
+ * they consume the contents.
+ */
+int uart_character;
+
 void
 uart_init ( void )
 {
@@ -76,6 +84,7 @@ uart_init ( void )
 
 	// up->ie = IE_RXE | IE_TXE;
 
+	uart_character = 0;
 	irq_hookup ( IRQ_UART, uart_handler, 0 );
 }
 
@@ -99,6 +108,9 @@ uart_puts ( char *s )
 	}
 }
 
+
+
+/* This runs at interrupt level */
 void
 uart_handler ( int xxx )
 {
@@ -120,6 +132,8 @@ uart_handler ( int xxx )
 	if ( c < ' ' )
 	    c = '.';
 	printf ( "Uart interrupt, istatus: %h char = %x %c\n", &up->istatus, c, c );
+
+	uart_character = c;
 }
 
 /* THE END */

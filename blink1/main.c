@@ -229,6 +229,23 @@ ms_delay ( int ms )
 #define CLOCK_HZ	10000000
 #define TICKS_PER_MS	(CLOCK_HZ / 1000)
 
+int
+get_cpu_hz ( void )
+{
+	return CLOCK_HZ;
+}
+
+/* For some shenanigans with u-boot code */
+unsigned long
+get_ms_timer ( void )
+{
+	int count;
+
+	/* XXX - will this really go into a 32 bit int ?? */
+	asm volatile ("mrc p15, 0, %0, c9, c13, 0" : "=r"(count) );
+	return count / TICKS_PER_MS;
+}
+
 void
 ms_delay ( int ms )
 {
@@ -322,6 +339,7 @@ main ( void )
 	int cur_sp;
 	int x;
 #endif
+	int i;
 
 	init_thread ();
 	gic_init ();
@@ -350,9 +368,17 @@ main ( void )
 	ms_delay ( 100 );
 	enable_irq ();
 
-	devcfg_init ();
+	// devcfg_init ();
 
-	pl_load ( (void *) 0 );
+	pl_test ();
+
+#ifdef notdef
+	// for ( ;; ) {
+	for ( i=0; i<4; i++ ) {
+	    pl_load ();
+	    ms_delay ( 2000 );
+	}
+#endif
 
 	// timer_watch ();
 	// gic_watch ();

@@ -1,4 +1,7 @@
 *.o
 blink1.bin
+blink.bin
 *.elf
 pl_data.c
+OLD
+OLD/*
