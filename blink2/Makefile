@@ -1,8 +1,12 @@
 # Makefile
 #
-# blink1 - download a blink bitstream into the PL and run it
+# blink2 - download a blink bitstream into the PL and run it
 #
-# Tom Trebisky  6-3-2022
+# This builds on blink1.  We designed an AXI gpio based fancy
+# LED control thing in the FPGA, now we need an axi gpio driver
+# and some code to put it to use.
+#
+# Tom Trebisky  6-7-2022
 
 CROSS = arm-linux-gnu-
 
@@ -29,7 +33,7 @@ ARM_ELF_FLAGS += -Wno-unused-function $(ABI)
 # OBJS = start.o main.o prf.o serial.o gpio.o timer.o bbb_irq.o show_regs.o gic.o
 OBJS = start.o main.o prf.o uart.o timer.o arm_irq.o arm_regs.o gic.o cache.o zpl.o pl.o pl_data.o
 
-TARGET = blink1.bin
+TARGET = blink2.bin
 
 %.bin: %.elf
 	$(CROSS)objcopy -O binary $< $@
@@ -42,21 +46,20 @@ TARGET = blink1.bin
 
 all: install
 
-pl_data.o:	blink.bit
-	bitread -c blink.bit >pl_data.c
+pl_data.o:	ledio.bit
+	bitread -c ledio.bit >pl_data.c
 	$(CC) -c $(ARM_ELF_FLAGS) -nostdlib -c pl_data.c
 
 install: $(TARGET)
 	cp $(TARGET) /var/lib/tftpboot/bitcoin.bin
 
-bits:
-	cp blink.bin /var/lib/tftpboot/blink.bin
+ledio.bit:
+	cp /home/tom/vivado/ebaz_blink_4/ebaz_blink_4.runs/impl_1/ledio_wrapper.bit ledio.bit
 
-blink.bin:
-	bitread -e blink.bit
-
-blink.bit:
-#	cp /home/tom/vivado/ebaz_blink_2/ebaz_blink_2.runs/impl_1/clocks_wrapper.bit blink.bit
+# We make a copy, just to have it here alongside the code that uses it.
+# For reference.  Vivado would be needed to install it into a bitstream.
+verilog:
+	cp /home/tom/vivado/ebaz_blink_4/ebaz_blink_4.srcs/sources_1/new/fancy.v .
 
 pl:
 	openFPGALoader -c xvc-client --file-type bit blink.bit
@@ -83,8 +86,8 @@ getu:
 # -----------------------------
 DUMP = arm-linux-gnu-objdump -d
 
-dump:       blink1.elf
-	$(DUMP) blink1.elf >blink1.dump
+dump:       blink2.elf
+	$(DUMP) blink2.elf >blink2.dump
 
 clean:
 	rm -rf *.bin *.elf *.o *.dump
@@ -99,5 +102,5 @@ version:
 #LINKER = -Wl,-N,--build-id=none
 LINKER = -Wl,--build-id=none
 
-blink1.elf: $(OBJS)
+blink2.elf: $(OBJS)
 	$(CC) -o $@ -nostdlib $(OBJS) -T basic.lds $(LINKER) $(LIBS)

@@ -1,8 +1,8 @@
 *.o
 blink1.bin
 blink.bin
+*.bin
 *.elf
 pl_data.c
 OLD
 OLD/*
-clocks_wrapper.bit
