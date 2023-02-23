@@ -274,6 +274,13 @@ delay_1s ( void )
 	    ;
 }
 
+void
+s_delay ( int count )
+{
+	while ( count-- )
+	    delay_1s ();
+}
+
 static inline void
 spin ( void )
 {
@@ -346,7 +353,7 @@ main ( void )
 	uart_init();
 
 	uart_puts("\n" );
-	printf ("Starting blink1 test\n");
+	printf ("Starting blink2 test\n");
 
 	// led_init ();
 	// status_on ();
@@ -371,6 +378,7 @@ main ( void )
 	// devcfg_init ();
 
 	pl_test ();
+	axi_test ();
 
 #ifdef notdef
 	// for ( ;; ) {
