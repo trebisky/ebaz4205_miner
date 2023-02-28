@@ -6,6 +6,8 @@
  * Tom Trebisky  1-9-2021
  */
 
+#include "protos.h"
+
 typedef volatile unsigned int vu32;
 typedef unsigned int u32;
 
@@ -35,7 +37,6 @@ struct zynq_uart {
 	int	__pad1[2];
 
 	vu32	tfifo;
-
 };
 
 #define IRQ_UART0	69
@@ -59,8 +60,11 @@ struct zynq_uart {
 /* Bits in the cstatus register */
 #define CS_TXFULL	BIT(4)
 
+static struct cqueue *in_queue;
+
 void uart_handler ( int );
 
+#ifdef notdef
 /* This is a hackish way of allowing keyboard input.
  * We have this single character "buffer" that holds
  * the most recently received character.
@@ -68,11 +72,14 @@ void uart_handler ( int );
  * they consume the contents.
  */
 int uart_character;
+#endif
 
 void
 uart_init ( void )
 {
 	struct zynq_uart *up = UART_BASE;
+
+	in_queue = cq_init ( 128 );
 
 	/* We rely on U-Boot to have done initialization,
 	 * at least so far, we just make some tweaks here
@@ -84,8 +91,20 @@ uart_init ( void )
 
 	// up->ie = IE_RXE | IE_TXE;
 
-	uart_character = 0;
+	// uart_character = 0;
 	irq_hookup ( IRQ_UART, uart_handler, 0 );
+}
+
+int
+uart_getc ( void )
+{
+	int c;
+
+	while ( cq_count ( in_queue ) <= 0 )
+	    ;
+
+	c = cq_remove ( in_queue );
+	return c;
 }
 
 void
@@ -108,8 +127,6 @@ uart_puts ( char *s )
 	}
 }
 
-
-
 /* This runs at interrupt level */
 void
 uart_handler ( int xxx )
@@ -131,11 +148,14 @@ uart_handler ( int xxx )
 	c &= 0x7f;
 	if ( c < ' ' )
 	    c = '.';
-	printf ( "Uart interrupt, istatus: %h char = %x %c\n", &up->istatus, c, c );
 
-	uart_character = c;
+	// printf ( "Uart interrupt, istatus: %h char = %x %c\n", &up->istatus, c, c );
 
-	led_cmd ( c );
+	// uart_character = c;
+
+	// led_cmd ( c );
+
+	cq_add ( in_queue, c );
 }
 
 /* THE END */

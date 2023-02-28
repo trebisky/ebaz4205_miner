@@ -1,12 +1,14 @@
 # Makefile
 #
-# blink2 - download a blink bitstream into the PL and run it
+# fabric - experiment with PL fabric clocks
 #
-# This builds on blink1.  We designed an AXI gpio based fancy
+# This builds on blink2.  We designed an AXI gpio based fancy
 # LED control thing in the FPGA, now we need an axi gpio driver
 # and some code to put it to use.
+# Then we figured out how to send a bitstream from C code.
+# Now we are figuring out how to initialize fabric clocks.
 #
-# Tom Trebisky  6-7-2022
+# Tom Trebisky  2-28-2023
 
 CROSS = arm-linux-gnu-
 
@@ -31,9 +33,9 @@ ARM_ELF_FLAGS += -Wno-unused-function $(ABI)
 
 
 # OBJS = start.o main.o prf.o serial.o gpio.o timer.o bbb_irq.o show_regs.o gic.o
-OBJS = start.o main.o prf.o uart.o timer.o arm_irq.o arm_regs.o gic.o cache.o zpl.o pl.o pl_data.o axi_gpio.o
+OBJS = start.o main.o prf.o uart.o cq.o clocks.o timer.o arm_irq.o arm_regs.o gic.o cache.o zpl.o pl.o pl_data.o axi_gpio.o
 
-TARGET = blink2.bin
+TARGET = fabric.bin
 
 %.bin: %.elf
 	$(CROSS)objcopy -O binary $< $@
@@ -53,13 +55,17 @@ pl_data.o:	ledio.bit
 install: $(TARGET)
 	cp $(TARGET) /var/lib/tftpboot/bitcoin.bin
 
+# Vivado project name
+#V_PROJECT = ebaz_blink_4
+V_PROJECT = fabric2
+
 ledio.bit:
-	cp /home/tom/vivado/ebaz_blink_4/ebaz_blink_4.runs/impl_1/ledio_wrapper.bit ledio.bit
+	cp /home/tom/vivado/$(V_PROJECT)/$(V_PROJECT).runs/impl_1/ledio_wrapper.bit ledio.bit
 
 # We make a copy, just to have it here alongside the code that uses it.
 # For reference.  Vivado would be needed to install it into a bitstream.
 verilog:
-	cp /home/tom/vivado/ebaz_blink_4/ebaz_blink_4.srcs/sources_1/new/fancy.v .
+	cp /home/tom/vivado/$(V_PROJECT)/$(V_PROJECT).srcs/sources_1/new/fancy.v .
 
 pl:
 	openFPGALoader -c xvc-client --file-type bit ledio.bit
@@ -86,8 +92,8 @@ getu:
 # -----------------------------
 DUMP = arm-linux-gnu-objdump -d
 
-dump:       blink2.elf
-	$(DUMP) blink2.elf >blink2.dump
+dump:       fabric.elf
+	$(DUMP) fabric.elf >fabric.dump
 
 clean:
 	rm -rf *.bin *.elf *.o *.dump
@@ -102,5 +108,5 @@ version:
 #LINKER = -Wl,-N,--build-id=none
 LINKER = -Wl,--build-id=none
 
-blink2.elf: $(OBJS)
+fabric.elf: $(OBJS)
 	$(CC) -o $@ -nostdlib $(OBJS) -T basic.lds $(LINKER) $(LIBS)

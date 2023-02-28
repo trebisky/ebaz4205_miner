@@ -81,18 +81,15 @@ ps_blink ( void )
 	}
 }
 
+void led_run ( void );
+
 void
 axi_test ( void )
 {
 	axi_gpio_dir ( 0 );
 
-	// Both LED blink slow and out of phase.
-	// axi_gpio_write ( 0x26 );
-	axi_gpio_write ( 0x22 );
-	axi_gpio_write ( 0x11 );
-
-	// Both LED blink fast and out of phase.
-	// axi_gpio_write ( 0x15 );
+	// Controlled by FPGA
+	led_run ();
 
 	// Controlled by user code.
 	// ps_blink ();
@@ -105,9 +102,23 @@ led_all_off ( void )
 }
 
 void
+led_run (void )
+{
+	// Both LED blink slow and out of phase.
+	// axi_gpio_write ( 0x26 );
+	axi_gpio_write ( 0x22 );
+	axi_gpio_write ( 0x11 );
+
+	// Both LED blink fast and out of phase.
+	// axi_gpio_write ( 0x15 );
+}
+
+#ifdef notdef
+void
 led_cmd ( int c )
 {
 	led_all_off ();
 }
+#endif
 
 /* THE END */
