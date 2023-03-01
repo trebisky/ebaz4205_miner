@@ -4,9 +4,12 @@
  *
  * (C) Copyright 2012
  * Joe Hershberger <joe.hershberger@ni.com>
+ *
+ * It sure looks like I got this from
+ *   U-boot-git -- arch/arm/mach-zynq/slcr.c
  */
 
-/* TJT says: I try to put all my hacks on this.
+/* TJT says: I try to put all my hacks on this define.
  */
 #define TJT
 

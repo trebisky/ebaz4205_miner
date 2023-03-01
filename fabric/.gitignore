@@ -1,7 +1,6 @@
 *.o
 fabric.bin
 *.bin
-*.bit
 *.elf
 pl_data.c
 OLD

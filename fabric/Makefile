@@ -48,8 +48,8 @@ TARGET = fabric.bin
 
 all: install
 
-pl_data.o:	ledio.bit
-	bitread -c ledio.bit >pl_data.c
+pl_data.o:	clocks.bit
+	bitread -c clocks.bit >pl_data.c
 	$(CC) -c $(ARM_ELF_FLAGS) -nostdlib -c pl_data.c
 
 install: $(TARGET)
@@ -57,18 +57,18 @@ install: $(TARGET)
 
 # Vivado project name
 #V_PROJECT = ebaz_blink_4
-V_PROJECT = fabric2
+V_PROJECT = clocks
 
-ledio.bit:
-	cp /home/tom/vivado/$(V_PROJECT)/$(V_PROJECT).runs/impl_1/ledio_wrapper.bit ledio.bit
+clocks.bit:
+	cp /home/tom/vivado/$(V_PROJECT)/$(V_PROJECT).runs/impl_1/design_1_wrapper.bit clocks.bit
 
 # We make a copy, just to have it here alongside the code that uses it.
 # For reference.  Vivado would be needed to install it into a bitstream.
-verilog:
-	cp /home/tom/vivado/$(V_PROJECT)/$(V_PROJECT).srcs/sources_1/new/fancy.v .
+#verilog:
+#	cp /home/tom/vivado/$(V_PROJECT)/$(V_PROJECT).srcs/sources_1/new/fancy.v .
 
 pl:
-	openFPGALoader -c xvc-client --file-type bit ledio.bit
+	openFPGALoader -c xvc-client --file-type bit clocks.bit
 
 # -----------------------------
 

@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
  * Copyright (c) 2013 Xilinx Inc.
+ *
+ * It sure looks like I got this from:
+ * U-boot.git -- arch/arm/mach-zynq/include/mach/hardware.h
  */
 
 #ifndef _ASM_ARCH_HARDWARE_H
