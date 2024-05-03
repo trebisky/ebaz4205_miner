@@ -1,0 +1,40 @@
+#!/bin/python
+
+# We find all the lines that look like this:
+# 0000622c:	e34ec010 	movt	ip, #57360	@ 0xe010
+# 00006244:	e34ee000 	movt	lr, #57344	@ 0xe000
+# 00006250:	e302010e 	movw	r0, #8462	@ 0x210e
+#
+# And we make them look like this:
+# 0000622c:	e34ec010 	movt	ip, #0xe010
+# 00006244:	e34ee000 	movt	lr, #0xe000
+# 00006250:	e302010e 	movw	r0, #0x210e
+
+
+def process ( line ) :
+    ll = line.split ()
+    if len(ll) != 7 :
+        print ( line, end="" )
+        return
+    #print ( len(ll), end="" )
+    print ( ll[0] + 
+        "\t" + ll[1] +
+        "\t" + ll[2] +
+        "\t" + ll[3] +
+        " #" + ll[6] )
+
+def do_line ( line ) :
+    if "movt" in line and "@" in line :
+        process ( line )
+    elif "movw" in line and "@" in line :
+        process ( line )
+    else :
+        print ( line, end="" )
+
+file = open('bootrom.txt', 'r')
+
+while True:
+    line = file.readline()
+    if not line:
+        break
+    do_line ( line )

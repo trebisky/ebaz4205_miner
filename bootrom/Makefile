@@ -20,6 +20,12 @@ bootrom.dis: bootrom.raw
 bootrom.odx: $(ROM)
 	odx $(ROM) >bootrom.odx
 
+# I did this later by hand
+fix1:
+	./fixmov >bootrom.new
+	#mv bootrom.txt bootrom.bak1
+	#mv bootrom.new bootrom.txt
+
 # should yield: md5: ADF639AFE9855EE86C8FAAD216C970D9
 sum:
 	md5sum $(ROM)
