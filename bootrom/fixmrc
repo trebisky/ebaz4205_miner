@@ -1,0 +1,172 @@
+#!/bin/python
+
+# Do something about that darned mrc and mcr instruction.
+# We have 71 of these in the Zynq bootrom
+
+# 00000070:	ee190f1c 	mrc	15, 0, r0, cr9, cr12, {0}
+# 00000078:	ee090f1c 	mcr	15, 0, r0, cr9, cr12, {0}
+
+'''
+This is as good a place as any for a rant about all of this.
+This is such a pain in the ass and a huge hassle.
+Whoever wrote the ARM assembler dropped the ball.
+This is the kind of thing a good assembler should
+take care of and present to the user in a civilized way.
+
+Yes I know these are in fact "coprocessor instructions", but
+in truth nobody cares and that is no help to anybody.
+We can be thankful in arm64 that all this got cleaned up.
+
+We have "mrc" for "register to coprocessor
+and we have "mcr" for coprocessor to register.
+
+Documentation will show:
+
+    mrc   15, op1, reg, crn, crm, op2
+
+Here is a typical example:
+
+	mrc	15, 0, r0, cr9, cr12, {0}
+
+15 is the coprocessor number (always 15 for the system coprocessor)
+0 is the first opcode (0-7)
+r0 is an ARM register that we are (in this mrc) taking data from
+cr9 is the first coprocessor register
+cr12 is the second coprocessor register
+{0} is the second opcode (0-7)
+
+The second opcode is almost always 0 (and defaults to 0 if omitted).
+
+So the game is this.  Throw away and ignore the "15".
+Then use the 4 values "op1, crn, crm, op2" to figure out what
+coprocessor function is being fooled with
+
+I would like to rewrite the above example as:
+
+    mrc r0, ICIALLU
+
+In this case the r0 register is ignored and the idea is to invalidate
+all of the instruction caches.
+
+The next problem is that I have yet to find a handy and concise table
+that lets me look up something like "0, cr9, cr12, 0" and find out that
+it is ICIALLU!!  But that is sort of what we are generating here.
+
+'''
+
+# This does give us a blank line at the start, oh well.
+# We want the commas as shown
+my_setup = '''
+ICIALLU 0, cr7, cr5, {0}
+BPIALL 0, cr7, cr5, {6}
+TLBIALL 0, cr8, cr7, {0}
+MIDR 0, cr0, cr0, {0}
+MPIDR 0, cr0, cr0, {5}
+PMCR 0, cr9, cr12, {0}
+PMCNTENSET 0, cr9, cr12, {1}
+PMCNTENCLR 0, cr9, cr12, {2}
+PMOVSR 0, cr9, cr12, {3}
+SCTLR 0, cr1, cr0, {0}
+ACTLR 0, cr1, cr0, {1}
+TTBR0 0, cr2, cr0, {0}
+TTBR1 0, cr2, cr0, {1}
+TTBCR 0, cr2, cr0, {2}
+DACR 0, cr3, cr0, {0}
+CSSELR 2, cr0, cr0, {0}
+CCSIDR 1, cr0, cr0, {0}
+CLIDR 1, cr0, cr0, {1}
+DCISW 0, cr7, cr6, {2}
+DCCISW 0, cr7, cr14, {2}
+'''
+
+table = []
+
+def add_line ( line ) :
+    table.append ( line.split () )
+
+def init () :
+    for line in my_setup.splitlines():
+        if line != "" :
+            add_line ( line )
+
+# 00000070:	ee190f1c 	mrc	15, 0, r0, cr9, cr12, {0}
+def lookup ( ww ) :
+    for tt in table :
+        if ww[4] == tt[1] and ww[6] == tt[2] and ww[7] == tt[3] and ww[8] == tt[4] :
+                return tt[0]
+    return None
+
+def Xprocess ( line ) :
+    ll = line.split ()
+    if len(ll) != 7 :
+        print ( line, end="" )
+        return
+    #print ( len(ll), end="" )
+    print ( ll[0] + 
+        "\t" + ll[1] +
+        "\t" + ll[2] +
+        "\t" + ll[3] +
+        " #" + ll[6] )
+
+def get_addr ( line ) :
+    ll = line.split ( ":", 1 )
+    return int(ll[0],16)
+
+def echo ( line ) :
+    print ( line, end="" )
+
+# After address 0x10000 we have a block of data
+# that mistakenly gets disassembled.
+def process ( line ) :
+    if get_addr ( line ) > 0x10000 :
+        #echo ( line )
+        return
+
+    # echo ( line )
+    ww = line.split ()
+    if len(ww) != 9 :
+        print ( "Busted!" )
+        exit ();
+    if ww[3] != "15," :
+        print ( "Busted-15!" )
+        exit ();
+
+    reg = ww[5]
+# 00000070:	ee190f1c 	mrc	15, 0, r0, cr9, cr12, {0}
+    name = lookup ( ww )
+
+    if name :
+        # I decided to skip this
+        #echo ( "#" + line )
+        print ( ww[0] + 
+            "\t" + ww[1] +
+            "\t" + ww[2] +
+            "\t" + reg +
+            " " + name )
+    else :
+        # should not happen
+        echo ( "XXX" + line )
+        print ( "Busted - missing" )
+        exit ()
+
+def do_line ( line ) :
+    if "mrc" in line :
+        process ( line )
+    elif "mcr" in line :
+        process ( line )
+    else :
+        #pass
+        echo ( line )
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+
+file = open('bootrom.txt', 'r')
+
+init ()
+
+while True:
+    line = file.readline()
+    if not line:
+        break
+    do_line ( line )
