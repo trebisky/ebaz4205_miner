@@ -27,3 +27,5 @@ Here are the projects you will find here:
 1. bit_util - bitstream utilities
 1. blink1 - blink (test PL download)
 1. blink2 - blink (make an AXI gpio LED gadget and AXI gpio driver)
+
+1. bootrom - the Zynq bootrom

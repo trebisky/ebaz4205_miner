@@ -1,0 +1,26 @@
+#!/bin/python
+
+# I don't like seeing addresses as "24:"
+# I want to see the full 00000024:
+# Don't ask me why.
+
+def process ( line ) :
+    ll = line.split ( ':', 1 )
+    #print ( line, end="" )
+    val = int ( ll[0], 16 )
+    #print ( ll[0] )
+    print ( "%08x:%s" % ( val, ll[1] ), end='' )
+
+file = open('bootrom.raw', 'r')
+
+# skip header rubbish
+skip = True
+
+while True:
+    line = file.readline()
+    if not line:
+        break
+    if skip :
+        skip = not "0:" in line
+    if not skip :
+        process (line)

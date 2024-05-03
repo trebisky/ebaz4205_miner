@@ -1,3 +1,6 @@
 bootrom.elf
+bootrom.raw
 bootrom.dis
+bootrom.odx
 wrap
+zzz

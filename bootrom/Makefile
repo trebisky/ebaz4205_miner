@@ -11,8 +11,14 @@ all:	bootrom.dis
 bootrom.elf: wrap
 	./wrap $(ROM) bootrom.elf
 
-bootrom.dis: bootrom.elf
-	$(DUMP) $(MACH) -d bootrom.elf -z >bootrom.dis
+bootrom.raw: bootrom.elf
+	$(DUMP) $(MACH) -d bootrom.elf -z >bootrom.raw
+
+bootrom.dis: bootrom.raw
+	./fixaddr >bootrom.dis
+
+bootrom.odx: $(ROM)
+	odx $(ROM) >bootrom.odx
 
 # should yield: md5: ADF639AFE9855EE86C8FAAD216C970D9
 sum:
@@ -23,6 +29,7 @@ wrap:   wrap.c
 
 clean:
 	rm -f bootrom.elf
+	rm -f bootrom.raw
 	rm -f bootrom.dis
 	rm -f wrap
 
