@@ -1,7 +1,10 @@
 #!/bin/python
 
-# Do something about that darned mrc and mcr instruction.
+# Do something about those doggone mrc and mcr instructions.
 # We have 71 of these in the Zynq bootrom
+# (only 20 different encodings though)
+
+# Tom Trebisky  5-3-2024
 
 # 00000070:	ee190f1c 	mrc	15, 0, r0, cr9, cr12, {0}
 # 00000078:	ee090f1c 	mcr	15, 0, r0, cr9, cr12, {0}
