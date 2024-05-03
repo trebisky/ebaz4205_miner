@@ -8,10 +8,11 @@
 ;
 ; The ROM includes this timestamp:
 ;    Dec  1 2012 01:16:55
+; What were you doing on December 1 of 2012 ?
 
-;
-; The disassembly is 32770 lines before we trim this off
-; It is 25070 lines (more or less) afterwards.
+
+; The disassembly is 32770 lines before we trim anything off.
+; It is 25070 lines (more or less) after ditching the trailing ffc5dead lines.
 ; However, everything from 0xff14 and on looks like
 ; a mass of data (maybe an FPGA bitstream?)
 ; This cuts us down to "only" about 16,000 lines of code
@@ -26,8 +27,37 @@
 ;  (this is the stub copied to high memory before locking away the rom).
 ;  RAM gets mapped to 0x70000 during bootrom execution. 
 
+; Serial IO and UART.
+; We are on the lookout for "XLNX-ZYNQ"
+; Uart0 base is 0xE000_0000
+; Uart1 base is 0xE000_1000
+; The Uart registers are like so:
+
+;-  struct zynq_uart {
+;-  
+;-          vu32    control;	// 00
+;-          vu32    mode;	// 04
+;-          vu32    ie;		// 08
+;-          vu32    id;		// 0c
+;-  
+;-          vu32    im;		// 10
+;-          vu32    istatus;	// 14
+;-          vu32    baud;	// 18
+;-          vu32    rto;	// 1c
+;-  
+;-          vu32    rfifo;	// 20
+;-          vu32    mcontrol;	// 24
+;-          vu32    mstatus;	// 28
+;-          vu32    cstatus;	// 2c
+;-  
+;-          vu32    fifo;	// 30
+;-          vu32    baud_div;	// 34
+;-          vu32    fc_delay;	// 38
+;-          int     __pad1[2];
+;-          vu32    tfifo;	// 44
+
+; ---------------------------------------------
 ; Execution starts right here at address zero.
-; No "reset vector" with stack then PC
 
 00000000:	ea00000f 	b	0x44
 00000004:	e320f000 	nop	{0}
@@ -56,6 +86,7 @@
 0000005c:	e35b0000 	cmp	fp, #0
 00000060:	0a000002 	beq	0x70
 
+; spin
 00000064:	f57ff04f 	dsb	sy
 00000068:	e320f002 	wfe
 0000006c:	eafffffc 	b	0x64
@@ -84,7 +115,11 @@
 000000c4:	f57ff04f 	dsb	sy
 000000c8:	f57ff06f 	isb	sy
 000000cc:	ea0029a8 	b	0xa774
+
+; spin
 000000d0:	eafffffe 	b	0xd0
+
+; subroutine (called once from above)
 000000d4:	f57ff05f 	dmb	sy
 000000d8:	ee300f30 	mrc	15, 1, r0, cr0, cr0, {1}
 000000dc:	e2103407 	ands	r3, r0, #117440512	@ 0x7000000
@@ -182,6 +217,7 @@
 00000244:	e0200003 	eor	r0, r0, r3
 00000248:	e28dd00c 	add	sp, sp, #12
 0000024c:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
+
 00000250:	e92d4010 	push	{r4, lr}
 00000254:	e3e0c000 	mvn	ip, #0
 00000258:	e24dd008 	sub	sp, sp, #8
@@ -204,6 +240,8 @@
 0000029c:	e0200003 	eor	r0, r0, r3
 000002a0:	e28dd008 	add	sp, sp, #8
 000002a4:	e8bd8010 	pop	{r4, pc}
+
+; subroutine
 000002a8:	e30d0010 	movw	r0, #53264	@ 0xd010
 000002ac:	e92d4010 	push	{r4, lr}
 000002b0:	e34f0800 	movt	r0, #63488	@ 0xf800
@@ -214,14 +252,18 @@
 000002c4:	eb0006d7 	bl	0x1e28
 000002c8:	e3500000 	cmp	r0, #0
 000002cc:	08bd8010 	popeq	{r4, pc}
+
 000002d0:	e3a00a01 	mov	r0, #4096	@ 0x1000
 000002d4:	e8bd4010 	pop	{r4, lr}
 000002d8:	ea000249 	b	0xc04
+
 000002dc:	ebffffcb 	bl	0x210
 000002e0:	eb0006d0 	bl	0x1e28
 000002e4:	e3500000 	cmp	r0, #0
 000002e8:	08bd8010 	popeq	{r4, pc}
 000002ec:	eafffff7 	b	0x2d0
+
+; subroutine
 000002f0:	e92d40f0 	push	{r4, r5, r6, r7, lr}
 000002f4:	e300648c 	movw	r6, #1164	@ 0x48c
 000002f8:	e24dd00c 	sub	sp, sp, #12
@@ -256,8 +298,10 @@
 0000036c:	1affffe9 	bne	0x318
 00000370:	e28dd00c 	add	sp, sp, #12
 00000374:	e8bd80f0 	pop	{r4, r5, r6, r7, pc}
+
 00000378:	e3000b0c 	movw	r0, #2828	@ 0xb0c
 0000037c:	e3011166 	movw	r1, #4454	@ 0x1166
+
 00000380:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 00000384:	e34f0800 	movt	r0, #63488	@ 0xf800
 00000388:	e3401c30 	movt	r1, #3120	@ 0xc30
@@ -457,6 +501,7 @@
 00000690:	e34e0000 	movt	r0, #57344	@ 0xe000
 00000694:	e3e01000 	mvn	r1, #0
 00000698:	e8bd41f0 	pop	{r4, r5, r6, r7, r8, lr}
+
 0000069c:	ea002a57 	b	0xb000
 000006a0:	e3003000 	movw	r3, #0
 000006a4:	e92d4010 	push	{r4, lr}
@@ -803,6 +848,7 @@
 00000bf8:	e3c00101 	bic	r0, r0, #1073741824	@ 0x40000000
 00000bfc:	e8bd4010 	pop	{r4, lr}
 00000c00:	ea000484 	b	0x1e18
+
 00000c04:	e92d4010 	push	{r4, lr}
 00000c08:	e1a04000 	mov	r4, r0
 00000c0c:	e30d0010 	movw	r0, #53264	@ 0xd010
@@ -10763,6 +10809,8 @@
 0000a734:	e3a00b09 	mov	r0, #9216	@ 0x2400
 0000a738:	ebffd819 	bl	0x7a4
 0000a73c:	eafffff3 	b	0xa710
+
+; one line subroutine !
 0000a740:	e12fff1e 	bx	lr
 
 0000a744:	e3a02102 	mov	r2, #-2147483648	@ 0x80000000
@@ -10778,12 +10826,17 @@
 0000a768:	00070000 	andeq	r0, r7, r0
 0000a76c:	00077694 	muleq	r7, r4, r6
 0000a770:	0007d4a0 	andeq	sp, r7, r0, lsr #9
+
+; Startup branches to here.
 0000a774:	ebfffff1 	bl	0xa740
 0000a778:	e51fd010 	ldr	sp, [pc, #-16]	@ 0xa770
-0000a77c:	ebffdbc1 	bl	0x1688
+0000a77c:	ebffdbc1 	bl	0x1688	; (main)
 0000a780:	e3a00c27 	mov	r0, #9984	@ 0x2700
 0000a784:	eaffd91e 	b	0xc04
+
+; spin
 0000a788:	eafffffe 	b	0xa788
+
 0000a78c:	e1a04003 	mov	r4, r3
 0000a790:	e1a05003 	mov	r5, r3
 0000a794:	e1a06003 	mov	r6, r3
@@ -10983,6 +11036,7 @@
 0000aa98:	e3530053 	cmp	r3, #83	@ 0x53
 0000aa9c:	979ff103 	ldrls	pc, [pc, r3, lsl #2]
 0000aaa0:	ea00005a 	b	0xac10
+
 0000aaa4:	0000ad74 	andeq	sl, r0, r4, ror sp
 0000aaa8:	0000ac10 	andeq	sl, r0, r0, lsl ip
 0000aaac:	0000ac10 	andeq	sl, r0, r0, lsl ip
@@ -11216,12 +11270,16 @@
 0000ae38:	e0600001 	rsb	r0, r0, r1
 0000ae3c:	e12fff1e 	bx	lr
 
+; never called
+; tests if a digit
 0000ae40:	e2400030 	sub	r0, r0, #48	@ 0x30
 0000ae44:	e3500009 	cmp	r0, #9
 0000ae48:	83a00000 	movhi	r0, #0
 0000ae4c:	93a00001 	movls	r0, #1
 0000ae50:	e12fff1e 	bx	lr
 
+; never called
+; tests if a letter
 0000ae54:	e2403041 	sub	r3, r0, #65	@ 0x41
 0000ae58:	e3530019 	cmp	r3, #25
 0000ae5c:	92800020 	addls	r0, r0, #32
@@ -11245,6 +11303,8 @@
 0000aea0:	e3a01001 	mov	r1, #1
 0000aea4:	e8bd4010 	pop	{r4, lr}
 0000aea8:	ea000054 	b	0xb000
+
+; subroutine
 0000aeac:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 0000aeb0:	e24dd014 	sub	sp, sp, #20
 0000aeb4:	e3a00f81 	mov	r0, #516	@ 0x204
@@ -11274,6 +11334,8 @@
 0000af14:	e1a01003 	mov	r1, r3
 0000af18:	e28dd014 	add	sp, sp, #20
 0000af1c:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
+
+; subroutine
 0000af20:	e92d40f0 	push	{r4, r5, r6, r7, lr}
 0000af24:	e1a04002 	mov	r4, r2
 0000af28:	e24dd00c 	sub	sp, sp, #12
@@ -11292,6 +11354,8 @@
 0000af5c:	e1c620f0 	strd	r2, [r6]
 0000af60:	e28dd00c 	add	sp, sp, #12
 0000af64:	e8bd80f0 	pop	{r4, r5, r6, r7, pc}
+
+; subroutine
 0000af68:	e92d4038 	push	{r3, r4, r5, lr}
 0000af6c:	e1a04000 	mov	r4, r0
 0000af70:	e1a05001 	mov	r5, r1
@@ -11301,6 +11365,7 @@
 0000af80:	33a00000 	movcc	r0, #0
 0000af84:	23a00001 	movcs	r0, #1
 0000af88:	e8bd8038 	pop	{r3, r4, r5, pc}
+
 0000af8c:	eafffffe 	b	0xaf8c
 0000af90:	eafffffe 	b	0xaf90
 0000af94:	eafffffe 	b	0xaf94
@@ -11309,14 +11374,17 @@
 0000afa0:	e5d00000 	ldrb	r0, [r0]
 0000afa4:	e12fff1e 	bx	lr
 
+; one call
 0000afa8:	f57ff05f 	dmb	sy
 0000afac:	e1d000b0 	ldrh	r0, [r0]
 0000afb0:	e12fff1e 	bx	lr
 
+; many calls
 0000afb4:	f57ff05f 	dmb	sy
 0000afb8:	e5900000 	ldr	r0, [r0]
 0000afbc:	e12fff1e 	bx	lr
 
+; never called
 0000afc0:	f57ff05f 	dmb	sy
 0000afc4:	e1d000b0 	ldrh	r0, [r0]
 0000afc8:	e1a02420 	lsr	r2, r0, #8
@@ -11324,19 +11392,23 @@
 0000afd0:	e6ff0073 	uxth	r0, r3
 0000afd4:	e12fff1e 	bx	lr
 
+; never called
 0000afd8:	f57ff05f 	dmb	sy
 0000afdc:	e5900000 	ldr	r0, [r0]
 0000afe0:	e6bf0f30 	rev	r0, r0
 0000afe4:	e12fff1e 	bx	lr
 
+; many calls
 0000afe8:	e5c01000 	strb	r1, [r0]
 0000afec:	f57ff05f 	dmb	sy
 0000aff0:	e12fff1e 	bx	lr
 
+; never called
 0000aff4:	e1c010b0 	strh	r1, [r0]
 0000aff8:	f57ff05f 	dmb	sy
 0000affc:	e12fff1e 	bx	lr
 
+; many calls and branches to here.
 0000b000:	e5801000 	str	r1, [r0]
 0000b004:	f57ff05f 	dmb	sy
 0000b008:	e12fff1e 	bx	lr
@@ -11412,6 +11484,8 @@
 0000b114:	8affffdd 	bhi	0xb090
 0000b118:	f57ff04f 	dsb	sy
 0000b11c:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+
+; subroutine
 0000b120:	e92d4010 	push	{r4, lr}
 0000b124:	ee114f10 	mrc	15, 0, r4, cr1, cr0, {0}
 0000b128:	e3140004 	tst	r4, #4
@@ -11421,6 +11495,8 @@
 0000b138:	ee014f10 	mcr	15, 0, r4, cr1, cr0, {0}
 0000b13c:	f57ff04f 	dsb	sy
 0000b140:	e8bd8010 	pop	{r4, pc}
+
+; subroutine
 0000b144:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 0000b148:	e3a05000 	mov	r5, #0
 0000b14c:	ee405f10 	mcr	15, 2, r5, cr0, cr0, {0}
@@ -11479,6 +11555,8 @@
 0000b220:	8affffdd 	bhi	0xb19c
 0000b224:	f57ff04f 	dsb	sy
 0000b228:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+
+; subroutine
 0000b22c:	e92d4008 	push	{r3, lr}
 0000b230:	ebffffc3 	bl	0xb144
 0000b234:	ee110f10 	mrc	15, 0, r0, cr1, cr0, {0}
@@ -11486,6 +11564,8 @@
 0000b23c:	ee013f10 	mcr	15, 0, r3, cr1, cr0, {0}
 0000b240:	f57ff04f 	dsb	sy
 0000b244:	e8bd8008 	pop	{r3, pc}
+
+; subroutine
 0000b248:	ee113f10 	mrc	15, 0, r3, cr1, cr0, {0}
 0000b24c:	e2132a01 	ands	r2, r3, #4096	@ 0x1000
 0000b250:	112fff1e 	bxne	lr
@@ -11497,6 +11577,7 @@
 0000b264:	f57ff04f 	dsb	sy
 0000b268:	e12fff1e 	bx	lr
 
+; subroutine
 0000b26c:	f57ff04f 	dsb	sy
 0000b270:	e3a01000 	mov	r1, #0
 0000b274:	ee071f15 	mcr	15, 0, r1, cr7, cr5, {0}
@@ -16249,6 +16330,8 @@
 0000fc74:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
 0000fc78:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
 0000fc7c:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
+
+; stub that gets copied to high memory
 0000fc80:	e59f128c 	ldr	r1, [pc, #652]	@ 0xff14
 0000fc84:	e59f228c 	ldr	r2, [pc, #652]	@ 0xff18
 0000fc88:	e3a03000 	mov	r3, #0
