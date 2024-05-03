@@ -603,10 +603,14 @@
 0000071c:	e3011999 	movw	r1, #6553	@ 0x1999
 00000720:	e34f0800 	movt	r0, #63488	@ 0xf800
 00000724:	ea002a35 	b	0xb000
+
+; subroutine -- write 0 to 0xf8f02100
+
 00000728:	e3a00c21 	mov	r0, #8448	@ 0x2100
 0000072c:	e3a01000 	mov	r1, #0
 00000730:	e34f08f0 	movt	r0, #63728	@ 0xf8f0
 00000734:	ea002a31 	b	0xb000
+
 00000738:	e92d4070 	push	{r4, r5, r6, lr}
 0000073c:	e3a06014 	mov	r6, #20
 00000740:	e34e6000 	movt	r6, #57344	@ 0xe000
@@ -1662,16 +1666,37 @@
 0000177c:	e59de010 	ldr	lr, [sp, #16]
 00001780:	e35e0001 	cmp	lr, #1
 00001784:	0a0000b2 	beq	0x1a54
+
+; read from 0xf800025c
+; This must give the boot mode settings.
 00001788:	e3a00f97 	mov	r0, #604	@ 0x25c
 0000178c:	e34f0800 	movt	r0, #63488	@ 0xf800
 00001790:	eb002607 	bl	0xafb4
 00001794:	e1a05000 	mov	r5, r0
+
 00001798:	ebfffbe2 	bl	0x728
+
+; write 0x20 to 0xe000d038
+
 0000179c:	e30d0038 	movw	r0, #53304	@ 0xd038
 000017a0:	e3a01020 	mov	r1, #32
 000017a4:	e34e0000 	movt	r0, #57344	@ 0xe000
-000017a8:	e2055007 	and	r5, r5, #7
+000017a8:	e2055007 	and	r5, r5, #7	; mask to 3 bits
 000017ac:	eb002613 	bl	0xb000
+
+; This must be checking the boot mode settings
+; and dispatching to whatever boot load routine handles it
+; We get 8 choices and all seem to do something
+; Page 166 of the TRM has a table showing "boot mode strapping pins"
+; 0 = JTAG
+; 1 = NOR
+; 2 = NAND
+; 3 = ?? (secret uart)
+; 4 = Quad-SPI
+; 5 = ??
+; 6 = SD card
+; 7 = ??
+
 000017b0:	e3550001 	cmp	r5, #1
 000017b4:	0a0000cc 	beq	0x1aec
 000017b8:	e3550004 	cmp	r5, #4
@@ -1681,13 +1706,15 @@
 000017c8:	e3550005 	cmp	r5, #5
 000017cc:	0a0000e7 	beq	0x1b70
 000017d0:	e3550003 	cmp	r5, #3
-000017d4:	0a0000ad 	beq	0x1a90
+000017d4:	0a0000ad 	beq	0x1a90		; run uart-loader
 000017d8:	e3550000 	cmp	r5, #0
 000017dc:	0a0000b5 	beq	0x1ab8
 000017e0:	e3550006 	cmp	r5, #6
 000017e4:	0a00013f 	beq	0x1ce8
 000017e8:	e3550007 	cmp	r5, #7
 000017ec:	0a0000ea 	beq	0x1b9c
+
+; How can we get here?  All 8 cases get taken above.
 000017f0:	e3020009 	movw	r0, #8201	@ 0x2009
 000017f4:	ebfffd02 	bl	0xc04
 000017f8:	e307002c 	movw	r0, #28716	@ 0x702c
@@ -1708,6 +1735,7 @@
 00001834:	e5843000 	str	r3, [r4]
 00001838:	e34091ff 	movt	r9, #511	@ 0x1ff
 0000183c:	ea000013 	b	0x1890
+
 00001840:	e353033f 	cmp	r3, #-67108864	@ 0xfc000000
 00001844:	0a000022 	beq	0x18d4
 00001848:	e35304e1 	cmp	r3, #-520093696	@ 0xe1000000
@@ -1856,8 +1884,9 @@
 00001a84:	e1a00004 	mov	r0, r4
 00001a88:	ebfffda9 	bl	0x1134
 00001a8c:	eaffffe1 	b	0x1a18
+
 00001a90:	e3a00701 	mov	r0, #262144	@ 0x40000
-00001a94:	eb0021ce 	bl	0xa1d4
+00001a94:	eb0021ce 	bl	0xa1d4		; call uart-loader
 00001a98:	e3500000 	cmp	r0, #0
 00001a9c:	1a0000cb 	bne	0x1dd0
 00001aa0:	e300068c 	movw	r0, #1676	@ 0x68c
@@ -1923,6 +1952,8 @@
 00001b90:	e340c000 	movt	ip, #0
 00001b94:	e58ec000 	str	ip, [lr]
 00001b98:	eaffff16 	b	0x17f8
+
+; Handle boot mode 7 (mystery)
 00001b9c:	eb0000ef 	bl	0x1f60
 00001ba0:	e3a00a07 	mov	r0, #28672	@ 0x7000
 00001ba4:	e34f0800 	movt	r0, #63488	@ 0xf800
@@ -2006,6 +2037,8 @@
 00001cdc:	e3020012 	movw	r0, #8210	@ 0x2012
 00001ce0:	ebfffbc7 	bl	0xc04
 00001ce4:	eaffff49 	b	0x1a10
+
+; Handle boot mode 6 (SD card)
 00001ce8:	eb0001ce 	bl	0x2428
 00001cec:	e3020006 	movw	r0, #8198	@ 0x2006
 00001cf0:	ebfffbc3 	bl	0xc04
@@ -10543,7 +10576,7 @@
 0000a1cc:	e6ef0070 	uxtb	r0, r0
 0000a1d0:	e8bd8010 	pop	{r4, pc}
 
-; subroutine
+; subroutine (uart-loader)
 0000a1d4:	e92d45f8 	push	{r3, r4, r5, r6, r7, r8, sl, lr}
 0000a1d8:	e30024a0 	movw	r2, #1184	@ 0x4a0
 0000a1dc:	e3a0ca01 	mov	ip, #4096	@ 0x1000
@@ -25296,6 +25329,8 @@
 00018710:	0000000a 	andeq	r0, r0, sl
 00018714:	78382e25 	ldmdavc	r8!, {r0, r2, r5, r9, sl, fp, sp}
 00018718:	00000a0d 	andeq	r0, r0, sp, lsl #20
+
+; this is the string "BOOT.BIN"
 0001871c:	544f4f42 	strbpl	r4, [pc], #-3906	@ 0x18724
 00018720:	4e49422e 	cdpmi	2, 4, cr4, cr9, cr14, {1}
 00018724:	00000000 	andeq	r0, r0, r0
