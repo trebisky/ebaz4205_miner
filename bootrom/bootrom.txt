@@ -6,8 +6,25 @@
 ; After 0x18770 it is filled with an odd
 ; pattern that we can ignore: ffc5dead
 ;
+; The ROM includes this timestamp:
+;    Dec  1 2012 01:16:55
+
+;
 ; The disassembly is 32770 lines before we trim this off
 ; It is 25070 lines (more or less) afterwards.
+; However, everything from 0xff14 and on looks like
+; a mass of data (maybe an FPGA bitstream?)
+; This cuts us down to "only" about 16,000 lines of code
+; and there are other data blocks embedded in that.
+
+; Some anonymous tips:
+;
+; JTAG comes up disabled, and is enabled by the bootrom after it copies a stub to high memory.
+; look at Binary Ninja (https://binary.ninja/free/) it's a great tool.
+; main is 0x1688, code is basically constant til 0xb648,
+;  then there is a chunk from 0xfc80 to 0xff10
+;  (this is the stub copied to high memory before locking away the rom).
+;  RAM gets mapped to 0x70000 during bootrom execution. 
 
 ; Execution starts right here at address zero.
 ; No "reset vector" with stack then PC
@@ -38,9 +55,11 @@
 00000058:	e20bb00f 	and	fp, fp, #15
 0000005c:	e35b0000 	cmp	fp, #0
 00000060:	0a000002 	beq	0x70
+
 00000064:	f57ff04f 	dsb	sy
 00000068:	e320f002 	wfe
 0000006c:	eafffffc 	b	0x64
+
 00000070:	ee190f1c 	mrc	15, 0, r0, cr9, cr12, {0}
 00000074:	e3800005 	orr	r0, r0, #5
 00000078:	ee090f1c 	mcr	15, 0, r0, cr9, cr12, {0}
@@ -102,6 +121,7 @@
 00000158:	ee40af10 	mcr	15, 2, sl, cr0, cr0, {0}
 0000015c:	f57ff06f 	isb	sy
 00000160:	e12fff1e 	bx	lr
+
 00000164:	0007d4a0 	andeq	sp, r7, r0, lsr #9
 00000168:	00010000 	andeq	r0, r1, r0
 0000016c:	000003ff 	strdeq	r0, [r0], -pc	@ <UNPREDICTABLE>
@@ -145,6 +165,7 @@
 00000204:	e5803000 	str	r3, [r0]
 00000208:	e8bd00f0 	pop	{r4, r5, r6, r7}
 0000020c:	e12fff1e 	bx	lr
+
 00000210:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 00000214:	e3e0c000 	mvn	ip, #0
 00000218:	e24dd00c 	sub	sp, sp, #12
@@ -1114,6 +1135,7 @@
 00001128:	e1530000 	cmp	r3, r0
 0000112c:	9afffff9 	bls	0x1118
 00001130:	e12fff1e 	bx	lr
+
 00001134:	e92d4030 	push	{r4, r5, lr}
 00001138:	e3a05a07 	mov	r5, #28672	@ 0x7000
 0000113c:	e24dd00c 	sub	sp, sp, #12
@@ -1305,6 +1327,7 @@
 00001424:	e2823001 	add	r3, r2, #1
 00001428:	1afffff9 	bne	0x1414
 0000142c:	e12fff1e 	bx	lr
+
 00001430:	e3520000 	cmp	r2, #0
 00001434:	e52d4004 	push	{r4}		@ (str r4, [sp, #-4]!)
 00001438:	0a000015 	beq	0x1494
@@ -1332,6 +1355,7 @@
 00001490:	1afffff7 	bne	0x1474
 00001494:	e49d4004 	pop	{r4}		@ (ldr r4, [sp], #4)
 00001498:	e12fff1e 	bx	lr
+
 0000149c:	e1a02000 	mov	r2, r0
 000014a0:	e5d10000 	ldrb	r0, [r1]
 000014a4:	e3500000 	cmp	r0, #0
@@ -1347,6 +1371,7 @@
 000014cc:	e1a00002 	mov	r0, r2
 000014d0:	e7c21003 	strb	r1, [r2, r3]
 000014d4:	e12fff1e 	bx	lr
+
 000014d8:	e3120001 	tst	r2, #1
 000014dc:	e52d4004 	push	{r4}		@ (str r4, [sp, #-4]!)
 000014e0:	e3a03000 	mov	r3, #0
@@ -1375,6 +1400,7 @@
 0000153c:	23a00001 	movcs	r0, #1
 00001540:	e49d4004 	pop	{r4}		@ (ldr r4, [sp], #4)
 00001544:	e12fff1e 	bx	lr
+
 00001548:	e1a00002 	mov	r0, r2
 0000154c:	eafffffb 	b	0x1540
 00001550:	e92d4ff8 	push	{r3, r4, r5, r6, r7, r8, r9, sl, fp, lr}
@@ -1455,6 +1481,8 @@
 0000167c:	e307167b 	movw	r1, #30331	@ 0x767b
 00001680:	e8bd4010 	pop	{r4, lr}
 00001684:	ea00265d 	b	0xb000
+
+; main
 00001688:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 0000168c:	e300c668 	movw	ip, #1640	@ 0x668
 00001690:	e3004498 	movw	r4, #1176	@ 0x498
@@ -2442,6 +2470,7 @@
 000025e8:	1affffcb 	bne	0x251c
 000025ec:	e8bd0030 	pop	{r4, r5}
 000025f0:	e12fff1e 	bx	lr
+
 000025f4:	e92d01f0 	push	{r4, r5, r6, r7, r8}
 000025f8:	e3a00000 	mov	r0, #0
 000025fc:	e30054a4 	movw	r5, #1188	@ 0x4a4
@@ -2604,6 +2633,7 @@
 00002870:	1affffe1 	bne	0x27fc
 00002874:	e8bd01f0 	pop	{r4, r5, r6, r7, r8}
 00002878:	e12fff1e 	bx	lr
+
 0000287c:	e3a03000 	mov	r3, #0
 00002880:	e30024a4 	movw	r2, #1188	@ 0x4a4
 00002884:	e92d05f0 	push	{r4, r5, r6, r7, r8, sl}
@@ -2655,6 +2685,7 @@
 0000293c:	e7d30002 	ldrb	r0, [r3, r2]
 00002940:	e8bd05f0 	pop	{r4, r5, r6, r7, r8, sl}
 00002944:	e12fff1e 	bx	lr
+
 00002948:	e92d4010 	push	{r4, lr}
 0000294c:	e30d4014 	movw	r4, #53268	@ 0xd014
 00002950:	e34f4800 	movt	r4, #63488	@ 0xf800
@@ -2957,6 +2988,7 @@
 00002df4:	e28dd01c 	add	sp, sp, #28
 00002df8:	e8bd01f0 	pop	{r4, r5, r6, r7, r8}
 00002dfc:	e12fff1e 	bx	lr
+
 00002e00:	e28420fd 	add	r2, r4, #253	@ 0xfd
 00002e04:	e2844033 	add	r4, r4, #51	@ 0x33
 00002e08:	ea000005 	b	0x2e24
@@ -5704,6 +5736,7 @@
 000058e0:	0a000001 	beq	0x58ec
 000058e4:	e3a00000 	mov	r0, #0
 000058e8:	e12fff1e 	bx	lr
+
 000058ec:	e3003498 	movw	r3, #1176	@ 0x498
 000058f0:	e30fcfe0 	movw	ip, #65504	@ 0xffe0
 000058f4:	e3403007 	movt	r3, #7
@@ -5721,6 +5754,7 @@
 00005924:	e792c103 	ldr	ip, [r2, r3, lsl #2]
 00005928:	e581c000 	str	ip, [r1]
 0000592c:	e12fff1e 	bx	lr
+
 00005930:	e300c498 	movw	ip, #1176	@ 0x498
 00005934:	e30f1fe0 	movw	r1, #65504	@ 0xffe0
 00005938:	e340c007 	movt	ip, #7
@@ -5732,6 +5766,7 @@
 00005950:	83a00000 	movhi	r0, #0
 00005954:	93a00001 	movls	r0, #1
 00005958:	e12fff1e 	bx	lr
+
 0000595c:	e92d4070 	push	{r4, r5, r6, lr}
 00005960:	e300449c 	movw	r4, #1180	@ 0x49c
 00005964:	e3404007 	movt	r4, #7
@@ -7775,6 +7810,7 @@
 0000793c:	8a00001d 	bhi	0x79b8
 00007940:	e8bd0030 	pop	{r4, r5}
 00007944:	e12fff1e 	bx	lr
+
 00007948:	e550c001 	ldrb	ip, [r0, #-1]
 0000794c:	e38cc002 	orr	ip, ip, #2
 00007950:	e540c001 	strb	ip, [r0, #-1]
@@ -8402,6 +8438,7 @@
 00008308:	13a00000 	movne	r0, #0
 0000830c:	03a00001 	moveq	r0, #1
 00008310:	e12fff1e 	bx	lr
+
 00008314:	e0803121 	add	r3, r0, r1, lsr #2
 00008318:	e1a01081 	lsl	r1, r1, #1
 0000831c:	e5d321c4 	ldrb	r2, [r3, #452]	@ 0x1c4
@@ -8413,6 +8450,7 @@
 00008334:	e182111c 	orr	r1, r2, ip, lsl r1
 00008338:	e5c311c4 	strb	r1, [r3, #452]	@ 0x1c4
 0000833c:	e12fff1e 	bx	lr
+
 00008340:	e3500000 	cmp	r0, #0
 00008344:	e92d4008 	push	{r3, lr}
 00008348:	0a000007 	beq	0x836c
@@ -8691,6 +8729,7 @@
 0000878c:	30203192 	mlacc	r0, r2, r1, r3
 00008790:	23a00000 	movcs	r0, #0
 00008794:	e12fff1e 	bx	lr
+
 00008798:	e3510001 	cmp	r1, #1
 0000879c:	e92d40f8 	push	{r3, r4, r5, r6, r7, lr}
 000087a0:	e1a04001 	mov	r4, r1
@@ -9130,8 +9169,10 @@
 00008e68:	e3a00000 	mov	r0, #0
 00008e6c:	15c12000 	strbne	r2, [r1]
 00008e70:	e12fff1e 	bx	lr
+
 00008e74:	e3a0000b 	mov	r0, #11
 00008e78:	e12fff1e 	bx	lr
+
 00008e7c:	e92d4070 	push	{r4, r5, r6, lr}
 00008e80:	e3a03000 	mov	r3, #0
 00008e84:	e24dd030 	sub	sp, sp, #48	@ 0x30
@@ -9915,6 +9956,7 @@
 00009aac:	e3a00000 	mov	r0, #0
 00009ab0:	e49d4004 	pop	{r4}		@ (ldr r4, [sp], #4)
 00009ab4:	e12fff1e 	bx	lr
+
 00009ab8:	e380001b 	orr	r0, r0, #27
 00009abc:	eaffffd5 	b	0x9a18
 00009ac0:	e3800002 	orr	r0, r0, #2
@@ -9930,6 +9972,7 @@
 00009ae8:	e3800004 	orr	r0, r0, #4
 00009aec:	e5c30204 	strb	r0, [r3, #516]	@ 0x204
 00009af0:	e12fff1e 	bx	lr
+
 00009af4:	e92d45f0 	push	{r4, r5, r6, r7, r8, sl, lr}
 00009af8:	e300401c 	movw	r4, #28
 00009afc:	e3404007 	movt	r4, #7
@@ -10264,12 +10307,15 @@
 0000a020:	0a000001 	beq	0xa02c
 0000a024:	e3a00004 	mov	r0, #4
 0000a028:	e12fff1e 	bx	lr
+
 0000a02c:	e3a01080 	mov	r1, #128	@ 0x80
 0000a030:	e5821000 	str	r1, [r2]
 0000a034:	e12fff1e 	bx	lr
+
 0000a038:	e3a00000 	mov	r0, #0
 0000a03c:	e3430c21 	movt	r0, #15393	@ 0x3c21
 0000a040:	e12fff1e 	bx	lr
+
 0000a044:	e92d40f8 	push	{r3, r4, r5, r6, r7, lr}
 0000a048:	e3004224 	movw	r4, #548	@ 0x224
 0000a04c:	e3404007 	movt	r4, #7
@@ -10718,6 +10764,7 @@
 0000a738:	ebffd819 	bl	0x7a4
 0000a73c:	eafffff3 	b	0xa710
 0000a740:	e12fff1e 	bx	lr
+
 0000a744:	e3a02102 	mov	r2, #-2147483648	@ 0x80000000
 0000a748:	ee092f7c 	mcr	15, 0, r2, cr9, cr12, {3}
 0000a74c:	e3a0200d 	mov	r2, #13
@@ -10725,6 +10772,7 @@
 0000a754:	e3a02102 	mov	r2, #-2147483648	@ 0x80000000
 0000a758:	ee092f3c 	mcr	15, 0, r2, cr9, cr12, {1}
 0000a75c:	e12fff1e 	bx	lr
+
 0000a760:	00070000 	andeq	r0, r7, r0
 0000a764:	00070000 	andeq	r0, r7, r0
 0000a768:	00070000 	andeq	r0, r7, r0
@@ -10763,6 +10811,7 @@
 0000a7ec:	e24bb001 	sub	fp, fp, #1
 0000a7f0:	eafffffa 	b	0xa7e0
 0000a7f4:	e12fff1e 	bx	lr
+
 0000a7f8:	eafffffe 	b	0xa7f8
 0000a7fc:	e92d4010 	push	{r4, lr}
 0000a800:	e1a04000 	mov	r4, r0
@@ -11032,6 +11081,7 @@
 0000ac20:	e8bd41f0 	pop	{r4, r5, r6, r7, r8, lr}
 0000ac24:	e28dd010 	add	sp, sp, #16
 0000ac28:	e12fff1e 	bx	lr
+
 0000ac2c:	e59d001c 	ldr	r0, [sp, #28]
 0000ac30:	e5907000 	ldr	r7, [r0]
 0000ac34:	e2806004 	add	r6, r0, #4
@@ -11165,15 +11215,18 @@
 0000ae34:	1afffffb 	bne	0xae28
 0000ae38:	e0600001 	rsb	r0, r0, r1
 0000ae3c:	e12fff1e 	bx	lr
+
 0000ae40:	e2400030 	sub	r0, r0, #48	@ 0x30
 0000ae44:	e3500009 	cmp	r0, #9
 0000ae48:	83a00000 	movhi	r0, #0
 0000ae4c:	93a00001 	movls	r0, #1
 0000ae50:	e12fff1e 	bx	lr
+
 0000ae54:	e2403041 	sub	r3, r0, #65	@ 0x41
 0000ae58:	e3530019 	cmp	r3, #25
 0000ae5c:	92800020 	addls	r0, r0, #32
 0000ae60:	e12fff1e 	bx	lr
+
 0000ae64:	e92d4010 	push	{r4, lr}
 0000ae68:	e3a04f82 	mov	r4, #520	@ 0x208
 0000ae6c:	e34f48f0 	movt	r4, #63728	@ 0xf8f0
@@ -11255,41 +11308,51 @@
 0000af9c:	f57ff05f 	dmb	sy
 0000afa0:	e5d00000 	ldrb	r0, [r0]
 0000afa4:	e12fff1e 	bx	lr
+
 0000afa8:	f57ff05f 	dmb	sy
 0000afac:	e1d000b0 	ldrh	r0, [r0]
 0000afb0:	e12fff1e 	bx	lr
+
 0000afb4:	f57ff05f 	dmb	sy
 0000afb8:	e5900000 	ldr	r0, [r0]
 0000afbc:	e12fff1e 	bx	lr
+
 0000afc0:	f57ff05f 	dmb	sy
 0000afc4:	e1d000b0 	ldrh	r0, [r0]
 0000afc8:	e1a02420 	lsr	r2, r0, #8
 0000afcc:	e1823400 	orr	r3, r2, r0, lsl #8
 0000afd0:	e6ff0073 	uxth	r0, r3
 0000afd4:	e12fff1e 	bx	lr
+
 0000afd8:	f57ff05f 	dmb	sy
 0000afdc:	e5900000 	ldr	r0, [r0]
 0000afe0:	e6bf0f30 	rev	r0, r0
 0000afe4:	e12fff1e 	bx	lr
+
 0000afe8:	e5c01000 	strb	r1, [r0]
 0000afec:	f57ff05f 	dmb	sy
 0000aff0:	e12fff1e 	bx	lr
+
 0000aff4:	e1c010b0 	strh	r1, [r0]
 0000aff8:	f57ff05f 	dmb	sy
 0000affc:	e12fff1e 	bx	lr
+
 0000b000:	e5801000 	str	r1, [r0]
 0000b004:	f57ff05f 	dmb	sy
 0000b008:	e12fff1e 	bx	lr
+
 0000b00c:	e1a02421 	lsr	r2, r1, #8
 0000b010:	e1821401 	orr	r1, r2, r1, lsl #8
 0000b014:	e6ff3071 	uxth	r3, r1
 0000b018:	e1c030b0 	strh	r3, [r0]
 0000b01c:	f57ff05f 	dmb	sy
 0000b020:	e12fff1e 	bx	lr
+
 0000b024:	e6bf1f31 	rev	r1, r1
 0000b028:	e5801000 	str	r1, [r0]
 0000b02c:	f57ff05f 	dmb	sy
 0000b030:	e12fff1e 	bx	lr
+
 0000b034:	eafffffe 	b	0xb034
 0000b038:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 0000b03c:	e3a05000 	mov	r5, #0
@@ -11426,12 +11489,14 @@
 0000b248:	ee113f10 	mrc	15, 0, r3, cr1, cr0, {0}
 0000b24c:	e2132a01 	ands	r2, r3, #4096	@ 0x1000
 0000b250:	112fff1e 	bxne	lr
+
 0000b254:	ee072f15 	mcr	15, 0, r2, cr7, cr5, {0}
 0000b258:	f57ff04f 	dsb	sy
 0000b25c:	e3833a01 	orr	r3, r3, #4096	@ 0x1000
 0000b260:	ee013f10 	mcr	15, 0, r3, cr1, cr0, {0}
 0000b264:	f57ff04f 	dsb	sy
 0000b268:	e12fff1e 	bx	lr
+
 0000b26c:	f57ff04f 	dsb	sy
 0000b270:	e3a01000 	mov	r1, #0
 0000b274:	ee071f15 	mcr	15, 0, r1, cr7, cr5, {0}
@@ -11441,6 +11506,7 @@
 0000b284:	ee013f10 	mcr	15, 0, r3, cr1, cr0, {0}
 0000b288:	f57ff04f 	dsb	sy
 0000b28c:	e12fff1e 	bx	lr
+
 0000b290:	e3a00001 	mov	r0, #1
 0000b294:	ee400f10 	mcr	15, 2, r0, cr0, cr0, {0}
 0000b298:	f57ff04f 	dsb	sy
@@ -11449,22 +11515,26 @@
 0000b2a4:	f57ff04f 	dsb	sy
 0000b2a8:	f57ff04f 	dsb	sy
 0000b2ac:	e12fff1e 	bx	lr
+
 0000b2b0:	e3a03000 	mov	r3, #0
 0000b2b4:	ee073fd5 	mcr	15, 0, r3, cr7, cr5, {6}
 0000b2b8:	f57ff04f 	dsb	sy
 0000b2bc:	f57ff04f 	dsb	sy
 0000b2c0:	e12fff1e 	bx	lr
+
 0000b2c4:	e3a03000 	mov	r3, #0
 0000b2c8:	ee083f17 	mcr	15, 0, r3, cr8, cr7, {0}
 0000b2cc:	f57ff04f 	dsb	sy
 0000b2d0:	f57ff04f 	dsb	sy
 0000b2d4:	e12fff1e 	bx	lr
+
 0000b2d8:	ee020f10 	mcr	15, 0, r0, cr2, cr0, {0}
 0000b2dc:	f57ff04f 	dsb	sy
 0000b2e0:	ee020f30 	mcr	15, 0, r0, cr2, cr0, {1}
 0000b2e4:	f57ff04f 	dsb	sy
 0000b2e8:	f57ff04f 	dsb	sy
 0000b2ec:	e12fff1e 	bx	lr
+
 0000b2f0:	f57ff04f 	dsb	sy
 0000b2f4:	ee110f10 	mrc	15, 0, r0, cr1, cr0, {0}
 0000b2f8:	e3803001 	orr	r3, r0, #1
@@ -11472,6 +11542,7 @@
 0000b300:	f57ff04f 	dsb	sy
 0000b304:	f57ff04f 	dsb	sy
 0000b308:	e12fff1e 	bx	lr
+
 0000b30c:	f57ff04f 	dsb	sy
 0000b310:	ee110f10 	mrc	15, 0, r0, cr1, cr0, {0}
 0000b314:	e3c03001 	bic	r3, r0, #1
@@ -11479,6 +11550,7 @@
 0000b31c:	f57ff04f 	dsb	sy
 0000b320:	f57ff04f 	dsb	sy
 0000b324:	e12fff1e 	bx	lr
+
 0000b328:	e3500001 	cmp	r0, #1
 0000b32c:	e92d4010 	push	{r4, lr}
 0000b330:	0a000015 	beq	0xb38c
@@ -11661,13 +11733,16 @@
 0000b5f4:	20400001 	subcs	r0, r0, r1
 0000b5f8:	e1a00002 	mov	r0, r2
 0000b5fc:	e12fff1e 	bx	lr
+
 0000b600:	03a00001 	moveq	r0, #1
 0000b604:	13a00000 	movne	r0, #0
 0000b608:	e12fff1e 	bx	lr
+
 0000b60c:	e16f2f11 	clz	r2, r1
 0000b610:	e262201f 	rsb	r2, r2, #31
 0000b614:	e1a00230 	lsr	r0, r0, r2
 0000b618:	e12fff1e 	bx	lr
+
 0000b61c:	e3500000 	cmp	r0, #0
 0000b620:	13e00000 	mvnne	r0, #0
 0000b624:	ea000007 	b	0xb648
@@ -11680,6 +11755,7 @@
 0000b640:	e0411003 	sub	r1, r1, r3
 0000b644:	e12fff1e 	bx	lr
 0000b648:	e12fff1e 	bx	lr
+
 0000b64c:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
 0000b650:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
 0000b654:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
@@ -16276,6 +16352,7 @@
 0000fe10:	f57ff04f 	dsb	sy
 0000fe14:	f57ff06f 	isb	sy
 0000fe18:	e12fff1b 	bx	fp
+
 0000fe1c:	e5801000 	str	r1, [r0]
 0000fe20:	e5856000 	str	r6, [r5]
 0000fe24:	f57ff04f 	dsb	sy
@@ -16321,6 +16398,7 @@
 0000fec4:	e5832000 	str	r2, [r3]
 0000fec8:	f57ff04f 	dsb	sy
 0000fecc:	e12fff1e 	bx	lr
+
 0000fed0:	eafffffe 	b	0xfed0
 0000fed4:	f57ff04f 	dsb	sy
 0000fed8:	e320f002 	wfe
@@ -16338,6 +16416,8 @@
 0000ff08:	ee014f10 	mcr	15, 0, r4, cr1, cr0, {0}
 0000ff0c:	e12fff1e 	bx	lr
 0000ff10:	eafffffe 	b	0xff10
+
+; This all looks like data from here on.
 0000ff14:	00070000 	andeq	r0, r7, r0
 0000ff18:	0007d4a0 	andeq	sp, r7, r0, lsr #9
 0000ff1c:	f8007000 			@ <UNDEFINED> instruction: 0xf8007000
