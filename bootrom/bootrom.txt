@@ -29,6 +29,8 @@
 
 ; Serial IO and UART.
 ; We are on the lookout for "XLNX-ZYNQ"
+;  (and we found it at 0xa228)
+;
 ; Uart0 base is 0xE000_0000
 ; Uart1 base is 0xE000_1000
 ; The Uart registers are like so:
@@ -56,8 +58,16 @@
 ;-          int     __pad1[2];
 ;-          vu32    tfifo;	// 44
 
+; ------------------------------------------------
+; The usual section on ARM architecture details that I
+; fail to keep firmly in mind:
+;
+
 ; ---------------------------------------------
+; ---------------------------------------------
+;
 ; Execution starts right here at address zero.
+; (and jumps right away to 0x44)
 
 00000000:	ea00000f 	b	0x44
 00000004:	e320f000 	nop	{0}
@@ -81,16 +91,19 @@
 00000048:	ee070f15 	mcr	15, 0, r0, cr7, cr5, {0}
 0000004c:	ee070fd5 	mcr	15, 0, r0, cr7, cr5, {6}
 00000050:	ee080f17 	mcr	15, 0, r0, cr8, cr7, {0}
+
+; read processor affinity register (core number in low 2 bits)
 00000054:	ee10bfb0 	mrc	15, 0, fp, cr0, cr0, {5}
 00000058:	e20bb00f 	and	fp, fp, #15
 0000005c:	e35b0000 	cmp	fp, #0
 00000060:	0a000002 	beq	0x70
 
-; spin
+; spin here if we are core 1 (how do we escape??!!)
 00000064:	f57ff04f 	dsb	sy
 00000068:	e320f002 	wfe
 0000006c:	eafffffc 	b	0x64
 
+; core 0 continues right along
 00000070:	ee190f1c 	mrc	15, 0, r0, cr9, cr12, {0}
 00000074:	e3800005 	orr	r0, r0, #5
 00000078:	ee090f1c 	mcr	15, 0, r0, cr9, cr12, {0}
@@ -242,6 +255,9 @@
 000002a4:	e8bd8010 	pop	{r4, pc}
 
 ; subroutine
+;
+; set r0 to 0xf800d010 - what could that be?
+
 000002a8:	e30d0010 	movw	r0, #53264	@ 0xd010
 000002ac:	e92d4010 	push	{r4, lr}
 000002b0:	e34f0800 	movt	r0, #63488	@ 0xf800
@@ -503,31 +519,81 @@
 00000698:	e8bd41f0 	pop	{r4, r5, r6, r7, r8, lr}
 
 0000069c:	ea002a57 	b	0xb000
+
+; Uart0 base is 0xE000_0000
+; Uart1 base is 0xE000_1000
+; The Uart registers are like so:
+
+;-  struct zynq_uart {
+;-  
+;-          vu32    control;	// 00
+;-          vu32    mode;	// 04
+;-          vu32    ie;		// 08
+;-          vu32    id;		// 0c
+;-  
+;-          vu32    im;		// 10
+;-          vu32    istatus;	// 14
+;-          vu32    baud;	// 18
+;-          vu32    rto;	// 1c
+;-  
+;-          vu32    rfifo;	// 20
+;-          vu32    mcontrol;	// 24
+;-          vu32    mstatus;	// 28
+;-          vu32    cstatus;	// 2c
+;-  
+;-          vu32    fifo;	// 30
+;-          vu32    baud_div;	// 34
+;-          vu32    fc_delay;	// 38
+;-          int     __pad1[2];
+;-          vu32    tfifo;	// 44
+
+; Note - I never see this code using "tfifo" or "rfifo"
+;   It does write to plain "fifo" to send the prompt
+
+; subroutine - 2 calls
+; Some kind of flag in 0x70000
+; we bail out if it is non-zero
+; we set the flag if we run
 000006a0:	e3003000 	movw	r3, #0
 000006a4:	e92d4010 	push	{r4, lr}
-000006a8:	e3403007 	movt	r3, #7
+000006a8:	e3403007 	movt	r3, #7		; r3 = 0x70000
 000006ac:	e5932000 	ldr	r2, [r3]
-000006b0:	e3520000 	cmp	r2, #0
+000006b0:	e3520000 	cmp	r2, #0		; check flag
 000006b4:	18bd8010 	popne	{r4, pc}
+
+; set up uart1
+; 0xe0001018 is uart1 baud
+; 0xe0001034 is uart1 baud div
+; 0xe0001004 is uart1 mode
+; 0xe0001004 is uart1 control
+
+; the call to 0xb000 does this (with a dmb): str	r1, [r0]
+; i.e. it stores what is in r1 at the addess given by r0
+
 000006b8:	e3a0c001 	mov	ip, #1
 000006bc:	e3010018 	movw	r0, #4120	@ 0x1018
-000006c0:	e583c000 	str	ip, [r3]
+000006c0:	e583c000 	str	ip, [r3]	; set flag
 000006c4:	e3a01011 	mov	r1, #17
 000006c8:	e34e0000 	movt	r0, #57344	@ 0xe000
 000006cc:	eb002a4b 	bl	0xb000
+
 000006d0:	e3010034 	movw	r0, #4148	@ 0x1034
 000006d4:	e3a01006 	mov	r1, #6
 000006d8:	e34e0000 	movt	r0, #57344	@ 0xe000
 000006dc:	eb002a47 	bl	0xb000
+
 000006e0:	e3010004 	movw	r0, #4100	@ 0x1004
 000006e4:	e34e0000 	movt	r0, #57344	@ 0xe000
 000006e8:	e3a01020 	mov	r1, #32
 000006ec:	eb002a43 	bl	0xb000
+
 000006f0:	e3a00a01 	mov	r0, #4096	@ 0x1000
 000006f4:	e34e0000 	movt	r0, #57344	@ 0xe000
 000006f8:	e3a01f45 	mov	r1, #276	@ 0x114
 000006fc:	e8bd4010 	pop	{r4, lr}
+
 00000700:	ea002a3e 	b	0xb000
+
 00000704:	e3a00a05 	mov	r0, #20480	@ 0x5000
 00000708:	e30c11c0 	movw	r1, #49600	@ 0xc1c0
 0000070c:	e34f0800 	movt	r0, #63488	@ 0xf800
@@ -849,6 +915,7 @@
 00000bfc:	e8bd4010 	pop	{r4, lr}
 00000c00:	ea000484 	b	0x1e18
 
+; subroutine
 00000c04:	e92d4010 	push	{r4, lr}
 00000c08:	e1a04000 	mov	r4, r0
 00000c0c:	e30d0010 	movw	r0, #53264	@ 0xd010
@@ -883,7 +950,9 @@
 00000c80:	e31c0001 	tst	ip, #1
 00000c84:	1a00005f 	bne	0xe08
 00000c88:	eb00072e 	bl	0x2948
-00000c8c:	ebfffe83 	bl	0x6a0
+
+00000c8c:	ebfffe83 	bl	0x6a0		; initialize uart1
+
 00000c90:	e3080704 	movw	r0, #34564	@ 0x8704
 00000c94:	e3081000 	movw	r1, #32768	@ 0x8000
 00000c98:	e308200c 	movw	r2, #32780	@ 0x800c
@@ -10443,25 +10512,38 @@
 0000a17c:	e51f0000 	ldr	r0, [pc, #-0]	@ 0xa184
 0000a180:	eafffc0e 	b	0x91c0
 0000a184:	0007046c 	andeq	r0, r7, ip, ror #8
+
+; subroutine ( uart getc() )
 0000a188:	e92d4010 	push	{r4, lr}
 0000a18c:	ea000001 	b	0xa198
 0000a190:	e3140002 	tst	r4, #2
 0000a194:	0a000009 	beq	0xa1c0
+
+; uart cstatus
+; The call to 0xafb4 is a "fetch" with a dmb, i.e. -- ldr	r0, [r0]
+; so, this reads the cstatus
+
 0000a198:	e301002c 	movw	r0, #4140	@ 0x102c
 0000a19c:	e34e0000 	movt	r0, #57344	@ 0xe000
 0000a1a0:	eb000383 	bl	0xafb4
 0000a1a4:	e3100020 	tst	r0, #32
 0000a1a8:	e1a04000 	mov	r4, r0
 0000a1ac:	0afffff7 	beq	0xa190
+
 0000a1b0:	e3a00c25 	mov	r0, #9472	@ 0x2500
 0000a1b4:	ebffda92 	bl	0xc04
 0000a1b8:	e3140002 	tst	r4, #2
 0000a1bc:	1afffff5 	bne	0xa198
+
+; uart fifo at 0x30001030
+; this call reads a character
 0000a1c0:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a1c4:	e34e0000 	movt	r0, #57344	@ 0xe000
 0000a1c8:	eb000379 	bl	0xafb4
 0000a1cc:	e6ef0070 	uxtb	r0, r0
 0000a1d0:	e8bd8010 	pop	{r4, pc}
+
+; subroutine
 0000a1d4:	e92d45f8 	push	{r3, r4, r5, r6, r7, r8, sl, lr}
 0000a1d8:	e30024a0 	movw	r2, #1184	@ 0x4a0
 0000a1dc:	e3a0ca01 	mov	ip, #4096	@ 0x1000
@@ -10481,50 +10563,55 @@
 0000a214:	e3a010e0 	mov	r1, #224	@ 0xe0
 0000a218:	e34f0800 	movt	r0, #63488	@ 0xf800
 0000a21c:	ebffed60 	bl	0x57a4
-0000a220:	ebffd91e 	bl	0x6a0
+
+0000a220:	ebffd91e 	bl	0x6a0		; initialize uart1
+
+; 0xe0001030 is "rfifo" in the uart
+; This prints the prompt for the "secret" uart downloader
 0000a224:	e3010030 	movw	r0, #4144	@ 0x1030
-0000a228:	e3a01058 	mov	r1, #88	@ 0x58
+0000a228:	e3a01058 	mov	r1, #88	@ 0x58			'X'
 0000a22c:	e34e0000 	movt	r0, #57344	@ 0xe000
 0000a230:	e3004488 	movw	r4, #1160	@ 0x488
 0000a234:	eb000371 	bl	0xb000
 0000a238:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a23c:	e34e0000 	movt	r0, #57344	@ 0xe000
-0000a240:	e3a0104c 	mov	r1, #76	@ 0x4c
+0000a240:	e3a0104c 	mov	r1, #76	@ 0x4c			'L'
 0000a244:	eb00036d 	bl	0xb000
 0000a248:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a24c:	e34e0000 	movt	r0, #57344	@ 0xe000
-0000a250:	e3a0104e 	mov	r1, #78	@ 0x4e
+0000a250:	e3a0104e 	mov	r1, #78	@ 0x4e			'N'
 0000a254:	eb000369 	bl	0xb000
 0000a258:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a25c:	e34e0000 	movt	r0, #57344	@ 0xe000
-0000a260:	e3a01058 	mov	r1, #88	@ 0x58
+0000a260:	e3a01058 	mov	r1, #88	@ 0x58			'X'
 0000a264:	eb000365 	bl	0xb000
 0000a268:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a26c:	e34e0000 	movt	r0, #57344	@ 0xe000
-0000a270:	e3a0102d 	mov	r1, #45	@ 0x2d
+0000a270:	e3a0102d 	mov	r1, #45	@ 0x2d			'_'
 0000a274:	eb000361 	bl	0xb000
 0000a278:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a27c:	e34e0000 	movt	r0, #57344	@ 0xe000
-0000a280:	e3a0105a 	mov	r1, #90	@ 0x5a
+0000a280:	e3a0105a 	mov	r1, #90	@ 0x5a			'Z'
 0000a284:	eb00035d 	bl	0xb000
 0000a288:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a28c:	e34e0000 	movt	r0, #57344	@ 0xe000
-0000a290:	e3a01059 	mov	r1, #89	@ 0x59
+0000a290:	e3a01059 	mov	r1, #89	@ 0x59			'Y'
 0000a294:	eb000359 	bl	0xb000
 0000a298:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a29c:	e34e0000 	movt	r0, #57344	@ 0xe000
-0000a2a0:	e3a0104e 	mov	r1, #78	@ 0x4e
+0000a2a0:	e3a0104e 	mov	r1, #78	@ 0x4e			'N'
 0000a2a4:	eb000355 	bl	0xb000
 0000a2a8:	e3010030 	movw	r0, #4144	@ 0x1030
 0000a2ac:	e3404007 	movt	r4, #7
 0000a2b0:	e34e0000 	movt	r0, #57344	@ 0xe000
-0000a2b4:	e3a01051 	mov	r1, #81	@ 0x51
+0000a2b4:	e3a01051 	mov	r1, #81	@ 0x51			'Q'
 0000a2b8:	e3086748 	movw	r6, #34632	@ 0x8748
 0000a2bc:	eb00034f 	bl	0xb000
+
 0000a2c0:	e1a08005 	mov	r8, r5
 0000a2c4:	e5847000 	str	r7, [r4]
 0000a2c8:	e3406001 	movt	r6, #1
-0000a2cc:	ebffffad 	bl	0xa188
+0000a2cc:	ebffffad 	bl	0xa188		; getc()
 0000a2d0:	e7d61008 	ldrb	r1, [r6, r8]
 0000a2d4:	e1510000 	cmp	r1, r0
 0000a2d8:	0a000007 	beq	0xa2fc
@@ -10532,7 +10619,7 @@
 0000a2e0:	e3550080 	cmp	r5, #128	@ 0x80
 0000a2e4:	ca00009b 	bgt	0xa558
 0000a2e8:	e3a08000 	mov	r8, #0
-0000a2ec:	ebffffa5 	bl	0xa188
+0000a2ec:	ebffffa5 	bl	0xa188		; getc()
 0000a2f0:	e7d61008 	ldrb	r1, [r6, r8]
 0000a2f4:	e1510000 	cmp	r1, r0
 0000a2f8:	1afffff7 	bne	0xa2dc
@@ -10540,59 +10627,59 @@
 0000a300:	e3580003 	cmp	r8, #3
 0000a304:	9afffff0 	bls	0xa2cc
 0000a308:	e594a000 	ldr	sl, [r4]
-0000a30c:	ebffff9d 	bl	0xa188
+0000a30c:	ebffff9d 	bl	0xa188		; getc()
 0000a310:	e5ca0000 	strb	r0, [sl]
 0000a314:	e300a488 	movw	sl, #1160	@ 0x488
 0000a318:	e5946000 	ldr	r6, [r4]
-0000a31c:	ebffff99 	bl	0xa188
+0000a31c:	ebffff99 	bl	0xa188		; getc()
 0000a320:	e5c60001 	strb	r0, [r6, #1]
 0000a324:	e340a007 	movt	sl, #7
 0000a328:	e5945000 	ldr	r5, [r4]
-0000a32c:	ebffff95 	bl	0xa188
+0000a32c:	ebffff95 	bl	0xa188		; getc()
 0000a330:	e5c50002 	strb	r0, [r5, #2]
 0000a334:	e5948000 	ldr	r8, [r4]
-0000a338:	ebffff92 	bl	0xa188
+0000a338:	ebffff92 	bl	0xa188		; getc()
 0000a33c:	e5c80003 	strb	r0, [r8, #3]
 0000a340:	e5947000 	ldr	r7, [r4]
 0000a344:	e5978000 	ldr	r8, [r7]
-0000a348:	ebffff8e 	bl	0xa188
+0000a348:	ebffff8e 	bl	0xa188		; getc()
 0000a34c:	e5c70000 	strb	r0, [r7]
 0000a350:	e5946000 	ldr	r6, [r4]
-0000a354:	ebffff8b 	bl	0xa188
+0000a354:	ebffff8b 	bl	0xa188		; getc()
 0000a358:	e5c60001 	strb	r0, [r6, #1]
 0000a35c:	e5945000 	ldr	r5, [r4]
-0000a360:	ebffff88 	bl	0xa188
+0000a360:	ebffff88 	bl	0xa188		; getc()
 0000a364:	e5c50002 	strb	r0, [r5, #2]
 0000a368:	e5947000 	ldr	r7, [r4]
-0000a36c:	ebffff85 	bl	0xa188
+0000a36c:	ebffff85 	bl	0xa188		; getc()
 0000a370:	e5c70003 	strb	r0, [r7, #3]
 0000a374:	e5946000 	ldr	r6, [r4]
 0000a378:	e5967000 	ldr	r7, [r6]
-0000a37c:	ebffff81 	bl	0xa188
+0000a37c:	ebffff81 	bl	0xa188		; getc()
 0000a380:	e5c60000 	strb	r0, [r6]
 0000a384:	e5945000 	ldr	r5, [r4]
-0000a388:	ebffff7e 	bl	0xa188
+0000a388:	ebffff7e 	bl	0xa188		; getc()
 0000a38c:	e5c50001 	strb	r0, [r5, #1]
 0000a390:	e5946000 	ldr	r6, [r4]
-0000a394:	ebffff7b 	bl	0xa188
+0000a394:	ebffff7b 	bl	0xa188		; getc()
 0000a398:	e5c60002 	strb	r0, [r6, #2]
 0000a39c:	e5945000 	ldr	r5, [r4]
-0000a3a0:	ebffff78 	bl	0xa188
+0000a3a0:	ebffff78 	bl	0xa188		; getc()
 0000a3a4:	e5c50003 	strb	r0, [r5, #3]
 0000a3a8:	e5946000 	ldr	r6, [r4]
 0000a3ac:	e5965000 	ldr	r5, [r6]
 0000a3b0:	e3550803 	cmp	r5, #196608	@ 0x30000
 0000a3b4:	ca00006b 	bgt	0xa568
-0000a3b8:	ebffff72 	bl	0xa188
+0000a3b8:	ebffff72 	bl	0xa188		; getc()
 0000a3bc:	e5c60000 	strb	r0, [r6]
 0000a3c0:	e5946000 	ldr	r6, [r4]
-0000a3c4:	ebffff6f 	bl	0xa188
+0000a3c4:	ebffff6f 	bl	0xa188		; getc()
 0000a3c8:	e5c60001 	strb	r0, [r6, #1]
 0000a3cc:	e5946000 	ldr	r6, [r4]
-0000a3d0:	ebffff6c 	bl	0xa188
+0000a3d0:	ebffff6c 	bl	0xa188		; getc()
 0000a3d4:	e5c60002 	strb	r0, [r6, #2]
 0000a3d8:	e5946000 	ldr	r6, [r4]
-0000a3dc:	ebffff69 	bl	0xa188
+0000a3dc:	ebffff69 	bl	0xa188		; getc()
 0000a3e0:	e5c60003 	strb	r0, [r6, #3]
 0000a3e4:	e3a00a01 	mov	r0, #4096	@ 0x1000
 0000a3e8:	e5943000 	ldr	r3, [r4]
@@ -10631,7 +10718,7 @@
 0000a46c:	e2450001 	sub	r0, r5, #1
 0000a470:	e5947000 	ldr	r7, [r4]
 0000a474:	e2008001 	and	r8, r0, #1
-0000a478:	ebffff42 	bl	0xa188
+0000a478:	ebffff42 	bl	0xa188		; getc()
 0000a47c:	e3550001 	cmp	r5, #1
 0000a480:	e5c70000 	strb	r0, [r7]
 0000a484:	e3a07001 	mov	r7, #1
@@ -10640,18 +10727,18 @@
 0000a490:	0a000006 	beq	0xa4b0
 0000a494:	e3a07002 	mov	r7, #2
 0000a498:	e5948000 	ldr	r8, [r4]
-0000a49c:	ebffff39 	bl	0xa188
+0000a49c:	ebffff39 	bl	0xa188		; getc()
 0000a4a0:	e1550007 	cmp	r5, r7
 0000a4a4:	e5c80001 	strb	r0, [r8, #1]
 0000a4a8:	e2888001 	add	r8, r8, #1
 0000a4ac:	da000009 	ble	0xa4d8
 0000a4b0:	e594a000 	ldr	sl, [r4]
-0000a4b4:	ebffff33 	bl	0xa188
+0000a4b4:	ebffff33 	bl	0xa188		; getc()
 0000a4b8:	e7ca0007 	strb	r0, [sl, r7]
 0000a4bc:	e2878001 	add	r8, r7, #1
 0000a4c0:	e2877002 	add	r7, r7, #2
 0000a4c4:	e594a000 	ldr	sl, [r4]
-0000a4c8:	ebffff2e 	bl	0xa188
+0000a4c8:	ebffff2e 	bl	0xa188		; getc()
 0000a4cc:	e1550007 	cmp	r5, r7
 0000a4d0:	e7ca0008 	strb	r0, [sl, r8]
 0000a4d4:	cafffff5 	bgt	0xa4b0
@@ -10980,6 +11067,8 @@
 0000a9b8:	ebffffa0 	bl	0xa840
 0000a9bc:	e28dd03c 	add	sp, sp, #60	@ 0x3c
 0000a9c0:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine
 0000a9c4:	e92d000f 	push	{r0, r1, r2, r3}
 0000a9c8:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 0000a9cc:	e24dd020 	sub	sp, sp, #32
