@@ -89,24 +89,11 @@ def init () :
         if line != "" :
             add_line ( line )
 
-# 00000070:	ee190f1c 	mrc	15, 0, r0, cr9, cr12, {0}
 def lookup ( ww ) :
     for tt in table :
         if ww[4] == tt[1] and ww[6] == tt[2] and ww[7] == tt[3] and ww[8] == tt[4] :
                 return tt[0]
     return None
-
-def Xprocess ( line ) :
-    ll = line.split ()
-    if len(ll) != 7 :
-        print ( line, end="" )
-        return
-    #print ( len(ll), end="" )
-    print ( ll[0] + 
-        "\t" + ll[1] +
-        "\t" + ll[2] +
-        "\t" + ll[3] +
-        " #" + ll[6] )
 
 def get_addr ( line ) :
     ll = line.split ( ":", 1 )
@@ -125,18 +112,19 @@ def process ( line ) :
     # echo ( line )
     ww = line.split ()
     if len(ww) != 9 :
+        echo ( line )
         print ( "Busted!" )
         exit ();
     if ww[3] != "15," :
+        echo ( line )
         print ( "Busted-15!" )
         exit ();
 
     reg = ww[5]
-# 00000070:	ee190f1c 	mrc	15, 0, r0, cr9, cr12, {0}
     name = lookup ( ww )
 
     if name :
-        # I decided to skip this
+        # I decided to skip showing the original line
         #echo ( "#" + line )
         print ( ww[0] + 
             "\t" + ww[1] +
@@ -170,3 +158,5 @@ while True:
     if not line:
         break
     do_line ( line )
+
+# THE END

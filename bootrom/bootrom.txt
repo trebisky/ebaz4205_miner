@@ -87,7 +87,8 @@
 0000003c:	eafffffe 	b	0x3c
 00000040:	0007d4a0 	andeq	sp, r7, r0, lsr #9
 
-00000044:	eb000022 	bl	0xd4
+; First code to run is here.
+00000044:	eb000022 	bl	0xd4		; setup caches
 00000048:	ee070f15	mcr	r0, ICIALLU
 0000004c:	ee070fd5	mcr	r0, BPIALL
 00000050:	ee080f17	mcr	r0, TLBIALL
@@ -133,6 +134,7 @@
 000000d0:	eafffffe 	b	0xd0
 
 ; subroutine (called once from above)
+; fiddling with the cache setup
 000000d4:	f57ff05f 	dmb	sy
 000000d8:	ee300f30	mrc	r0, CLIDR
 000000dc:	e2103407 	ands	r3, r0, #117440512	@ 0x7000000
@@ -170,10 +172,14 @@
 0000015c:	f57ff06f 	isb	sy
 00000160:	e12fff1e 	bx	lr
 
+; Some data here.  The initial stack and TTBR values
+
 00000164:	0007d4a0 	andeq	sp, r7, r0, lsr #9
 00000168:	00010000 	andeq	r0, r1, r0
 0000016c:	000003ff 	strdeq	r0, [r0], -pc	@ <UNPREDICTABLE>
 00000170:	00007fff 	strdeq	r7, [r0], -pc	@ <UNPREDICTABLE>
+
+; subroutine
 00000174:	e3520000 	cmp	r2, #0
 00000178:	e92d00f0 	push	{r4, r5, r6, r7}
 0000017c:	e5903000 	ldr	r3, [r0]
@@ -214,6 +220,7 @@
 00000208:	e8bd00f0 	pop	{r4, r5, r6, r7}
 0000020c:	e12fff1e 	bx	lr
 
+; subroutine
 00000210:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 00000214:	e3e0c000 	mvn	ip, #0
 00000218:	e24dd00c 	sub	sp, sp, #12
@@ -231,6 +238,7 @@
 00000248:	e28dd00c 	add	sp, sp, #12
 0000024c:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
 
+; subroutine
 00000250:	e92d4010 	push	{r4, lr}
 00000254:	e3e0c000 	mvn	ip, #0
 00000258:	e24dd008 	sub	sp, sp, #8
@@ -257,6 +265,7 @@
 ; subroutine
 ;
 ; set r0 to 0xf800d010 - what could that be?
+; This is in the eFuse area
 
 000002a8:	e30d0010	movw	r0, #0xd010
 000002ac:	e92d4010 	push	{r4, lr}
@@ -264,8 +273,9 @@
 000002b4:	eb002b3e 	bl	0xafb4		; io_read
 000002b8:	e3100b02 	tst	r0, #2048	@ 0x800
 000002bc:	0a000006 	beq	0x2dc
+
 000002c0:	ebffffe2 	bl	0x250
-000002c4:	eb0006d7 	bl	0x1e28
+000002c4:	eb0006d7 	bl	0x1e28		; devcfg_unlock
 000002c8:	e3500000 	cmp	r0, #0
 000002cc:	08bd8010 	popeq	{r4, pc}
 
@@ -274,7 +284,7 @@
 000002d8:	ea000249 	b	0xc04
 
 000002dc:	ebffffcb 	bl	0x210
-000002e0:	eb0006d0 	bl	0x1e28
+000002e0:	eb0006d0 	bl	0x1e28		; devcfg_unlock
 000002e4:	e3500000 	cmp	r0, #0
 000002e8:	08bd8010 	popeq	{r4, pc}
 000002ec:	eafffff7 	b	0x2d0
@@ -926,6 +936,7 @@
 00000c00:	ea000484 	b	0x1e18
 
 ; subroutine
+; 0xf800d010 is in eFuse
 00000c04:	e92d4010 	push	{r4, lr}
 00000c08:	e1a04000 	mov	r4, r0
 00000c0c:	e30d0010	movw	r0, #0xd010
@@ -1716,7 +1727,7 @@
 000017d8:	e3550000 	cmp	r5, #0
 000017dc:	0a0000b5 	beq	0x1ab8
 000017e0:	e3550006 	cmp	r5, #6
-000017e4:	0a00013f 	beq	0x1ce8
+000017e4:	0a00013f 	beq	0x1ce8		; SD card boot
 000017e8:	e3550007 	cmp	r5, #7
 000017ec:	0a0000ea 	beq	0x1b9c
 
@@ -2044,12 +2055,57 @@
 00001ce0:	ebfffbc7 	bl	0xc04
 00001ce4:	eaffff49 	b	0x1a10
 
+; -----------------------------------------------------------------------
+; -----------------------------------------------------------------------
+; A big rant/prefix at the start of the SD card boot handler.
+
+; Some notes on addresses.
+; What is all the stuff at 0xf8..... ?
+; See page 112 of the TRM
+; f800_0000 to f800_0bff are SLCR registers
+; f800_1000 to f880_ffff are PS registers
+; Table 4-3 (page 114) covers SLCR (System-level control registers)
+; Table 4-7 (page 116) covers the PS registers, as follows
+; f800_1000 = triple timer 0
+; f800_2000 = triple timer 1
+; f800_3000 = DMAC secure
+; f800_4000 = DMAC non-secure
+; f800_5000 = system watchdog
+; f800_6000 = DDR controller
+; f800_7000 = DevC (device configuration)
+; f800_8000 = AXI HP 0
+; f800_9000 = AXI HP 1
+; f800_A000 = AXI HP 2
+; f800_B000 = AXI HP 3
+; f800_C000 = OCM
+; f800_D000 = eFuse
+
+; So?  What about this DevC?
+; I remember searching high and low for this when I was writing code
+; to load a bitstream into the PL.  My notes from that project say to
+; look at page 1144 (B.16) in the TRM.
+; Appendix B is of vital interest at any event as it is entitled
+;   "Register Details"
+
+; ----------------------------------------------------------
+; The TRM has the SD card controller registers on page 1532
+; along with a whole section at page 366 (chapter 13)
+; The register base is:
+; 0xe010_0000 for sd0
+; 0xe010_1000 for sd1
+
 ; Handle boot mode 6 (SD card)
 00001ce8:	eb0001ce 	bl	0x2428
 00001cec:	e3020006	movw	r0, #0x2006
 00001cf0:	ebfffbc3 	bl	0xc04
 00001cf4:	eafffebf 	b	0x17f8
 00001cf8:	eb000098 	bl	0x1f60
+
+; read from 0xf800_7000, which is the devcfg control register
+; it then clears bit 23 (0x80_0000) which interestingly enough
+; is a bit that disables JTAG (both PS DAP and PL TAP) when set.
+; So, this enables JTAG
+
 00001cfc:	e3a00a07 	mov	r0, #28672	@ 0x7000
 00001d00:	e34f0800	movt	r0, #0xf800
 00001d04:	eb0024aa 	bl	0xafb4		; io_read
@@ -2061,6 +2117,15 @@
 00001d1c:	e58d200c 	str	r2, [sp, #12]
 00001d20:	e59d100c 	ldr	r1, [sp, #12]
 00001d24:	eb0024b5 	bl	0xb000		; io_write
+
+; Now we write all ones to 0xf800_0240
+; This is in the SLCR and is "FPGA reset control"
+; see page 1618 in the TRM for details
+;
+; and then we write 0xa to 0xf800_0900
+; this is "level shifter enable" for signals
+; between the PS and PL, this enables them.
+
 00001d28:	e3a00d09 	mov	r0, #576	@ 0x240
 00001d2c:	e34f0800	movt	r0, #0xf800
 00001d30:	e3e01000 	mvn	r1, #0
@@ -2069,6 +2134,7 @@
 00001d3c:	e3a0100a 	mov	r1, #10
 00001d40:	e34f0800	movt	r0, #0xf800
 00001d44:	eb0024ad 	bl	0xb000		; io_write
+
 00001d48:	eb00002f 	bl	0x1e0c
 00001d4c:	e58d000c 	str	r0, [sp, #12]
 00001d50:	e59dc00c 	ldr	ip, [sp, #12]
@@ -2118,13 +2184,23 @@
 00001e00:	e3070014	movw	r0, #0x7014
 00001e04:	e34f0800	movt	r0, #0xf800
 00001e08:	ea002469 	b	0xafb4		; io_read
+
+; subroutine - read the devconfig control register
+; 0xf800_7000 is the devconfig control register)
 00001e0c:	e3a00a07 	mov	r0, #28672	@ 0x7000
 00001e10:	e34f0800	movt	r0, #0xf800
 00001e14:	ea002466 	b	0xafb4		; io_read
+
+; subroutine - write the devconfig control register
 00001e18:	e1a01000 	mov	r1, r0
 00001e1c:	e3a00a07 	mov	r0, #28672	@ 0x7000
 00001e20:	e34f0800	movt	r0, #0xf800
 00001e24:	ea002475 	b	0xb000		; io_write
+
+; subroutine
+; write to 0xf8007034 - "unlock control"
+; to unlock, you write 0x757BDF0D
+; anything else will lock it until system reset
 00001e28:	e1a01000 	mov	r1, r0
 00001e2c:	e3070034	movw	r0, #0x7034
 00001e30:	e92d4010 	push	{r4, lr}
@@ -2142,8 +2218,11 @@
 00001e60:	0a000003 	beq	0x1e74
 00001e64:	e3a00002 	mov	r0, #2
 00001e68:	ebfffa32 	bl	0x738
+
+; spin
 00001e6c:	e320f002 	wfe
 00001e70:	eafffffd 	b	0x1e6c
+
 00001e74:	e307002c	movw	r0, #0x702c
 00001e78:	e34f0800	movt	r0, #0xf800
 00001e7c:	eb00244c 	bl	0xafb4		; io_read
@@ -2171,6 +2250,7 @@
 00001ed4:	eb002449 	bl	0xb000		; io_write
 00001ed8:	e3a00000 	mov	r0, #0
 00001edc:	e8bd8010 	pop	{r4, pc}
+
 00001ee0:	e3020029	movw	r0, #0x2029
 00001ee4:	ebfffa2e 	bl	0x7a4
 00001ee8:	eaffffee 	b	0x1ea8
@@ -2203,6 +2283,8 @@
 00001f54:	08bd8010 	popeq	{r4, pc}
 00001f58:	e8bd4010 	pop	{r4, lr}
 00001f5c:	eaffffe9 	b	0x1f08
+
+; subroutine
 00001f60:	e92d4010 	push	{r4, lr}
 00001f64:	e3a04a07 	mov	r4, #28672	@ 0x7000
 00001f68:	e34f4800	movt	r4, #0xf800
@@ -2217,6 +2299,8 @@
 00001f8c:	e3a0101a 	mov	r1, #26
 00001f90:	e8bd4010 	pop	{r4, lr}
 00001f94:	ea002419 	b	0xb000		; io_write
+
+; subroutine
 00001f98:	e92d47f0 	push	{r4, r5, r6, r7, r8, r9, sl, lr}
 00001f9c:	e1a05000 	mov	r5, r0
 00001fa0:	e3070014	movw	r0, #0x7014
@@ -2290,6 +2374,8 @@
 000020b0:	e30094a0	movw	r9, #0x4a0
 000020b4:	e3a0e000 	mov	lr, #0
 000020b8:	e3409007 	movt	r9, #7
+
+; 0xe010_0000 is the base address for the SD0 controller
 000020bc:	e34ee010	movt	lr, #0xe010
 000020c0:	e5993000 	ldr	r3, [r9]
 000020c4:	e153000e 	cmp	r3, lr
@@ -3390,6 +3476,8 @@
 000031d0:	e3a00000 	mov	r0, #0
 000031d4:	e5944000 	ldr	r4, [r4]
 000031d8:	e34ec000	movt	ip, #0xe000
+
+; 0xe010_0000 is the base address for the SD0 controller
 000031dc:	e34e0010	movt	r0, #0xe010
 000031e0:	e1540000 	cmp	r4, r0
 000031e4:	1154000c 	cmpne	r4, ip
@@ -10947,6 +11035,7 @@
 0000a758:	ee092f3c	mcr	r2, PMCNTENSET
 0000a75c:	e12fff1e 	bx	lr
 
+; data here
 0000a760:	00070000 	andeq	r0, r7, r0
 0000a764:	00070000 	andeq	r0, r7, r0
 0000a768:	00070000 	andeq	r0, r7, r0
