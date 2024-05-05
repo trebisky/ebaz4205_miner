@@ -1671,6 +1671,8 @@
 0000174c:	e34f0800	movt	r0, #0xf800
 00001750:	e7e05258 	ubfx	r5, r8, #4, #1
 00001754:	e58d5014 	str	r5, [sp, #20]
+; read from 0xf8007080
+; this is in devcfg - the misc. control register
 00001758:	eb002615 	bl	0xafb4		; io_read
 0000175c:	e58d0010 	str	r0, [sp, #16]
 00001760:	e59d1010 	ldr	r1, [sp, #16]
@@ -1682,10 +1684,27 @@
 00001778:	0a0000e4 	beq	0x1b10
 0000177c:	e59de010 	ldr	lr, [sp, #16]
 00001780:	e35e0001 	cmp	lr, #1
-00001784:	0a0000b2 	beq	0x1a54
+00001784:	0a0000b2 	beq	0x1a541144 (B.16) in the TRM.
 
 ; read from 0xf800025c
 ; This must give the boot mode settings.
+; registers at 0xf800_0200 are "reset control and status"
+; See page 1622 of the TRM.  We get 4 "boot mode" bits
+; that are sampled and stored at power on reset.
+; See page 165-166 of the TRM.
+; Boot_mode[0] = MIO5
+; Boot_mode[1] = MIO3
+; Boot_mode[2] = MIO4
+; Boot_mode[3] = MIO2
+; Boot_mode[4] = MIO6 (PLL bypass)
+;
+; This register gives us bit 4 as PLL bypass
+; then 4 bits of boot mode in bits 3:0
+;
+; NOTE !! !!
+; This hairball reordering of the bits happens on chip between
+; the MIO pins and this register.
+
 00001788:	e3a00f97 	mov	r0, #604	@ 0x25c
 0000178c:	e34f0800	movt	r0, #0xf800
 00001790:	eb002607 	bl	0xafb4		; io_read
@@ -1694,10 +1713,14 @@
 00001798:	ebfffbe2 	bl	0x728
 
 ; write 0x20 to 0xe000d038
+; 0xe000_d000 are the qspi registers
+; this sets the loopback delay value.
+; Seems like an odd place to be setting this.
 
 0000179c:	e30d0038	movw	r0, #0xd038
 000017a0:	e3a01020 	mov	r1, #32
 000017a4:	e34e0000	movt	r0, #0xe000
+
 000017a8:	e2055007 	and	r5, r5, #7	; mask to 3 bits
 000017ac:	eb002613 	bl	0xb000		; io_write
 
@@ -1706,38 +1729,42 @@
 ; We get 8 choices and all seem to do something
 ; Page 166 of the TRM has a table showing "boot mode strapping pins"
 ; 0 = JTAG
-; 1 = NOR
-; 2 = NAND
-; 3 = ?? (secret uart)
-; 4 = Quad-SPI
-; 5 = ??
-; 6 = SD card
+; 1 = Quad-SPI
+; 2 = NOR
+; 3 = UART (secret)
+; 4 = NAND
+; 5 = SD card
+; 6 = ??
 ; 7 = ??
 
 000017b0:	e3550001 	cmp	r5, #1
-000017b4:	0a0000cc 	beq	0x1aec
+000017b4:	0a0000cc 	beq	0x1aec		; Quad SPI boot
 000017b8:	e3550004 	cmp	r5, #4
-000017bc:	0a0000d6 	beq	0x1b1c
+000017bc:	0a0000d6 	beq	0x1b1c		; NAND boot
 000017c0:	e3550002 	cmp	r5, #2
-000017c4:	0a0000dd 	beq	0x1b40
+000017c4:	0a0000dd 	beq	0x1b40		; NOR boot
 000017c8:	e3550005 	cmp	r5, #5
-000017cc:	0a0000e7 	beq	0x1b70
+000017cc:	0a0000e7 	beq	0x1b70		; SD card boot
 000017d0:	e3550003 	cmp	r5, #3
-000017d4:	0a0000ad 	beq	0x1a90		; run uart-loader
+000017d4:	0a0000ad 	beq	0x1a90		; UART boot
 000017d8:	e3550000 	cmp	r5, #0
-000017dc:	0a0000b5 	beq	0x1ab8
+000017dc:	0a0000b5 	beq	0x1ab8		; JTAG boot
 000017e0:	e3550006 	cmp	r5, #6
-000017e4:	0a00013f 	beq	0x1ce8		; SD card boot
+000017e4:	0a00013f 	beq	0x1ce8		; mystery boot 1
 000017e8:	e3550007 	cmp	r5, #7
-000017ec:	0a0000ea 	beq	0x1b9c
+000017ec:	0a0000ea 	beq	0x1b9c		; mystery boot 2
 
 ; How can we get here?  All 8 cases get taken above.
 000017f0:	e3020009	movw	r0, #0x2009
 000017f4:	ebfffd02 	bl	0xc04
+
+; shared code for several boot modes (they branch here)
 000017f8:	e307002c	movw	r0, #0x702c
 000017fc:	e30084a0	movw	r8, #0x4a0
 00001800:	e34f0800	movt	r0, #0xf800
 00001804:	e58d8004 	str	r8, [sp, #4]
+; read f800_702c (in devconfig)
+; multiboot address (remembers address from prior boot)
 00001808:	eb0025e9 	bl	0xafb4		; io_read
 0000180c:	e3a0b902 	mov	fp, #32768	@ 0x8000
 00001810:	e1a0c980 	lsl	ip, r0, #19
@@ -1753,10 +1780,17 @@
 00001838:	e34091ff	movt	r9, #0x1ff
 0000183c:	ea000013 	b	0x1890
 
+; branch here from below
+;
+; Note 0xe100_0000 is base for SMC NAND memory
+; Note 0xe200_0000 is base for SMC NOR memory
+; SMC is "static memory controller)
+
 00001840:	e353033f 	cmp	r3, #-67108864	@ 0xfc000000
 00001844:	0a000022 	beq	0x18d4
 00001848:	e35304e1 	cmp	r3, #-520093696	@ 0xe1000000
 0000184c:	0a000028 	beq	0x18f4
+
 00001850:	eb001055 	bl	0x59ac
 00001854:	e3500000 	cmp	r0, #0
 00001858:	1a000002 	bne	0x1868
@@ -1902,6 +1936,7 @@
 00001a88:	ebfffda9 	bl	0x1134
 00001a8c:	eaffffe1 	b	0x1a18
 
+; Handler for Uart boot
 00001a90:	e3a00701 	mov	r0, #262144	@ 0x40000
 00001a94:	eb0021ce 	bl	0xa1d4		; call uart-loader
 00001a98:	e3500000 	cmp	r0, #0
@@ -1912,6 +1947,8 @@
 00001aac:	e3402000 	movt	r2, #0
 00001ab0:	e5802000 	str	r2, [r0]
 00001ab4:	eaffff4f 	b	0x17f8
+
+; Handler for JTAG boot
 00001ab8:	ebfffa0c 	bl	0x2f0
 00001abc:	e3a00f97 	mov	r0, #604	@ 0x25c
 00001ac0:	e34f0800	movt	r0, #0xf800
@@ -1925,6 +1962,8 @@
 00001ae0:	e302000e	movw	r0, #0x200e
 00001ae4:	ebfffc46 	bl	0xc04
 00001ae8:	eaffffb1 	b	0x19b4
+
+; Handler for Quad SPI boot
 00001aec:	eb000d39 	bl	0x4fd8
 00001af0:	e3500001 	cmp	r0, #1
 00001af4:	0a0000b8 	beq	0x1ddc
@@ -1937,6 +1976,8 @@
 00001b10:	e3020021	movw	r0, #0x2021
 00001b14:	ebfffb22 	bl	0x7a4
 00001b18:	eaffff17 	b	0x177c
+
+; handler for NAND boot
 00001b1c:	eb0012e7 	bl	0x66c0
 00001b20:	e3500001 	cmp	r0, #1
 00001b24:	0a0000af 	beq	0x1de8
@@ -1946,6 +1987,8 @@
 00001b34:	e3401000 	movt	r1, #0
 00001b38:	e5881000 	str	r1, [r8]
 00001b3c:	eaffff2d 	b	0x17f8
+
+; handler for NOR boot
 00001b40:	eb000e86 	bl	0x5560
 00001b44:	e3500001 	cmp	r0, #1
 00001b48:	0a0000a9 	beq	0x1df4
@@ -1953,11 +1996,15 @@
 00001b50:	e30596ac	movw	r9, #0x56ac
 00001b54:	e340b007 	movt	fp, #7
 00001b58:	e3409000 	movt	r9, #0
-00001b5c:	e58b9000 	str	r9, [fp]
+00001b5c:	e58b9000 	str	r9, [fp]	; 0x7068c
 00001b60:	eaffff24 	b	0x17f8
+
+; branch to here from way the heck above.
 00001b64:	e3020013	movw	r0, #0x2013
 00001b68:	ebfffc25 	bl	0xc04
 00001b6c:	eaffffa7 	b	0x1a10
+
+; handler for SD card boot
 00001b70:	e308071c	movw	r0, #0x871c
 00001b74:	e3400001 	movt	r0, #1
 00001b78:	eb002131 	bl	0xa044
@@ -1970,7 +2017,7 @@
 00001b94:	e58ec000 	str	ip, [lr]
 00001b98:	eaffff16 	b	0x17f8
 
-; Handle boot mode 7 (mystery)
+; Handler for mystery boot 2 (mode 7)
 00001b9c:	eb0000ef 	bl	0x1f60
 00001ba0:	e3a00a07 	mov	r0, #28672	@ 0x7000
 00001ba4:	e34f0800	movt	r0, #0xf800
@@ -2094,11 +2141,12 @@
 ; 0xe010_0000 for sd0
 ; 0xe010_1000 for sd1
 
-; Handle boot mode 6 (SD card)
+; Handler for mystery boot 1 (boot mode 6)
 00001ce8:	eb0001ce 	bl	0x2428
 00001cec:	e3020006	movw	r0, #0x2006
 00001cf0:	ebfffbc3 	bl	0xc04
 00001cf4:	eafffebf 	b	0x17f8
+
 00001cf8:	eb000098 	bl	0x1f60
 
 ; read from 0xf800_7000, which is the devcfg control register
@@ -5748,9 +5796,11 @@
 00005548:	e2800005 	add	r0, r0, #5
 0000554c:	eb0016a5 	bl	0xafe8		; io_writeB
 00005550:	e5940000 	ldr	r0, [r4]
-00005554:	e3a010f0 	mov	r1, #240	@ 0xf0
+1144 (B.16) in the TRM.00005554:	e3a010f0 	mov	r1, #240	@ 0xf0
 00005558:	e8bd4010 	pop	{r4, lr}
 0000555c:	ea0016a1 	b	0xafe8		; io_writeB
+
+; subroutine -- used by NAND boot (only that one call)
 00005560:	e92d4070 	push	{r4, r5, r6, lr}
 00005564:	e3a06c07 	mov	r6, #1792	@ 0x700
 00005568:	e3a04000 	mov	r4, #0
@@ -5806,6 +5856,7 @@
 00005630:	ebffffb9 	bl	0x551c
 00005634:	e3a00000 	mov	r0, #0
 00005638:	e8bd8070 	pop	{r4, r5, r6, pc}
+
 0000563c:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 00005640:	e30044a0	movw	r4, #0x4a0
 00005644:	e1a05000 	mov	r5, r0
@@ -16722,7 +16773,7 @@
 0000ff0c:	e12fff1e 	bx	lr
 0000ff10:	eafffffe 	b	0xff10
 
-; This all looks like data from here on.
+; It all looks like data from here on.
 0000ff14:	00070000 	andeq	r0, r7, r0
 0000ff18:	0007d4a0 	andeq	sp, r7, r0, lsr #9
 0000ff1c:	f8007000 			@ <UNDEFINED> instruction: 0xf8007000
