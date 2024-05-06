@@ -60,7 +60,43 @@
 
 ; ------------------------------------------------
 ; Some notes on ARM instructions:
+; This is in general a refresher course for myself since I
+; tend to work on this, then go away for long periods and
+; then come back and want to get up to speed.
 ;
+; Subroutine calls are done via the "bl" instruction.
+; This puts the pc (return address) into the lr
+; and then sets the pc to the target address.
+; Note that this has nothing to do with the stack.
+; A leaf routine can simply return using "bx lr"
+; However if the called routine wants to call other
+; routines (i.e. is not a leaf routine), it must first
+; save the lr or else it will be overwritten.
+; A cute trick is to push the lr
+; (often along with other registers),
+; then to return (and restore those registers) one can
+; use a single instruction like:
+;	pop	{r4, pc}
+;
+; note that a pop with "lr" at the end does not return
+; it just restores the register.  Consider this:
+;	pop	{r4, r5, r6, r7, r8, lr}
+;	b	0xb000		; io_write
+;
+; The compiler sometimes generates code like this when the
+; last thing in a routine is to call another.
+; Rather than a "bl" to make that final call, it
+; just branches there with the "lr" register holding
+; the return address for the "parent" routine.
+; a nice shortcut and imporant to know about in this code.
+
+; bic instruction - bit clear.  performs AND with ~MASK
+; mvn instruction - loads ~data
+;  These two are equivalent:
+;    mov r3, #0xffffffff
+;    mvn r3, #0
+;  The first could not even be generated, but a good assembler
+;   would transform it to the second.
 
 ; ------------------------------------------------
 ; ------------------------------------------------
@@ -70,14 +106,46 @@
 ; I tripped over them, but decided we would be better served to
 ; collect them all, in order, in a nice reference section up front.
 ; Namely right here ---
+; See page 112 of the TRM
 
-; 0xf800_0000 to f800_0bff -- SLCR registers
+; f800_0000 to f800_0bff are SLCR registers
 ;  (system level control registers) TRM page 114 and 1571
-; 0xf800_07xx are MIO pin control
-;  an array of 54 registers, one per pin
-;  example: 07a4 is pin 41
+; f800_1000 to f880_ffff are PS registers
+; Table 4-3 (page 114) covers SLCR (System-level control registers)
+; Table 4-7 (page 116) covers the PS registers, as follows
+; f800_1000 = triple timer 0
+; f800_2000 = triple timer 1
+; f800_3000 = DMAC secure
+; f800_4000 = DMAC non-secure
+; f800_5000 = system watchdog
+; f800_6000 = DDR controller
+; f800_7000 = DevC (device configuration)
+; f800_8000 = AXI HP 0
+; f800_9000 = AXI HP 1
+; f800_A000 = AXI HP 2
+; f800_B000 = AXI HP 3
+; f800_C000 = OCM
+; f800_D000 = eFuse
 
-; 0xf800d010 - something in the eFuse area
+; 0xf800_07xx are MIO pin control (in the SLCR)
+;  an array of 54 registers, one per pin
+;  (we have MIO 0 to 53)
+;  example: 07a4 is pin 41  0x7d4 is pin 53
+
+; DevC (device configuration) collects a lot of useful stuff.
+; I remember searching high and low for this when I was writing code
+; to load a bitstream into the PL.  My notes from that project say to
+; look at page 1144 (B.16) in the TRM.
+; Appendix B is of vital interest at any event as it is entitled
+;   "Register Details"
+
+; eFuse is still a mystery.
+; there is a lot in the TRM section 32 (Device Secure Boot)
+; it is possible to require that th FSBL is encrypted
+; and/or to require RSA authentication.
+; fuses can permanently disable JTAG DAP and TAP
+; details of the fuses and registers in the f800_d000 area
+; is not present in the TRM.
 
 ; ---------------------------------------------
 ; ---------------------------------------------
@@ -146,7 +214,7 @@
 000000c8:	f57ff06f 	isb	sy
 000000cc:	ea0029a8 	b	0xa774
 
-; spin
+; spin (why? how do we get here?)
 000000d0:	eafffffe 	b	0xd0
 
 ; subroutine (called once from above)
@@ -548,8 +616,8 @@
 0000068c:	e30a02d4	movw	r0, #0xa2d4
 00000690:	e34e0000	movt	r0, #0xe000
 00000694:	e3e01000 	mvn	r1, #0
-00000698:	e8bd41f0 	pop	{r4, r5, r6, r7, r8, lr}
 
+00000698:	e8bd41f0 	pop	{r4, r5, r6, r7, r8, lr}
 0000069c:	ea002a57 	b	0xb000		; io_write
 
 ; Uart0 base is 0xE000_0000
@@ -623,7 +691,6 @@
 000006f4:	e34e0000	movt	r0, #0xe000
 000006f8:	e3a01f45 	mov	r1, #276	@ 0x114
 000006fc:	e8bd4010 	pop	{r4, lr}
-
 00000700:	ea002a3e 	b	0xb000		; io_write
 
 00000704:	e3a00a05 	mov	r0, #20480	@ 0x5000
@@ -665,11 +732,13 @@
 00000784:	e1a01005 	mov	r1, r5
 00000788:	e8bd4070 	pop	{r4, r5, r6, lr}
 0000078c:	ea00288c 	b	0xa9c4
+
 00000790:	e92d4010 	push	{r4, lr}
 00000794:	eb00059c 	bl	0x1e0c
 00000798:	e3800080 	orr	r0, r0, #128	@ 0x80
 0000079c:	e8bd4010 	pop	{r4, lr}
 000007a0:	ea00059c 	b	0x1e18
+
 000007a4:	e92d4010 	push	{r4, lr}
 000007a8:	e1a04000 	mov	r4, r0
 000007ac:	e3a00f96 	mov	r0, #600	@ 0x258
@@ -708,6 +777,7 @@
 00000830:	0afffffb 	beq	0x824
 00000834:	e28dd00c 	add	sp, sp, #12
 00000838:	e8bd8030 	pop	{r4, r5, pc}
+
 0000083c:	eb000572 	bl	0x1e0c
 00000840:	e3c00101 	bic	r0, r0, #1073741824	@ 0x40000000
 00000844:	eb000573 	bl	0x1e18
@@ -1099,6 +1169,7 @@
 00000e38:	e59d0004 	ldr	r0, [sp, #4]
 00000e3c:	e28dd00c 	add	sp, sp, #12
 00000e40:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
+
 00000e44:	e92d4070 	push	{r4, r5, r6, lr}
 00000e48:	e3004498	movw	r4, #0x498
 00000e4c:	e3404007 	movt	r4, #7
@@ -1129,6 +1200,7 @@
 00000eb0:	1a000001 	bne	0xebc
 00000eb4:	e28dd010 	add	sp, sp, #16
 00000eb8:	e8bd8070 	pop	{r4, r5, r6, pc}
+
 00000ebc:	e302001a	movw	r0, #0x201a
 00000ec0:	ebffff4f 	bl	0xc04
 00000ec4:	eafffffa 	b	0xeb4
@@ -1261,6 +1333,7 @@
 000010c0:	e28dd014 	add	sp, sp, #20
 000010c4:	e49de004 	pop	{lr}		@ (ldr lr, [sp], #4)
 000010c8:	ea0027cc 	b	0xb000		; io_write
+
 000010cc:	e3002000 	movw	r2, #0
 000010d0:	e3070694	movw	r0, #0x7694
 000010d4:	e3402007 	movt	r2, #7
@@ -1321,6 +1394,7 @@
 000011ac:	e28dd00c 	add	sp, sp, #12
 000011b0:	e8bd4030 	pop	{r4, r5, lr}
 000011b4:	eafffe92 	b	0xc04
+
 000011b8:	e92d4010 	push	{r4, lr}
 000011bc:	e1a04000 	mov	r4, r0
 000011c0:	e24dd008 	sub	sp, sp, #8
@@ -1344,6 +1418,7 @@
 00001208:	e28dd008 	add	sp, sp, #8
 0000120c:	e8bd4010 	pop	{r4, lr}
 00001210:	eafffe7b 	b	0xc04
+
 00001214:	e92d4010 	push	{r4, lr}
 00001218:	e1a04000 	mov	r4, r0
 0000121c:	e24dd008 	sub	sp, sp, #8
@@ -1367,6 +1442,7 @@
 00001264:	e28dd008 	add	sp, sp, #8
 00001268:	e8bd4010 	pop	{r4, lr}
 0000126c:	eafffe64 	b	0xc04
+
 00001270:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 00001274:	e24dd014 	sub	sp, sp, #20
 00001278:	eb0002e3 	bl	0x1e0c
@@ -1458,6 +1534,7 @@
 000013d0:	0afffff2 	beq	0x13a0
 000013d4:	e28dd014 	add	sp, sp, #20
 000013d8:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
+
 000013dc:	e3520000 	cmp	r2, #0
 000013e0:	e6ef1071 	uxtb	r1, r1
 000013e4:	012fff1e 	bxeq	lr
@@ -1616,19 +1693,26 @@
 00001638:	e1cb80f0 	strd	r8, [fp]
 0000163c:	e1a00006 	mov	r0, r6
 00001640:	e8bd8ff8 	pop	{r3, r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine, one call
+; This is in the eFuse area
 00001644:	e92d4010 	push	{r4, lr}
 00001648:	e30d0004	movw	r0, #0xd004
 0000164c:	e30d4014	movw	r4, #0xd014
 00001650:	e30d1f0d	movw	r1, #0xdf0d
 00001654:	e34f4800	movt	r4, #0xf800
 00001658:	e34f0800	movt	r0, #0xf800
+; write 0xdf0d to 0xf800d004
 0000165c:	eb002667 	bl	0xb000		; io_write
+; read 0xf800d014
 00001660:	e1a00004 	mov	r0, r4
 00001664:	eb002652 	bl	0xafb4		; io_read
+; write 0xf800d014 | 0x4
 00001668:	e3801004 	orr	r1, r0, #4
 0000166c:	e1a00004 	mov	r0, r4
 00001670:	eb002662 	bl	0xb000		; io_write
-00001674:	e3a00a0d 	mov	r0, #53248	@ 0xd000
+; write 0x767b to 0xf800d000
+00001674:	e3a00a0d 	mov	r0, #0xd000
 00001678:	e34f0800	movt	r0, #0xf800
 0000167c:	e307167b	movw	r1, #0x767b
 00001680:	e8bd4010 	pop	{r4, lr}
@@ -2122,35 +2206,6 @@
 
 ; -----------------------------------------------------------------------
 ; -----------------------------------------------------------------------
-; A big rant/prefix at the start of the SD card boot handler.
-
-; Some notes on addresses.
-; What is all the stuff at 0xf8..... ?
-; See page 112 of the TRM
-; f800_0000 to f800_0bff are SLCR registers
-; f800_1000 to f880_ffff are PS registers
-; Table 4-3 (page 114) covers SLCR (System-level control registers)
-; Table 4-7 (page 116) covers the PS registers, as follows
-; f800_1000 = triple timer 0
-; f800_2000 = triple timer 1
-; f800_3000 = DMAC secure
-; f800_4000 = DMAC non-secure
-; f800_5000 = system watchdog
-; f800_6000 = DDR controller
-; f800_7000 = DevC (device configuration)
-; f800_8000 = AXI HP 0
-; f800_9000 = AXI HP 1
-; f800_A000 = AXI HP 2
-; f800_B000 = AXI HP 3
-; f800_C000 = OCM
-; f800_D000 = eFuse
-
-; So?  What about this DevC?
-; I remember searching high and low for this when I was writing code
-; to load a bitstream into the PL.  My notes from that project say to
-; look at page 1144 (B.16) in the TRM.
-; Appendix B is of vital interest at any event as it is entitled
-;   "Register Details"
 
 ; ----------------------------------------------------------
 ; The TRM has the SD card controller registers on page 1532
