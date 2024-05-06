@@ -59,9 +59,25 @@
 ;-          vu32    tfifo;	// 44
 
 ; ------------------------------------------------
-; The usual section on ARM architecture details that I
-; fail to keep firmly in mind:
+; Some notes on ARM instructions:
 ;
+
+; ------------------------------------------------
+; ------------------------------------------------
+; Addresses --
+;
+; I had begun sprinkling them around in the code in the areas where
+; I tripped over them, but decided we would be better served to
+; collect them all, in order, in a nice reference section up front.
+; Namely right here ---
+
+; 0xf800_0000 to f800_0bff -- SLCR registers
+;  (system level control registers) TRM page 114 and 1571
+; 0xf800_07xx are MIO pin control
+;  an array of 54 registers, one per pin
+;  example: 07a4 is pin 41
+
+; 0xf800d010 - something in the eFuse area
 
 ; ---------------------------------------------
 ; ---------------------------------------------
@@ -1071,7 +1087,7 @@
 00000e08:	e3a00d1f 	mov	r0, #1984	@ 0x7c0
 00000e0c:	e3a010e0 	mov	r1, #224	@ 0xe0
 00000e10:	e34f0800	movt	r0, #0xf800
-00000e14:	eb001262 	bl	0x57a4
+00000e14:	eb001262 	bl	0x57a4		; mio_pin()
 00000e18:	eaffff9a 	b	0xc88
 00000e1c:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 00000e20:	e3a00f96 	mov	r0, #600	@ 0x258
@@ -1761,7 +1777,7 @@
 ; shared code for several boot modes (they branch here)
 000017f8:	e307002c	movw	r0, #0x702c
 000017fc:	e30084a0	movw	r8, #0x4a0
-00001800:	e34f0800	movt	r0, #0xf800
+00001800:	e34f0800	movt	r0, #0xf800	; 0xf800702c
 00001804:	e58d8004 	str	r8, [sp, #4]
 ; read f800_702c (in devconfig)
 ; multiboot address (remembers address from prior boot)
@@ -1807,6 +1823,7 @@
 00001884:	e1a01008 	mov	r1, r8
 00001888:	eb0025dc 	bl	0xb000		; io_write
 0000188c:	e5943000 	ldr	r3, [r4]
+
 00001890:	e3530000 	cmp	r3, #0
 00001894:	0a000002 	beq	0x18a4
 00001898:	e3550005 	cmp	r5, #5
@@ -2005,6 +2022,7 @@
 00001b6c:	eaffffa7 	b	0x1a10
 
 ; handler for SD card boot
+; 0x1871c is the address of "BOOT.BIN"
 00001b70:	e308071c	movw	r0, #0x871c
 00001b74:	e3400001 	movt	r0, #1
 00001b78:	eb002131 	bl	0xa044
@@ -2012,8 +2030,8 @@
 00001b80:	1a00008f 	bne	0x1dc4
 00001b84:	e300e68c	movw	lr, #0x68c
 00001b88:	e30ac104	movw	ip, #0xa104
-00001b8c:	e340e007 	movt	lr, #7
-00001b90:	e340c000 	movt	ip, #0
+00001b8c:	e340e007 	movt	lr, #7		; 0x7068c
+00001b90:	e340c000 	movt	ip, #0		; 0x0a104
 00001b94:	e58ec000 	str	ip, [lr]
 00001b98:	eaffff16 	b	0x17f8
 
@@ -5453,27 +5471,27 @@
 00004fec:	e34f0800	movt	r0, #0xf800
 00004ff0:	e3a01002 	mov	r1, #2
 00004ff4:	e5873000 	str	r3, [r7]
-00004ff8:	eb0001e9 	bl	0x57a4
+00004ff8:	eb0001e9 	bl	0x57a4		; mio_pin()
 00004ffc:	e300070c	movw	r0, #0x70c
 00005000:	e3a01002 	mov	r1, #2
 00005004:	e34f0800	movt	r0, #0xf800
-00005008:	eb0001e5 	bl	0x57a4
+00005008:	eb0001e5 	bl	0x57a4		; mio_pin()
 0000500c:	e3a00e71 	mov	r0, #1808	@ 0x710
 00005010:	e34f0800	movt	r0, #0xf800
 00005014:	e3a01002 	mov	r1, #2
-00005018:	eb0001e1 	bl	0x57a4
+00005018:	eb0001e1 	bl	0x57a4		; mio_pin()
 0000501c:	e3000714	movw	r0, #0x714
 00005020:	e34f0800	movt	r0, #0xf800
 00005024:	e3a01002 	mov	r1, #2
-00005028:	eb0001dd 	bl	0x57a4
+00005028:	eb0001dd 	bl	0x57a4		; mio_pin()
 0000502c:	e3000718	movw	r0, #0x718
 00005030:	e34f0800	movt	r0, #0xf800
 00005034:	e3a01002 	mov	r1, #2
-00005038:	eb0001d9 	bl	0x57a4
+00005038:	eb0001d9 	bl	0x57a4		; mio_pin()
 0000503c:	e3000704	movw	r0, #0x704
 00005040:	e34f0800	movt	r0, #0xf800
 00005044:	e3a01002 	mov	r1, #2
-00005048:	eb0001d5 	bl	0x57a4
+00005048:	eb0001d5 	bl	0x57a4		; mio_pin()
 0000504c:	e30d0014	movw	r0, #0xd014
 00005050:	e34e0000	movt	r0, #0xe000
 00005054:	e3a01000 	mov	r1, #0
@@ -5679,31 +5697,31 @@
 00005374:	e3000724	movw	r0, #0x724
 00005378:	e34f0800	movt	r0, #0xf800
 0000537c:	e3a01002 	mov	r1, #2
-00005380:	eb000107 	bl	0x57a4
+00005380:	eb000107 	bl	0x57a4		; mio_pin()
 00005384:	e3000728	movw	r0, #0x728
 00005388:	e34f0800	movt	r0, #0xf800
 0000538c:	e3011002	movw	r1, #0x1002
-00005390:	eb000103 	bl	0x57a4
+00005390:	eb000103 	bl	0x57a4		; mio_pin()
 00005394:	e300072c	movw	r0, #0x72c
 00005398:	e34f0800	movt	r0, #0xf800
 0000539c:	e3011002	movw	r1, #0x1002
-000053a0:	eb0000ff 	bl	0x57a4
+000053a0:	eb0000ff 	bl	0x57a4		; mio_pin()
 000053a4:	e3a00e73 	mov	r0, #1840	@ 0x730
 000053a8:	e34f0800	movt	r0, #0xf800
 000053ac:	e3011002	movw	r1, #0x1002
-000053b0:	eb0000fb 	bl	0x57a4
+000053b0:	eb0000fb 	bl	0x57a4		; mio_pin()
 000053b4:	e3000734	movw	r0, #0x734
 000053b8:	e34f0800	movt	r0, #0xf800
 000053bc:	e3011002	movw	r1, #0x1002
-000053c0:	eb0000f7 	bl	0x57a4
+000053c0:	eb0000f7 	bl	0x57a4		; mio_pin()
 000053c4:	e3a00c07 	mov	r0, #1792	@ 0x700
 000053c8:	e34f0800	movt	r0, #0xf800
 000053cc:	e3a01002 	mov	r1, #2
-000053d0:	eb0000f3 	bl	0x57a4
+000053d0:	eb0000f3 	bl	0x57a4		; mio_pin()
 000053d4:	e3000704	movw	r0, #0x704
 000053d8:	e34f0800	movt	r0, #0xf800
 000053dc:	e3a01002 	mov	r1, #2
-000053e0:	eb0000ef 	bl	0x57a4
+000053e0:	eb0000ef 	bl	0x57a4		; mio_pin()
 000053e4:	e30d00a0	movw	r0, #0xd0a0
 000053e8:	e300116b	movw	r1, #0x16b
 000053ec:	e34e0000	movt	r0, #0xe000
@@ -5815,7 +5833,7 @@
 0000558c:	e3011008	movw	r1, #0x1008
 00005590:	e1a00006 	mov	r0, r6
 00005594:	83a01008 	movhi	r1, #8
-00005598:	eb000081 	bl	0x57a4
+00005598:	eb000081 	bl	0x57a4		; mio_pin()
 0000559c:	e2845001 	add	r5, r4, #1
 000055a0:	e2866004 	add	r6, r6, #4
 000055a4:	e355000e 	cmp	r5, #14
@@ -5828,7 +5846,7 @@
 000055c0:	e3a01008 	mov	r1, #8
 000055c4:	91a00006 	movls	r0, r6
 000055c8:	93011008	movwls	r1, #0x1008
-000055cc:	eb000074 	bl	0x57a4
+000055cc:	eb000074 	bl	0x57a4		; mio_pin()
 000055d0:	e2854001 	add	r4, r5, #1
 000055d4:	e2866004 	add	r6, r6, #4
 000055d8:	e3540028 	cmp	r4, #40	@ 0x28
@@ -5947,6 +5965,10 @@
 00005798:	e280033e 	add	r0, r0, #-134217728	@ 0xf8000000
 0000579c:	e2800c07 	add	r0, r0, #1792	@ 0x700
 000057a0:	ea001603 	b	0xafb4		; io_read
+
+; subroutine, many calls "mio_pin()"
+; manipulates an SLCR pin control register.
+; r0 gives the SLCR register for the pin
 000057a4:	e92d4070 	push	{r4, r5, r6, lr}
 000057a8:	e1a05001 	mov	r5, r1
 000057ac:	e1a04000 	mov	r4, r0
@@ -5958,13 +5980,17 @@
 000057c4:	e1811003 	orr	r1, r1, r3
 000057c8:	e1a00004 	mov	r0, r4
 000057cc:	e8bd4070 	pop	{r4, r5, r6, lr}
+
+; never called ...
 000057d0:	ea00160a 	b	0xb000		; io_write
 000057d4:	e280033e 	add	r0, r0, #-134217728	@ 0xf8000000
 000057d8:	e92d4008 	push	{r3, lr}
 000057dc:	e2800c07 	add	r0, r0, #1792	@ 0x700
-000057e0:	ebffffef 	bl	0x57a4
+000057e0:	ebffffef 	bl	0x57a4		; mio_pin()
 000057e4:	e3a00000 	mov	r0, #0
 000057e8:	e8bd8008 	pop	{r3, pc}
+
+; subroutine
 000057ec:	e3a00008 	mov	r0, #8
 000057f0:	e30d1f0d	movw	r1, #0xdf0d
 000057f4:	e92d4070 	push	{r4, r5, r6, lr}
@@ -6882,7 +6908,7 @@
 00006628:	e3011010	movw	r1, #0x1010
 0000662c:	e1a00006 	mov	r0, r6
 00006630:	83a01010 	movhi	r1, #16
-00006634:	ebfffc5a 	bl	0x57a4
+00006634:	ebfffc5a 	bl	0x57a4		; mio_pin()
 00006638:	e2845001 	add	r5, r4, #1
 0000663c:	e2866004 	add	r6, r6, #4
 00006640:	e355000f 	cmp	r5, #15
@@ -6896,14 +6922,14 @@
 00006660:	e3a01010 	mov	r1, #16
 00006664:	91a00006 	movls	r0, r6
 00006668:	93011010	movwls	r1, #0x1010
-0000666c:	ebfffc4c 	bl	0x57a4
+0000666c:	ebfffc4c 	bl	0x57a4		; mio_pin()
 00006670:	e2854001 	add	r4, r5, #1
 00006674:	e2866004 	add	r6, r6, #4
 00006678:	e3540018 	cmp	r4, #24
 0000667c:	1affffe2 	bne	0x660c
 00006680:	e8bd8070 	pop	{r4, r5, r6, pc}
 00006684:	e3011010	movw	r1, #0x1010
-00006688:	ebfffc45 	bl	0x57a4
+00006688:	ebfffc45 	bl	0x57a4		; mio_pin()
 0000668c:	e2844001 	add	r4, r4, #1
 00006690:	e2855004 	add	r5, r5, #4
 00006694:	e3540002 	cmp	r4, #2
@@ -6913,7 +6939,7 @@
 000066a4:	e1a00005 	mov	r0, r5
 000066a8:	e3a01010 	mov	r1, #16
 000066ac:	9afffff4 	bls	0x6684
-000066b0:	ebfffc3b 	bl	0x57a4
+000066b0:	ebfffc3b 	bl	0x57a4		; mio_pin()
 000066b4:	e354000e 	cmp	r4, #14
 000066b8:	9afffff3 	bls	0x668c
 000066bc:	e8bd8070 	pop	{r4, r5, r6, pc}
@@ -9449,6 +9475,8 @@
 00008e34:	e3a00005 	mov	r0, #5
 00008e38:	e8bd8ff8 	pop	{r3, r4, r5, r6, r7, r8, r9, sl, fp, pc}
 00008e3c:	e8bd8ff8 	pop	{r3, r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine - one call from SD card boot
 00008e40:	e3500000 	cmp	r0, #0
 00008e44:	1a00000a 	bne	0x8e74
 00008e48:	e3003014 	movw	r3, #20
@@ -9466,6 +9494,7 @@
 00008e74:	e3a0000b 	mov	r0, #11
 00008e78:	e12fff1e 	bx	lr
 
+; subroutine
 00008e7c:	e92d4070 	push	{r4, r5, r6, lr}
 00008e80:	e3a03000 	mov	r3, #0
 00008e84:	e24dd030 	sub	sp, sp, #48	@ 0x30
@@ -9491,6 +9520,7 @@
 00008ed4:	0a000001 	beq	0x8ee0
 00008ed8:	e28dd030 	add	sp, sp, #48	@ 0x30
 00008edc:	e8bd8070 	pop	{r4, r5, r6, pc}
+
 00008ee0:	e28d0008 	add	r0, sp, #8
 00008ee4:	e59d1004 	ldr	r1, [sp, #4]
 00008ee8:	ebfffef2 	bl	0x8ab8
@@ -9530,6 +9560,8 @@
 00008f70:	e584e000 	str	lr, [r4]
 00008f74:	e1c410b4 	strh	r1, [r4, #4]
 00008f78:	eaffffd6 	b	0x8ed8
+
+; subroutine
 00008f7c:	e92d47f0 	push	{r4, r5, r6, r7, r8, r9, sl, lr}
 00008f80:	e1a05000 	mov	r5, r0
 00008f84:	e1a07003 	mov	r7, r3
@@ -9640,6 +9672,7 @@
 00009128:	e5c50006 	strb	r0, [r5, #6]
 0000912c:	e1a0000a 	mov	r0, sl
 00009130:	e8bd87f0 	pop	{r4, r5, r6, r7, r8, r9, sl, pc}
+
 00009134:	e5d01002 	ldrb	r1, [r0, #2]
 00009138:	e590201c 	ldr	r2, [r0, #28]
 0000913c:	e0322391 	mlas	r2, r1, r3, r2
@@ -10609,36 +10642,40 @@
 0000a03c:	e3430c21	movt	r0, #0x3c21
 0000a040:	e12fff1e 	bx	lr
 
+; Called from one location 
+; r0 holds address of string "BOOT.BIN"
+; this handles the bulk of SD card boot.
 0000a044:	e92d40f8 	push	{r3, r4, r5, r6, r7, lr}
 0000a048:	e3004224	movw	r4, #0x224
 0000a04c:	e3404007 	movt	r4, #7
 0000a050:	e1a06000 	mov	r6, r0
-0000a054:	e3a00e7a 	mov	r0, #1952	@ 0x7a0
+0000a054:	e3a00e7a 	mov	r0, #0x7a0	; MIO-40
 0000a058:	e3a01080 	mov	r1, #128	@ 0x80
 0000a05c:	e34f0800	movt	r0, #0xf800
 0000a060:	e2845004 	add	r5, r4, #4
 0000a064:	e5845000 	str	r5, [r4]
-0000a068:	ebffedcd 	bl	0x57a4
-0000a06c:	e30007a4	movw	r0, #0x7a4
+0000a068:	ebffedcd 	bl	0x57a4		; mio_pin()
+0000a06c:	e30007a4	movw	r0, #0x7a4	; MIO-41
 0000a070:	e3a01080 	mov	r1, #128	@ 0x80
 0000a074:	e34f0800	movt	r0, #0xf800
-0000a078:	ebffedc9 	bl	0x57a4
-0000a07c:	e30007a8	movw	r0, #0x7a8
+0000a078:	ebffedc9 	bl	0x57a4		; mio_pin()
+0000a07c:	e30007a8	movw	r0, #0x7a8	; MIO-42
 0000a080:	e34f0800	movt	r0, #0xf800
 0000a084:	e3a01d42 	mov	r1, #4224	@ 0x1080
-0000a088:	ebffedc5 	bl	0x57a4
-0000a08c:	e30007ac	movw	r0, #0x7ac
+0000a088:	ebffedc5 	bl	0x57a4		; mio_pin()
+0000a08c:	e30007ac	movw	r0, #0x7ac	; MIO-43
 0000a090:	e34f0800	movt	r0, #0xf800
 0000a094:	e3a01d42 	mov	r1, #4224	@ 0x1080
-0000a098:	ebffedc1 	bl	0x57a4
-0000a09c:	e3a00e7b 	mov	r0, #1968	@ 0x7b0
+0000a098:	ebffedc1 	bl	0x57a4		; mio_pin()
+0000a09c:	e3a00e7b 	mov	r0, #0x7b0	; MIO-44
 0000a0a0:	e34f0800	movt	r0, #0xf800
 0000a0a4:	e3a01d42 	mov	r1, #4224	@ 0x1080
-0000a0a8:	ebffedbd 	bl	0x57a4
-0000a0ac:	e30007b4	movw	r0, #0x7b4
+0000a0a8:	ebffedbd 	bl	0x57a4		; mio_pin()
+0000a0ac:	e30007b4	movw	r0, #0x7b4	; MIO-45
 0000a0b0:	e34f0800	movt	r0, #0xf800
 0000a0b4:	e3a01d42 	mov	r1, #4224	@ 0x1080
-0000a0b8:	ebffedb9 	bl	0x57a4
+0000a0b8:	ebffedb9 	bl	0x57a4		; mio_pin()
+
 0000a0bc:	e3a00000 	mov	r0, #0
 0000a0c0:	e2841024 	add	r1, r4, #36	@ 0x24
 0000a0c4:	ebfffb5d 	bl	0x8e40
@@ -10646,6 +10683,7 @@
 0000a0cc:	0a000001 	beq	0xa0d8
 0000a0d0:	e3a00001 	mov	r0, #1
 0000a0d4:	e8bd80f8 	pop	{r3, r4, r5, r6, r7, pc}
+
 0000a0d8:	e1a00005 	mov	r0, r5
 0000a0dc:	e1a01006 	mov	r1, r6
 0000a0e0:	ebffdced 	bl	0x149c
@@ -10736,11 +10774,11 @@
 0000a200:	e5835000 	str	r5, [r3]
 0000a204:	e34f0800	movt	r0, #0xf800
 0000a208:	e3a010e0 	mov	r1, #224	@ 0xe0
-0000a20c:	ebffed64 	bl	0x57a4
+0000a20c:	ebffed64 	bl	0x57a4		; mio_pin()
 0000a210:	e30007c4	movw	r0, #0x7c4
 0000a214:	e3a010e0 	mov	r1, #224	@ 0xe0
 0000a218:	e34f0800	movt	r0, #0xf800
-0000a21c:	ebffed60 	bl	0x57a4
+0000a21c:	ebffed60 	bl	0x57a4		; mio_pin()
 
 0000a220:	ebffd91e 	bl	0x6a0		; initialize uart1
 
@@ -25468,9 +25506,10 @@
 00018718:	00000a0d 	andeq	r0, r0, sp, lsl #20
 
 ; this is the string "BOOT.BIN"
-0001871c:	544f4f42 	strbpl	r4, [pc], #-3906	@ 0x18724
-00018720:	4e49422e 	cdpmi	2, 4, cr4, cr9, cr14, {1}
-00018724:	00000000 	andeq	r0, r0, r0
+0001871c:	544f4f42 	; TOOB
+00018720:	4e49422e 	; NIB.
+00018724:	00000000
+
 00018728:	30746242 	rsbscc	r6, r4, r2, asr #4
 0001872c:	00000000 	andeq	r0, r0, r0
 00018730:	42627431 	rsbmi	r7, r2, #822083584	@ 0x31000000
