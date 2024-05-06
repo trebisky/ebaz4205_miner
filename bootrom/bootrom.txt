@@ -98,6 +98,17 @@
 ;  The first could not even be generated, but a good assembler
 ;   would transform it to the second.
 
+; ARM "pre-increment" notation.
+; Note the instruction ldrb    r0, [r1, #1]!
+; ARM docs call this a "pre-increment"
+; this case reads from r1+1, but the trick is
+; that it also modifies r1 to be r1+1 when done.
+; So consider   "push {reg}"
+; this is equivalent to str  reg, [sp, #4]!
+; the register gets stored to sp+4 and
+; sp gets incremented to sp+4.
+
+
 ; ------------------------------------------------
 ; ------------------------------------------------
 ; Addresses --
@@ -346,14 +357,11 @@
 000002a0:	e28dd008 	add	sp, sp, #8
 000002a4:	e8bd8010 	pop	{r4, pc}
 
-; subroutine
-;
-; set r0 to 0xf800d010 - what could that be?
-; This is in the eFuse area
+; subroutine  "fuse_unlock" -- one call
 
 000002a8:	e30d0010	movw	r0, #0xd010
 000002ac:	e92d4010 	push	{r4, lr}
-000002b0:	e34f0800	movt	r0, #0xf800
+000002b0:	e34f0800	movt	r0, #0xf800	; eFuse
 000002b4:	eb002b3e 	bl	0xafb4		; io_read
 000002b8:	e3100b02 	tst	r0, #2048	@ 0x800
 000002bc:	0a000006 	beq	0x2dc
@@ -1027,18 +1035,19 @@
 00000c08:	e1a04000 	mov	r4, r0
 00000c0c:	e30d0010	movw	r0, #0xd010
 00000c10:	e24dd010 	sub	sp, sp, #16
-00000c14:	e34f0800	movt	r0, #0xf800
+00000c14:	e34f0800	movt	r0, #0xf800	; eFuse
 00000c18:	eb0028e5 	bl	0xafb4		; io_read
-00000c1c:	e3100b01 	tst	r0, #1024	@ 0x400
+00000c1c:	e3100b01 	tst	r0, #0x400
 00000c20:	0a00000d 	beq	0xc5c
-00000c24:	ee122f10	mrc	r2, TTBR0
+
+00000c24:	ee122f10	mrc	r2, TTBR0	; read
 00000c28:	e3043019	movw	r3, #0x4019
-00000c2c:	e3403001 	movt	r3, #1
+00000c2c:	e3403001 	movt	r3, #1		; 0x14019
 00000c30:	e1520003 	cmp	r2, r3
 00000c34:	1a000001 	bne	0xc40
 00000c38:	e3a00000 	mov	r0, #0
 00000c3c:	eb0029b9 	bl	0xb328
-00000c40:	e3a00f96 	mov	r0, #600	@ 0x258
+00000c40:	e3a00f96 	mov	r0, #0x258
 00000c44:	e34f0800	movt	r0, #0xf800
 00000c48:	eb0028d9 	bl	0xafb4		; io_read
 00000c4c:	e58d0000 	str	r0, [sp]
@@ -1585,22 +1594,37 @@
 00001494:	e49d4004 	pop	{r4}		@ (ldr r4, [sp], #4)
 00001498:	e12fff1e 	bx	lr
 
-0000149c:	e1a02000 	mov	r2, r0
-000014a0:	e5d10000 	ldrb	r0, [r1]
+; subroutine - "copy" - 3 calls
+; looks like a copy of a null terminated string
+; r0 is destination, r1 is source
+; we are free to trash r2 and r3 (and r1)
+; r0 will return same as when called.
+;
+; Note the instruction ldrb    r0, [r1, #1]!
+; ARM docs call this a "pre-increment"
+; this case reads from r1+1, but the trick is
+; that it also modifies r1 to be r1+1 when done.
+
+0000149c:	e1a02000 	mov	r2, r0		; r2 = dest
+000014a0:	e5d10000 	ldrb	r0, [r1]	; r0 = *r1
 000014a4:	e3500000 	cmp	r0, #0
 000014a8:	01a03000 	moveq	r3, r0
-000014ac:	0a000005 	beq	0x14c8
-000014b0:	e3a03000 	mov	r3, #0
-000014b4:	e7c20003 	strb	r0, [r2, r3]
-000014b8:	e2833001 	add	r3, r3, #1
-000014bc:	e5f10001 	ldrb	r0, [r1, #1]!
-000014c0:	e3500000 	cmp	r0, #0
+000014ac:	0a000005 	beq	0x14c8		; done ?
+
+000014b0:	e3a03000 	mov	r3, #0		; r3 = 0
+
+000014b4:	e7c20003 	strb	r0, [r2, r3]	; r2[r3] = r0
+000014b8:	e2833001 	add	r3, r3, #1	; r3++
+000014bc:	e5f10001 	ldrb	r0, [r1, #1]!	; r0 = *(++r1)
+000014c0:	e3500000 	cmp	r0, #0		; while ( r0 )
 000014c4:	1afffffa 	bne	0x14b4
-000014c8:	e3a01000 	mov	r1, #0
-000014cc:	e1a00002 	mov	r0, r2
-000014d0:	e7c21003 	strb	r1, [r2, r3]
+
+000014c8:	e3a01000 	mov	r1, #0		; r1 = 0
+000014cc:	e1a00002 	mov	r0, r2		; r0 = r2
+000014d0:	e7c21003 	strb	r1, [r2, r3]	; r3[r2] = 0
 000014d4:	e12fff1e 	bx	lr
 
+; subroutine - 1 call
 000014d8:	e3120001 	tst	r2, #1
 000014dc:	e52d4004 	push	{r4}		@ (str r4, [sp, #-4]!)
 000014e0:	e3a03000 	mov	r3, #0
@@ -1627,11 +1651,15 @@
 00001534:	0afffff1 	beq	0x1500
 00001538:	33e00000 	mvncc	r0, #0
 0000153c:	23a00001 	movcs	r0, #1
+
 00001540:	e49d4004 	pop	{r4}		@ (ldr r4, [sp], #4)
 00001544:	e12fff1e 	bx	lr
 
+; branch from above
 00001548:	e1a00002 	mov	r0, r2
 0000154c:	eafffffb 	b	0x1540
+
+; subroutine - one call
 00001550:	e92d4ff8 	push	{r3, r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00001554:	e1c060d0 	ldrd	r6, [r0]
 00001558:	e1510007 	cmp	r1, r7
@@ -1694,7 +1722,7 @@
 0000163c:	e1a00006 	mov	r0, r6
 00001640:	e8bd8ff8 	pop	{r3, r4, r5, r6, r7, r8, r9, sl, fp, pc}
 
-; subroutine, one call
+; subroutine, "fuse_fiddle(): -- one call
 ; This is in the eFuse area
 00001644:	e92d4010 	push	{r4, lr}
 00001648:	e30d0004	movw	r0, #0xd004
@@ -1756,8 +1784,8 @@
 00001710:	eb00263a 	bl	0xb000		; io_write
 00001714:	ebfffbff 	bl	0x718
 00001718:	ebfffbf9 	bl	0x704
-0000171c:	ebfffae1 	bl	0x2a8
-00001720:	ebffffc7 	bl	0x1644
+0000171c:	ebfffae1 	bl	0x2a8		; fuse_unlock
+00001720:	ebffffc7 	bl	0x1644		; fuse_fiddle
 00001724:	e307000c	movw	r0, #0x700c
 00001728:	e3a01010 	mov	r1, #16
 0000172c:	e34f0800	movt	r0, #0xf800
@@ -8641,7 +8669,8 @@
 0000805c:	e5805184 	str	r5, [r0, #388]	@ 0x184
 00008060:	e3401001 	movt	r1, #1
 00008064:	e2800f62 	add	r0, r0, #392	@ 0x188
-00008068:	ebffe50b 	bl	0x149c
+;    copy from 0x18728 to ... (the string "Bbt0")
+00008068:	ebffe50b 	bl	0x149c		; copy (r0 = r1)
 0000806c:	e306c7c8	movw	ip, #0x67c8
 00008070:	e7d4100c 	ldrb	r1, [r4, ip]
 00008074:	e3a00000 	mov	r0, #0
@@ -8661,7 +8690,8 @@
 000080ac:	e58431a4 	str	r3, [r4, #420]	@ 0x1a4
 000080b0:	e2840f6a 	add	r0, r4, #424	@ 0x1a8
 000080b4:	e3401001 	movt	r1, #1
-000080b8:	ebffe4f7 	bl	0x149c
+;	copy from 0x18730 to ...  (the string "t0")
+000080b8:	ebffe4f7 	bl	0x149c		; copy (r0 = r1)
 000080bc:	e5942018 	ldr	r2, [r4, #24]
 000080c0:	e3a03000 	mov	r3, #0
 000080c4:	e3520c02 	cmp	r2, #512	@ 0x200
@@ -10742,9 +10772,10 @@
 0000a0d0:	e3a00001 	mov	r0, #1
 0000a0d4:	e8bd80f8 	pop	{r3, r4, r5, r6, r7, pc}
 
-0000a0d8:	e1a00005 	mov	r0, r5
-0000a0dc:	e1a01006 	mov	r1, r6
-0000a0e0:	ebffdced 	bl	0x149c
+; branch from above
+0000a0d8:	e1a00005 	mov	r0, r5		; dest
+0000a0dc:	e1a01006 	mov	r1, r6		; source
+0000a0e0:	ebffdced 	bl	0x149c		; copy
 0000a0e4:	e30034a0	movw	r3, #0x4a0
 0000a0e8:	e3a02000 	mov	r2, #0
 0000a0ec:	e3403007 	movt	r3, #7
@@ -25568,7 +25599,9 @@
 00018720:	4e49422e 	; NIB.
 00018724:	00000000
 
-00018728:	30746242 	rsbscc	r6, r4, r2, asr #4
+; zero term string referenced above
+00018728:	30746242 	; 0tbB
+
 0001872c:	00000000 	andeq	r0, r0, r0
 00018730:	42627431 	rsbmi	r7, r2, #822083584	@ 0x31000000
 00018734:	00000000 	andeq	r0, r0, r0
