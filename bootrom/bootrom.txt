@@ -9782,6 +9782,7 @@
 000092dc:	15841018 	strne	r1, [r4, #24]
 000092e0:	e1a00008 	mov	r0, r8
 000092e4:	e8bd87f0 	pop	{r4, r5, r6, r7, r8, r9, sl, pc}
+
 000092e8:	e5941010 	ldr	r1, [r4, #16]
 000092ec:	e5841014 	str	r1, [r4, #20]
 000092f0:	e3510000 	cmp	r1, #0
@@ -10071,6 +10072,7 @@
 00009760:	e35300a9 	cmp	r3, #169	@ 0xa9
 00009764:	979ff103 	ldrls	pc, [pc, r3, lsl #2]
 00009768:	ea0000aa 	b	0x9a18
+
 0000976c:	00009ac0 	andeq	r9, r0, r0, asr #21
 00009770:	00009ac8 	andeq	r9, r0, r8, asr #21
 00009774:	00009ab8 			@ <UNDEFINED> instruction: 0x00009ab8
@@ -10241,6 +10243,7 @@
 00009a08:	00009a18 	andeq	r9, r0, r8, lsl sl
 00009a0c:	00009a18 	andeq	r9, r0, r8, lsl sl
 00009a10:	00009a14 	andeq	r9, r0, r4, lsl sl
+
 00009a14:	e380001a 	orr	r0, r0, #26
 00009a18:	e3a0c000 	mov	ip, #0
 00009a1c:	e6ff0070 	uxth	r0, r0

@@ -8,6 +8,10 @@ ROM = zynq_bootrom.bin
 
 all:	bootrom.dis
 
+more:
+	git commit -am "More"
+	git push origin master
+
 bootrom.elf: wrap
 	./wrap $(ROM) bootrom.elf
 
