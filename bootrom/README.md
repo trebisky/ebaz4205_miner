@@ -5,4 +5,6 @@ loader option within the bootrom itself.
 
 We start with a 128K image
 
+The file you want to look at here is "bootrom.txt"
+
 Tom Trebisky  5-2-2024
