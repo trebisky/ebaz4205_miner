@@ -1575,6 +1575,8 @@
 000013d4:	e28dd014 	add	sp, sp, #20
 000013d8:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
 
+; uxtb - extract a byte and extend zeros
+; subroutine
 000013dc:	e3520000 	cmp	r2, #0
 000013e0:	e6ef1071 	uxtb	r1, r1
 000013e4:	012fff1e 	bxeq	lr
@@ -1589,6 +1591,7 @@
 00001408:	e25cc001 	subs	ip, ip, #1
 0000140c:	e4c31001 	strb	r1, [r3], #1
 00001410:	012fff1e 	bxeq	lr
+
 00001414:	e1a02003 	mov	r2, r3
 00001418:	e25cc002 	subs	ip, ip, #2
 0000141c:	e4c21001 	strb	r1, [r2], #1
@@ -1841,9 +1844,11 @@
 00001770:	e59d3014 	ldr	r3, [sp, #20]
 00001774:	e1520003 	cmp	r2, r3
 00001778:	0a0000e4 	beq	0x1b10
+
+; Qspi boot branches here when done
 0000177c:	e59de010 	ldr	lr, [sp, #16]
 00001780:	e35e0001 	cmp	lr, #1
-00001784:	0a0000b2 	beq	0x1a541144 (B.16) in the TRM.
+00001784:	0a0000b2 	beq	0x1a541144
 
 ; read from 0xf800025c
 ; This must give the boot mode settings.
@@ -1917,7 +1922,7 @@
 000017f0:	e3020009	movw	r0, #0x2009
 000017f4:	ebfffd02 	bl	0xc04
 
-; shared code for several boot modes
+; shared code for several boot modes (NAND and NOR)
 ; they branch here -- when done
 000017f8:	e307002c	movw	r0, #0x702c
 000017fc:	e30084a0	movw	r8, #0x4a0
@@ -2120,6 +2125,10 @@
 00001ad4:	e3020005	movw	r0, #0x2005
 00001ad8:	ebfffc49 	bl	0xc04
 00001adc:	eaffff45 	b	0x17f8
+
+; Odd code fragment.
+; branched to from 000019b0
+
 00001ae0:	e302000e	movw	r0, #0x200e
 00001ae4:	ebfffc46 	bl	0xc04
 00001ae8:	eaffffb1 	b	0x19b4
@@ -5016,6 +5025,7 @@
 00004704:	e3a02040 	mov	r2, #64	@ 0x40
 00004708:	e8bd4010 	pop	{r4, lr}
 0000470c:	eafff332 	b	0x13dc
+
 00004710:	00018534 	andeq	r8, r1, r4, lsr r5
 00004714:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00004718:	e3520000 	cmp	r2, #0
@@ -7001,9 +7011,12 @@
 000065d0:	e58c3000 	str	r3, [ip]
 000065d4:	e28dd02c 	add	sp, sp, #44	@ 0x2c
 000065d8:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine
+; -- called by NAND boot
 000065dc:	e3000004 	movw	r0, #4
 000065e0:	e92d4070 	push	{r4, r5, r6, lr}
-000065e4:	e3400007 	movt	r0, #7
+000065e4:	e3400007 	movt	r0, #7			; 0x70004
 000065e8:	e590300c 	ldr	r3, [r0, #12]
 000065ec:	e3530008 	cmp	r3, #8
 000065f0:	03a05c07 	moveq	r5, #1792	@ 0x700
@@ -7058,14 +7071,16 @@
 000066b4:	e354000e 	cmp	r4, #14
 000066b8:	9afffff3 	bls	0x668c
 000066bc:	e8bd8070 	pop	{r4, r5, r6, pc}
+
+; Handle NAND boot
 000066c0:	e92d4070 	push	{r4, r5, r6, lr}
 000066c4:	e300eec0	movw	lr, #0xec0
-000066c8:	e340e007 	movt	lr, #7
+000066c8:	e340e007 	movt	lr, #7		; 0x70ec0
 000066cc:	e30064a0	movw	r6, #0x4a0
 000066d0:	e3075690	movw	r5, #0x7690
 000066d4:	e3004004 	movw	r4, #4
-000066d8:	e3404007 	movt	r4, #7
-000066dc:	e3a0c4e1 	mov	ip, #-520093696	@ 0xe1000000
+000066d8:	e3404007 	movt	r4, #7		; 0x70004
+000066dc:	e3a0c4e1 	mov	ip, #0xe1000000
 000066e0:	e1a0000e 	mov	r0, lr
 000066e4:	e3406007 	movt	r6, #7
 000066e8:	e3405007 	movt	r5, #7
@@ -7093,6 +7108,8 @@
 00006740:	e2500000 	subs	r0, r0, #0
 00006744:	13a00001 	movne	r0, #1
 00006748:	e8bd8070 	pop	{r4, r5, r6, pc}
+
+; subroutine - several calls
 0000674c:	e92d4008 	push	{r3, lr}
 00006750:	eb001217 	bl	0xafb4		; io_read
 00006754:	e3100040 	tst	r0, #64	@ 0x40
@@ -7132,6 +7149,9 @@
 000067dc:	e2876004 	add	r6, r7, #4
 000067e0:	8afffff4 	bhi	0x67b8
 000067e4:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+
+; subroutine
+; called once from above (by NAND boot)
 000067e8:	e92d4070 	push	{r4, r5, r6, lr}
 000067ec:	e1a05001 	mov	r5, r1
 000067f0:	e1a04000 	mov	r4, r0
@@ -7157,13 +7177,14 @@
 00006840:	e2820018 	add	r0, r2, #24
 00006844:	eb0011ed 	bl	0xb000		; io_write
 00006848:	e5940008 	ldr	r0, [r4, #8]
-0000684c:	e3a01509 	mov	r1, #37748736	@ 0x2400000
+0000684c:	e3a01509 	mov	r1, #0x2400000
 00006850:	e2800010 	add	r0, r0, #16
 00006854:	eb0011e9 	bl	0xb000		; io_write
 00006858:	e1a00004 	mov	r0, r4
 0000685c:	eb0002bd 	bl	0x7358
 00006860:	e3500000 	cmp	r0, #0
 00006864:	18bd8070 	popne	{r4, r5, r6, pc}
+
 00006868:	e5d43029 	ldrb	r3, [r4, #41]	@ 0x29
 0000686c:	e3530010 	cmp	r3, #16
 00006870:	0a000067 	beq	0x6a14
@@ -7172,7 +7193,7 @@
 0000687c:	e2800018 	add	r0, r0, #24
 00006880:	eb0011de 	bl	0xb000		; io_write
 00006884:	e594e008 	ldr	lr, [r4, #8]
-00006888:	e3a01509 	mov	r1, #37748736	@ 0x2400000
+00006888:	e3a01509 	mov	r1, #0x2400000
 0000688c:	e28e0010 	add	r0, lr, #16
 00006890:	eb0011da 	bl	0xb000		; io_write
 00006894:	e5945018 	ldr	r5, [r4, #24]
@@ -7187,12 +7208,14 @@
 000068b8:	979ff102 	ldrls	pc, [pc, r2, lsl #2]
 000068bc:	ea00003d 	b	0x69b8
 
-000068c0:	000068d4 	ldrdeq	r6, [r0], -r4
-000068c4:	000069b8 			@ <UNDEFINED> instruction: 0x000069b8
-000068c8:	0000693c 	andeq	r6, r0, ip, lsr r9
-000068cc:	000068d4 	ldrdeq	r6, [r0], -r4
-000068d0:	000068d4 	ldrdeq	r6, [r0], -r4
+; looks like data here, 3 items point after the block
+000068c0:	000068d4
+000068c4:	000069b8
+000068c8:	0000693c
+000068cc:	000068d4
+000068d0:	000068d4
 
+; loop, but how do we get here?
 000068d4:	e594c008 	ldr	ip, [r4, #8]
 000068d8:	e28c0b01 	add	r0, ip, #1024	@ 0x400
 000068dc:	eb0011b4 	bl	0xafb4		; io_read
@@ -7219,6 +7242,7 @@
 0000692c:	eb0005b9 	bl	0x8018
 00006930:	e1a00004 	mov	r0, r4
 00006934:	e8bd4070 	pop	{r4, r5, r6, lr}
+
 00006938:	ea0005f7 	b	0x811c
 0000693c:	e1d461bc 	ldrh	r6, [r4, #28]
 00006940:	e5941008 	ldr	r1, [r4, #8]
