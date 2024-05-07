@@ -90,6 +90,16 @@
 ; the return address for the "parent" routine.
 ; a nice shortcut and imporant to know about in this code.
 
+; mrc and mcr -- these are the coprocessor interface instructions
+; that annoy me so much.
+; I have translated the usual nonsense to mnemonic names.
+; mrc is "send a coprocessor command and get data
+;  like this, which reads the "multiprocessor affinity register"
+;		mrc	fp, MPIDR
+; mcr is "send a coprocessor command and also send data
+;  like this, which write to the translation table base register
+;		mcr     r0, TTBR0
+
 ; bic instruction - bit clear.  performs AND with ~MASK
 ; mvn instruction - loads ~data
 ;  These two are equivalent:
@@ -97,6 +107,12 @@
 ;    mvn r3, #0
 ;  The first could not even be generated, but a good assembler
 ;   would transform it to the second.
+; cmn instruction is exactly the same as "cmp" except
+;  that the second operand gets negated before the compare.
+;  The point of this is that storing negative values as
+;   immediate values is not convenient for the ARM.
+;   you will usually see code like this:
+;		cmn	r0, #1
 
 ; ARM "pre-increment" notation.
 ; Note the instruction ldrb    r0, [r1, #1]!
@@ -200,25 +216,30 @@
 0000006c:	eafffffc 	b	0x64
 
 ; core 0 continues right along
+
+; set up performance monitor registers
 00000070:	ee190f1c	mrc	r0, PMCR
 00000074:	e3800005 	orr	r0, r0, #5
 00000078:	ee090f1c	mcr	r0, PMCR
 0000007c:	ee190f1c	mrc	r0, PMCR
 00000080:	e3800001 	orr	r0, r0, #1
 00000084:	ee090f1c	mcr	r0, PMCR
-00000088:	e3a00102 	mov	r0, #-2147483648	@ 0x80000000
+00000088:	e3a00102 	mov	r0, #0x80000000
 0000008c:	ee090f3c	mcr	r0, PMCNTENSET
 00000090:	e10f0000 	mrs	r0, CPSR
 00000094:	e3e0101f 	mvn	r1, #31
 00000098:	e0012000 	and	r2, r1, r0
 0000009c:	e382201f 	orr	r2, r2, #31
 000000a0:	e129f002 	msr	CPSR_fc, r2
+; set the initial stack
 000000a4:	e59fd0b8 	ldr	sp, [pc, #184]	@ 0x164
 000000a8:	e3e00000 	mvn	r0, #0
 000000ac:	ee030f10	mcr	r0, DACR
+; set the initial MMU tables
 000000b0:	e59f00b0 	ldr	r0, [pc, #176]	@ 0x168
 000000b4:	ee020f10	mcr	r0, TTBR0
 000000b8:	ee020f30	mcr	r0, TTBR1
+
 000000bc:	e3a00001 	mov	r0, #1
 000000c0:	ee010f10	mcr	r0, SCTLR
 000000c4:	f57ff04f 	dsb	sy
@@ -226,6 +247,9 @@
 000000cc:	ea0029a8 	b	0xa774
 
 ; spin (why? how do we get here?)
+; there are quite a few of these scattered around,
+; as if to "catch" the processor if it ever goes crazy??
+
 000000d0:	eafffffe 	b	0xd0
 
 ; subroutine (called once from above)
@@ -268,11 +292,15 @@
 00000160:	e12fff1e 	bx	lr
 
 ; Some data here.  The initial stack and TTBR values
+; 0x164 holds an initial stack
+; 0x168 holds a pointer to MMU translation tables.
+; the other two values are used in the cache routine above.
 
-00000164:	0007d4a0 	andeq	sp, r7, r0, lsr #9
-00000168:	00010000 	andeq	r0, r1, r0
-0000016c:	000003ff 	strdeq	r0, [r0], -pc	@ <UNPREDICTABLE>
-00000170:	00007fff 	strdeq	r7, [r0], -pc	@ <UNPREDICTABLE>
+00000164:	0007d4a0
+00000168:	00010000
+
+0000016c:	000003ff
+00000170:	00007fff
 
 ; subroutine
 00000174:	e3520000 	cmp	r2, #0
@@ -1029,7 +1057,7 @@
 00000bfc:	e8bd4010 	pop	{r4, lr}
 00000c00:	ea000484 	b	0x1e18
 
-; subroutine
+; subroutine - many calls
 ; 0xf800d010 is in eFuse
 00000c04:	e92d4010 	push	{r4, lr}
 00000c08:	e1a04000 	mov	r4, r0
@@ -1054,12 +1082,14 @@
 00000c50:	e59d1000 	ldr	r1, [sp]
 00000c54:	e2010903 	and	r0, r1, #49152	@ 0xc000
 00000c58:	e1844000 	orr	r4, r4, r0
+
 00000c5c:	eb00046a 	bl	0x1e0c
 00000c60:	e58d0008 	str	r0, [sp, #8]
 00000c64:	eb0004bd 	bl	0x1f60
 00000c68:	eb000744 	bl	0x2980
 00000c6c:	e30e05c0	movw	r0, #0xe5c0
 00000c70:	e34f0800	movt	r0, #0xf800
+;	0xf800_e5c0
 00000c74:	eb0028ce 	bl	0xafb4		; io_read
 00000c78:	e58d0004 	str	r0, [sp, #4]
 00000c7c:	e59dc004 	ldr	ip, [sp, #4]
@@ -1075,6 +1105,7 @@
 00000c9c:	e3401001 	movt	r1, #1
 00000ca0:	e3402001 	movt	r2, #1
 00000ca4:	e3400001 	movt	r0, #1
+
 00000ca8:	e59d3008 	ldr	r3, [sp, #8]
 00000cac:	eb002744 	bl	0xa9c4
 00000cb0:	e3a00f97 	mov	r0, #604	@ 0x25c
@@ -1886,7 +1917,8 @@
 000017f0:	e3020009	movw	r0, #0x2009
 000017f4:	ebfffd02 	bl	0xc04
 
-; shared code for several boot modes (they branch here)
+; shared code for several boot modes
+; they branch here -- when done
 000017f8:	e307002c	movw	r0, #0x702c
 000017fc:	e30084a0	movw	r8, #0x4a0
 00001800:	e34f0800	movt	r0, #0xf800	; 0xf800702c
@@ -1942,7 +1974,7 @@
 0000189c:	13550003 	cmpne	r5, #3
 000018a0:	0a000019 	beq	0x190c
 000018a4:	e59a3000 	ldr	r3, [sl]
-000018a8:	e35304e2 	cmp	r3, #-503316480	@ 0xe2000000
+000018a8:	e35304e2 	cmp	r3, #0xe2000000
 000018ac:	1affffe3 	bne	0x1840
 000018b0:	e5942000 	ldr	r2, [r4]
 000018b4:	e1520009 	cmp	r2, r9
@@ -1951,7 +1983,7 @@
 000018c0:	ebfffccf 	bl	0xc04
 000018c4:	e59d3004 	ldr	r3, [sp, #4]
 000018c8:	e5933000 	ldr	r3, [r3]
-000018cc:	e353033f 	cmp	r3, #-67108864	@ 0xfc000000
+000018cc:	e353033f 	cmp	r3, #0xfc000000
 000018d0:	1affffdc 	bne	0x1848
 000018d4:	e594e000 	ldr	lr, [r4]
 000018d8:	e15e0009 	cmp	lr, r9
@@ -1959,7 +1991,7 @@
 000018e0:	e302000c	movw	r0, #0x200c
 000018e4:	ebfffcc6 	bl	0xc04
 000018e8:	e59a3000 	ldr	r3, [sl]
-000018ec:	e35304e1 	cmp	r3, #-520093696	@ 0xe1000000
+000018ec:	e35304e1 	cmp	r3, #0xe1000000
 000018f0:	1affffd6 	bne	0x1850
 000018f4:	e5940000 	ldr	r0, [r4]
 000018f8:	e150000b 	cmp	r0, fp
@@ -7154,16 +7186,19 @@
 000068b4:	e3520004 	cmp	r2, #4
 000068b8:	979ff102 	ldrls	pc, [pc, r2, lsl #2]
 000068bc:	ea00003d 	b	0x69b8
+
 000068c0:	000068d4 	ldrdeq	r6, [r0], -r4
 000068c4:	000069b8 			@ <UNDEFINED> instruction: 0x000069b8
 000068c8:	0000693c 	andeq	r6, r0, ip, lsr r9
 000068cc:	000068d4 	ldrdeq	r6, [r0], -r4
 000068d0:	000068d4 	ldrdeq	r6, [r0], -r4
+
 000068d4:	e594c008 	ldr	ip, [r4, #8]
 000068d8:	e28c0b01 	add	r0, ip, #1024	@ 0x400
 000068dc:	eb0011b4 	bl	0xafb4		; io_read
 000068e0:	e3100040 	tst	r0, #64	@ 0x40
 000068e4:	1afffffa 	bne	0x68d4
+
 000068e8:	e594c008 	ldr	ip, [r4, #8]
 000068ec:	e28ceb01 	add	lr, ip, #1024	@ 0x400
 000068f0:	e28e0004 	add	r0, lr, #4
@@ -8374,6 +8409,8 @@
 00007bc0:	e3822002 	orr	r2, r2, #2
 00007bc4:	e5402001 	strb	r2, [r0, #-1]
 00007bc8:	eaffff1c 	b	0x7840
+
+; subroutine - 2 calls
 00007bcc:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00007bd0:	e5919010 	ldr	r9, [r1, #16]
 00007bd4:	e1a07001 	mov	r7, r1
@@ -8451,6 +8488,8 @@
 00007cf4:	e3a00001 	mov	r0, #1
 00007cf8:	e28ddf83 	add	sp, sp, #524	@ 0x20c
 00007cfc:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine - 1 call
 00007d00:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 00007d04:	e2801f5d 	add	r1, r0, #372	@ 0x174
 00007d08:	e24dda02 	sub	sp, sp, #8192	@ 0x2000
@@ -8649,6 +8688,8 @@
 0000800c:	01520000 	cmpeq	r2, r0
 00008010:	3affffac 	bcc	0x7ec8
 00008014:	eaffffe9 	b	0x7fc0
+
+; subroutine - 1 call
 00008018:	e30627c8	movw	r2, #0x67c8
 0000801c:	e92d4038 	push	{r3, r4, r5, lr}
 00008020:	e7d0e002 	ldrb	lr, [r0, r2]
@@ -8707,6 +8748,8 @@
 000080ec:	e5c411c0 	strb	r1, [r4, #448]	@ 0x1c0
 000080f0:	e5c411c1 	strb	r1, [r4, #449]	@ 0x1c1
 000080f4:	e8bd8038 	pop	{r3, r4, r5, pc}
+
+; branches to here
 000080f8:	e3a0c001 	mov	ip, #1
 000080fc:	e3e01000 	mvn	r1, #0
 00008100:	e3a0e005 	mov	lr, #5
@@ -8716,6 +8759,8 @@
 00008110:	e5c411c0 	strb	r1, [r4, #448]	@ 0x1c0
 00008114:	e5c411c1 	strb	r1, [r4, #449]	@ 0x1c1
 00008118:	e8bd8038 	pop	{r3, r4, r5, pc}
+
+; subroutine - 1 call
 0000811c:	e92d45f8 	push	{r3, r4, r5, r6, r7, r8, sl, lr}
 00008120:	e1a04000 	mov	r4, r0
 00008124:	ebfffef5 	bl	0x7d00
@@ -11956,7 +12001,16 @@
 0000b224:	f57ff04f 	dsb	sy
 0000b228:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
 
+; So, what is this SCTLR register?
+; It is the ARM "system control register"
+; It has bits to enable caches, control alignment handling
+; and other basic aspects of the processor
+;
+; Below here we have a "library" of ARM housekeeping instructions,
+; many of which are never called.
+
 ; subroutine
+; this calls the above, then disables caches via the SCTLR
 0000b22c:	e92d4008 	push	{r3, lr}
 0000b230:	ebffffc3 	bl	0xb144
 0000b234:	ee110f10	mrc	r0, SCTLR
@@ -11966,28 +12020,32 @@
 0000b244:	e8bd8008 	pop	{r3, pc}
 
 ; subroutine
+; tests if the I cache is enabled
+; if not, it invalidates then enables them
 0000b248:	ee113f10	mrc	r3, SCTLR
-0000b24c:	e2132a01 	ands	r2, r3, #4096	@ 0x1000
+0000b24c:	e2132a01 	ands	r2, r3, #0x1000
 0000b250:	112fff1e 	bxne	lr
 
 0000b254:	ee072f15	mcr	r2, ICIALLU
 0000b258:	f57ff04f 	dsb	sy
-0000b25c:	e3833a01 	orr	r3, r3, #4096	@ 0x1000
+0000b25c:	e3833a01 	orr	r3, r3, #0x1000
 0000b260:	ee013f10	mcr	r3, SCTLR
 0000b264:	f57ff04f 	dsb	sy
 0000b268:	e12fff1e 	bx	lr
 
 ; subroutine
+; invalidates then disables the I cache
 0000b26c:	f57ff04f 	dsb	sy
 0000b270:	e3a01000 	mov	r1, #0
 0000b274:	ee071f15	mcr	r1, ICIALLU
 0000b278:	f57ff04f 	dsb	sy
 0000b27c:	ee110f10	mrc	r0, SCTLR
-0000b280:	e3c03a01 	bic	r3, r0, #4096	@ 0x1000
+0000b280:	e3c03a01 	bic	r3, r0, #0x1000
 0000b284:	ee013f10	mcr	r3, SCTLR
 0000b288:	f57ff04f 	dsb	sy
 0000b28c:	e12fff1e 	bx	lr
 
+; subroutine - never called
 0000b290:	e3a00001 	mov	r0, #1
 0000b294:	ee400f10	mcr	r0, CSSELR
 0000b298:	f57ff04f 	dsb	sy
@@ -11997,18 +12055,21 @@
 0000b2a8:	f57ff04f 	dsb	sy
 0000b2ac:	e12fff1e 	bx	lr
 
+; subroutine - never called
 0000b2b0:	e3a03000 	mov	r3, #0
 0000b2b4:	ee073fd5	mcr	r3, BPIALL
 0000b2b8:	f57ff04f 	dsb	sy
 0000b2bc:	f57ff04f 	dsb	sy
 0000b2c0:	e12fff1e 	bx	lr
 
+; subroutine - never called
 0000b2c4:	e3a03000 	mov	r3, #0
 0000b2c8:	ee083f17	mcr	r3, TLBIALL
 0000b2cc:	f57ff04f 	dsb	sy
 0000b2d0:	f57ff04f 	dsb	sy
 0000b2d4:	e12fff1e 	bx	lr
 
+; subroutine - never called
 0000b2d8:	ee020f10	mcr	r0, TTBR0
 0000b2dc:	f57ff04f 	dsb	sy
 0000b2e0:	ee020f30	mcr	r0, TTBR1
@@ -12016,6 +12077,7 @@
 0000b2e8:	f57ff04f 	dsb	sy
 0000b2ec:	e12fff1e 	bx	lr
 
+; subroutine - never called
 0000b2f0:	f57ff04f 	dsb	sy
 0000b2f4:	ee110f10	mrc	r0, SCTLR
 0000b2f8:	e3803001 	orr	r3, r0, #1
@@ -12024,6 +12086,7 @@
 0000b304:	f57ff04f 	dsb	sy
 0000b308:	e12fff1e 	bx	lr
 
+; subroutine - never called
 0000b30c:	f57ff04f 	dsb	sy
 0000b310:	ee110f10	mrc	r0, SCTLR
 0000b314:	e3c03001 	bic	r3, r0, #1
@@ -12032,6 +12095,7 @@
 0000b320:	f57ff04f 	dsb	sy
 0000b324:	e12fff1e 	bx	lr
 
+; subroutine - 3 calls
 0000b328:	e3500001 	cmp	r0, #1
 0000b32c:	e92d4010 	push	{r4, lr}
 0000b330:	0a000015 	beq	0xb38c
@@ -12055,6 +12119,8 @@
 0000b378:	f57ff04f 	dsb	sy
 0000b37c:	f57ff06f 	isb	sy
 0000b380:	e8bd8010 	pop	{r4, pc}
+
+; branch from above
 0000b384:	ebffffa8 	bl	0xb22c
 0000b388:	eaffffed 	b	0xb344
 0000b38c:	f57ff04f 	dsb	sy
@@ -12078,6 +12144,8 @@
 0000b3d4:	ebffff9b 	bl	0xb248
 0000b3d8:	e8bd4010 	pop	{r4, lr}
 0000b3dc:	eaffff4f 	b	0xb120
+
+; branch to here from far away
 0000b3e0:	e92d4070 	push	{r4, r5, r6, lr}
 0000b3e4:	e1a04000 	mov	r4, r0
 0000b3e8:	e1a06001 	mov	r6, r1
@@ -16882,22 +16950,29 @@
 0000fec8:	f57ff04f 	dsb	sy
 0000fecc:	e12fff1e 	bx	lr
 
+; spin
 0000fed0:	eafffffe 	b	0xfed0
+
+; spin
 0000fed4:	f57ff04f 	dsb	sy
 0000fed8:	e320f002 	wfe
 0000fedc:	eafffffc 	b	0xfed4
+
 0000fee0:	f57ff04f 	dsb	sy
 0000fee4:	e320f002 	wfe
-0000fee8:	e3e0000f 	mvn	r0, #15
+0000fee8:	e3e0000f 	mvn	r0, #15		; 0xffff_fff0
 0000feec:	e590e000 	ldr	lr, [r0]
 0000fef0:	e37e00d4 	cmn	lr, #212	@ 0xd4
 0000fef4:	0afffff9 	beq	0xfee0
+
 0000fef8:	ee070f15	mcr	r0, ICIALLU
 0000fefc:	ee070fd5	mcr	r0, BPIALL
 0000ff00:	ee080f17	mcr	r0, TLBIALL
 0000ff04:	e3a04000 	mov	r4, #0
 0000ff08:	ee014f10	mcr	r4, SCTLR
 0000ff0c:	e12fff1e 	bx	lr
+
+; spin
 0000ff10:	eafffffe 	b	0xff10
 
 ; It all looks like data from here on.
@@ -16960,6 +17035,8 @@
 0000fff4:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
 0000fff8:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
 0000fffc:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
+
+; These are MMU translation tables:
 00010000:	00000c02 	andeq	r0, r0, r2, lsl #24
 00010004:	00100000 	andseq	r0, r0, r0
 00010008:	00200000 	eoreq	r0, r0, r0
