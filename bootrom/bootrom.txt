@@ -64,6 +64,14 @@
 ; tend to work on this, then go away for long periods and
 ; then come back and want to get up to speed.
 ;
+; The stack grows to lower addresses.
+; The sp points to the "top" of the stack.
+; push does *(sp-4) = x then sp = sp - 4
+; pop does x = *sp then sp = sp + 4
+; push and pop are aliases for:
+;	str r3, [sp, #-4]!
+;	ldr r3, [sp], #4
+;
 ; Subroutine calls are done via the "bl" instruction.
 ; This puts the pc (return address) into the lr
 ; and then sets the pc to the target address.
@@ -330,7 +338,7 @@
 0000016c:	000003ff
 00000170:	00007fff
 
-; subroutine
+; subroutine	-- 5 calls
 00000174:	e3520000 	cmp	r2, #0
 00000178:	e92d00f0 	push	{r4, r5, r6, r7}
 0000017c:	e5903000 	ldr	r3, [r0]
@@ -372,22 +380,23 @@
 0000020c:	e12fff1e 	bx	lr
 
 ; subroutine
-00000210:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
-00000214:	e3e0c000 	mvn	ip, #0
+00000210:	e52de004 	push	{lr}
+00000214:	e3e0c000 	mvn	ip, #0		; ip = 0xffff_ffff
 00000218:	e24dd00c 	sub	sp, sp, #12
-0000021c:	e3a01000 	mov	r1, #0
+0000021c:	e3a01000 	mov	r1, #0		; r1 = 0
 00000220:	e28d0008 	add	r0, sp, #8
-00000224:	e3a02a01 	mov	r2, #4096	@ 0x1000
+00000224:	e3a02a01 	mov	r2, #0x1000
 00000228:	e520c004 	str	ip, [r0, #-4]!
 0000022c:	ebffffd0 	bl	0x174
 00000230:	e3081018	movw	r1, #0x8018
-00000234:	e3401001 	movt	r1, #1
+00000234:	e3401001 	movt	r1, #1		; 0x18018
 00000238:	e59d2004 	ldr	r2, [sp, #4]
 0000023c:	e1e00002 	mvn	r0, r2
 00000240:	e5913000 	ldr	r3, [r1]
+;      00018018:	98e5fcc9
 00000244:	e0200003 	eor	r0, r0, r3
 00000248:	e28dd00c 	add	sp, sp, #12
-0000024c:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
+0000024c:	e49df004 	pop	{pc}
 
 ; subroutine
 00000250:	e92d4010 	push	{r4, lr}
@@ -476,14 +485,8 @@
 ; subroutine - one call
 00000378:	e3000b0c	movw	r0, #0xb0c
 0000037c:	e3011166	movw	r1, #0x1166
-
-; This seems a little fishy -- how does the lower part of r0 get set?
-; We have r0 = 0xf800XXXX
-; We can fall through from above (but then the r1 value gets overwritten)
-; This never gets called directly.  Weird (sloppy?)
-
 00000380:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
-00000384:	e34f0800	movt	r0, #0xf800
+00000384:	e34f0800	movt	r0, #0xf800	; r0 = 0xf800_0b0c
 00000388:	e3401c30	movt	r1, #0xc30
 0000038c:	e3a04d1d 	mov	r4, #1856	@ 0x740
 00000390:	eb002b1a 	bl	0xb000		; io_write
@@ -497,13 +500,13 @@
 000003b0:	e3a01c11 	mov	r1, #4352	@ 0x1100
 000003b4:	e34f0800	movt	r0, #0xf800
 000003b8:	e3401c30	movt	r1, #0xc30
-000003bc:	e34f4800	movt	r4, #0xf800
+000003bc:	e34f4800	movt	r4, #0xf800	; 0xf800_0740
 000003c0:	eb002b0e 	bl	0xb000		; io_write
 000003c4:	e3a00eb1 	mov	r0, #2832	@ 0xb10
 000003c8:	e3011166	movw	r1, #0x1166
 000003cc:	e34f0800	movt	r0, #0xf800
 000003d0:	e3401c30	movt	r1, #0xc30
-000003d4:	e34f7800	movt	r7, #0xf800
+000003d4:	e34f7800	movt	r7, #0xf800	; 0xf800_07d8
 000003d8:	eb002b08 	bl	0xb000		; io_write
 000003dc:	e3000b14	movw	r0, #0xb14
 000003e0:	e3a01077 	mov	r1, #119	@ 0x77
@@ -648,22 +651,29 @@
 0000060c:	e34f0800	movt	r0, #0xf800
 00000610:	e1811005 	orr	r1, r1, r5
 00000614:	eb002a79 	bl	0xb000		; io_write
-00000618:	e1a00004 	mov	r0, r4
+
+; start loop with:
+;	r4 = f800_0740
+;	r7 = f800_07d8
+; These are all MIO pin config registers
+
+00000618:	e1a00004 	mov	r0, r4		; === loop
 0000061c:	e2845004 	add	r5, r4, #4
 00000620:	eb002a63 	bl	0xafb4		; io_read
-00000624:	e3c02c0e 	bic	r2, r0, #3584	@ 0xe00
+00000624:	e3c02c0e 	bic	r2, r0, #0xe00
 00000628:	e1a00004 	mov	r0, r4
 0000062c:	e1821006 	orr	r1, r2, r6
-00000630:	e2844008 	add	r4, r4, #8
+00000630:	e2844008 	add	r4, r4, #8	; r4 += 8
 00000634:	eb002a71 	bl	0xb000		; io_write
 00000638:	e1a00005 	mov	r0, r5
 0000063c:	eb002a5c 	bl	0xafb4		; io_read
-00000640:	e3c01c0e 	bic	r1, r0, #3584	@ 0xe00
+00000640:	e3c01c0e 	bic	r1, r0, #0xe00
 00000644:	e1a00005 	mov	r0, r5
 00000648:	e1811006 	orr	r1, r1, r6
 0000064c:	eb002a6b 	bl	0xb000		; io_write
 00000650:	e1540007 	cmp	r4, r7
 00000654:	1affffef 	bne	0x618
+
 00000658:	e30a0214	movw	r0, #0xa214
 0000065c:	e3e01000 	mvn	r1, #0
 00000660:	e34e0000	movt	r0, #0xe000
@@ -25345,7 +25355,10 @@
 0001800c:	313a3130 	teqcc	sl, r0, lsr r1
 00018010:	35353a36 	ldrcc	r3, [r5, #-2614]!	@ 0xfffff5ca
 00018014:	00000000 	andeq	r0, r0, r0
-00018018:	98e5fcc9 	stmials	r5!, {r0, r3, r6, r7, sl, fp, ip, sp, lr, pc}^
+
+; data
+00018018:	98e5fcc9
+
 0001801c:	8a75e5bc 	bhi	0x1d91714
 00018020:	00000000 	andeq	r0, r0, r0
 00018024:	77073096 			@ <UNDEFINED> instruction: 0x77073096
