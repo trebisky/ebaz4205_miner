@@ -2,6 +2,7 @@ bootrom.elf
 bootrom.raw
 bootrom.dis
 bootrom.odx
+bootrom.bin
 wrap
 zzz
 *.bak1

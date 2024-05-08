@@ -124,6 +124,34 @@
 ; the register gets stored to sp+4 and
 ; sp gets incremented to sp+4.
 
+; --- ARM addressing modes, some are trivial
+; reg to reg -- mov r0, r1
+; absolute   -- ldr r0, mem
+; immediate  -- mov r0, #13
+; indirect   -- ldr r0, [r2]
+; double     -- ldr r0, [r2, r3]
+;  w/ offset -- ldr r0, [r2, #4]
+;  PC rel    -- ldr r0, [pc, #4]
+;  - preinc  -- ldr r0, [r2, #4]!
+;  - postinc -- ldr r0, [r2], #4
+; w/ scaling -- ldr r0, [r2, r3, lsl #2]
+
+; These are all obvious except the last 3.
+; There is nothing special about PC relative beyond understanding
+;  that the PC value used is the address of the current instruction
+;  plus 8!!  You can verify this for yourself looking at this code
+;  where objdump has calculated the address for you.
+;
+; preinc loads from r2+4 in the example shown,
+;  then sets r2 to r2+4
+; postinc loads from r2, then sets r2 to r2+4
+;
+; in the form with scaling it is the last register that gets shifted.
+;   So the example: ldr r0, [r2, r3, lsl #2]
+;   does this:  r0 = *(r2+r3<<2); in C syntax
+;   The shift value can even be in an array!
+;   There is a lot of this in this code.
+;   (I am surprised things get this fancy in a RISC processor)
 
 ; ------------------------------------------------
 ; ------------------------------------------------
@@ -1576,48 +1604,74 @@
 000013d8:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
 
 ; uxtb - extract a byte and extend zeros
-; subroutine
+;   it does not change flags
+; sub versus subs -- subs changes flags, sub does not
+; not the addressing mode in: strb    r1, [r3], #1
+; in C syntax this does:  *r3++ = r1
+; the store goes to the current address in r3, then r3 gets incremented
+
+; subroutine "memset"
+;  a typical call has:
+;	r0 = address
+;	r1 = 0 (value)
+;	r2 = 16 (count)
+
 000013dc:	e3520000 	cmp	r2, #0
 000013e0:	e6ef1071 	uxtb	r1, r1
 000013e4:	012fff1e 	bxeq	lr
-000013e8:	e2422001 	sub	r2, r2, #1
-000013ec:	e1a03000 	mov	r3, r0
-000013f0:	e252c000 	subs	ip, r2, #0
-000013f4:	e4c31001 	strb	r1, [r3], #1
-000013f8:	e2022001 	and	r2, r2, #1
+
+000013e8:	e2422001 	sub	r2, r2, #1	; r2--
+000013ec:	e1a03000 	mov	r3, r0		; r3 = addr
+000013f0:	e252c000 	subs	ip, r2, #0	; ip = r2 (count)
+000013f4:	e4c31001 	strb	r1, [r3], #1	; *r3++ = r1
+000013f8:	e2022001 	and	r2, r2, #1	; r2 &= 1
 000013fc:	012fff1e 	bxeq	lr
-00001400:	e3520000 	cmp	r2, #0
+00001400:	e3520000 	cmp	r2, #0	
 00001404:	0a000002 	beq	0x1414
-00001408:	e25cc001 	subs	ip, ip, #1
-0000140c:	e4c31001 	strb	r1, [r3], #1
+00001408:	e25cc001 	subs	ip, ip, #1	; ip--
+0000140c:	e4c31001 	strb	r1, [r3], #1	; *r3++ = r1
 00001410:	012fff1e 	bxeq	lr
 
-00001414:	e1a02003 	mov	r2, r3
-00001418:	e25cc002 	subs	ip, ip, #2
-0000141c:	e4c21001 	strb	r1, [r2], #1
-00001420:	e5c31001 	strb	r1, [r3, #1]
-00001424:	e2823001 	add	r3, r2, #1
+00001414:	e1a02003 	mov	r2, r3		; loop
+00001418:	e25cc002 	subs	ip, ip, #2	; ip -= 2
+0000141c:	e4c21001 	strb	r1, [r2], #1	; *r2++ = r1
+00001420:	e5c31001 	strb	r1, [r3, #1]	; *(r3+1) = r1
+00001424:	e2823001 	add	r3, r2, #1	; r3 = r2 + 1
 00001428:	1afffff9 	bne	0x1414
 0000142c:	e12fff1e 	bx	lr
 
+; Interesting that objdump wants to clue us in about some
+; instruction aliases:
+;		push	{r4}		@ (str r4, [sp, #-4]!)
+;		pop	{r4}		@ (ldr r4, [sp], #4)
+
+; subroutine - lots of calls "memcpy"
+;
+;	r0 = dest
+;	r1 = source
+;	r2 = count
+
 00001430:	e3520000 	cmp	r2, #0
-00001434:	e52d4004 	push	{r4}		@ (str r4, [sp, #-4]!)
+00001434:	e52d4004 	push	{r4}
 00001438:	0a000015 	beq	0x1494
-0000143c:	e3a03001 	mov	r3, #1
-00001440:	e2424001 	sub	r4, r2, #1
-00001444:	e5d1c000 	ldrb	ip, [r1]
+
+0000143c:	e3a03001 	mov	r3, #1		; r3 = 1
+00001440:	e2424001 	sub	r4, r2, #1	; r4 = N -1
+00001444:	e5d1c000 	ldrb	ip, [r1]	; ip = *r1
 00001448:	e1530002 	cmp	r3, r2
-0000144c:	e0044003 	and	r4, r4, r3
-00001450:	e5c0c000 	strb	ip, [r0]
+0000144c:	e0044003 	and	r4, r4, r3	; r4 = r3 & 1
+00001450:	e5c0c000 	strb	ip, [r0]	; *r0 = ip
 00001454:	0a00000e 	beq	0x1494
+
 00001458:	e3540000 	cmp	r4, #0
 0000145c:	0a000004 	beq	0x1474
-00001460:	e3a03002 	mov	r3, #2
-00001464:	e5d1c001 	ldrb	ip, [r1, #1]
+00001460:	e3a03002 	mov	r3, #2		; r3 = 2
+00001464:	e5d1c001 	ldrb	ip, [r1, #1]	; ip = *(r1+1)
 00001468:	e1530002 	cmp	r3, r2
-0000146c:	e5c0c001 	strb	ip, [r0, #1]
+0000146c:	e5c0c001 	strb	ip, [r0, #1]	; *(r0+1) = ip
 00001470:	0a000007 	beq	0x1494
-00001474:	e7d14003 	ldrb	r4, [r1, r3]
+
+00001474:	e7d14003 	ldrb	r4, [r1, r3]	; loop
 00001478:	e283c001 	add	ip, r3, #1
 0000147c:	e7c04003 	strb	r4, [r0, r3]
 00001480:	e2833002 	add	r3, r3, #2
@@ -1625,7 +1679,8 @@
 00001488:	e1530002 	cmp	r3, r2
 0000148c:	e7c0400c 	strb	r4, [r0, ip]
 00001490:	1afffff7 	bne	0x1474
-00001494:	e49d4004 	pop	{r4}		@ (ldr r4, [sp], #4)
+
+00001494:	e49d4004 	pop	{r4}			;return
 00001498:	e12fff1e 	bx	lr
 
 ; subroutine - "copy" - 3 calls
@@ -3598,7 +3653,7 @@
 000030c0:	e59f016c 	ldr	r0, [pc, #364]	@ 0x3234
 000030c4:	e1a01006 	mov	r1, r6
 000030c8:	e3a0202c 	mov	r2, #44	@ 0x2c
-000030cc:	ebfff8d7 	bl	0x1430
+000030cc:	ebfff8d7 	bl	0x1430		; memcpy
 000030d0:	e5943000 	ldr	r3, [r4]
 000030d4:	e353033f 	cmp	r3, #-67108864	@ 0xfc000000
 000030d8:	135304e2 	cmpne	r3, #-503316480	@ 0xe2000000
@@ -3690,11 +3745,24 @@
 00003228:	e1831826 	orr	r1, r3, r6, lsr #16
 0000322c:	eb001f73 	bl	0xb000		; io_write
 00003230:	eaffffda 	b	0x31a0
-00003234:	00070580 	andeq	r0, r7, r0, lsl #11
+
+; address constant follows:
+00003234:	00070580
+
+; These 4 are all called as subroutines.
+; so this is a little 4 entry table of other subroutines
+; for some reason.
+
+; subroutine
 00003238:	ea000756 	b	0x4f98
+; subroutine
 0000323c:	ea000526 	b	0x46dc
+; subroutine
 00003240:	ea000533 	b	0x4714
+; subroutine
 00003244:	ea0006e6 	b	0x4de4
+
+; subroutine - several calls.
 00003248:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 0000324c:	e24ddf4f 	sub	sp, sp, #316	@ 0x13c
 00003250:	e28db034 	add	fp, sp, #52	@ 0x34
@@ -3705,7 +3773,7 @@
 00003264:	e3a02f41 	mov	r2, #260	@ 0x104
 00003268:	e1a0000b 	mov	r0, fp
 0000326c:	e58d3018 	str	r3, [sp, #24]
-00003270:	ebfff859 	bl	0x13dc
+00003270:	ebfff859 	bl	0x13dc		; memset
 00003274:	e59d5020 	ldr	r5, [sp, #32]
 00003278:	e59d3018 	ldr	r3, [sp, #24]
 0000327c:	e59d000c 	ldr	r0, [sp, #12]
@@ -3876,9 +3944,11 @@
 00003510:	e59d002c 	ldr	r0, [sp, #44]	@ 0x2c
 00003514:	e1a0100b 	mov	r1, fp
 00003518:	e3a02c01 	mov	r2, #256	@ 0x100
-0000351c:	ebfff7c3 	bl	0x1430
+0000351c:	ebfff7c3 	bl	0x1430		; memcpy
 00003520:	e28ddf4f 	add	sp, sp, #316	@ 0x13c
 00003524:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; branch here from above.
 00003528:	e59b2000 	ldr	r2, [fp]
 0000352c:	e59d001c 	ldr	r0, [sp, #28]
 00003530:	e0522000 	subs	r2, r2, r0
@@ -3894,6 +3964,8 @@
 00003558:	e58d201c 	str	r2, [sp, #28]
 0000355c:	e1a03002 	mov	r3, r2
 00003560:	eaffffde 	b	0x34e0
+
+; branch here from way above
 00003564:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00003568:	e1a09003 	mov	r9, r3
 0000356c:	e24ddf83 	sub	sp, sp, #524	@ 0x20c
@@ -3904,7 +3976,7 @@
 00003580:	e28d0f42 	add	r0, sp, #264	@ 0x108
 00003584:	e3a02c01 	mov	r2, #256	@ 0x100
 00003588:	e59d4230 	ldr	r4, [sp, #560]	@ 0x230
-0000358c:	ebfff792 	bl	0x13dc
+0000358c:	ebfff792 	bl	0x13dc		; memset
 00003590:	e3a03001 	mov	r3, #1
 00003594:	e5991000 	ldr	r1, [r9]
 00003598:	e58d3108 	str	r3, [sp, #264]	@ 0x108
@@ -3958,6 +4030,8 @@
 00003658:	ebfffefa 	bl	0x3248
 0000365c:	e28ddf83 	add	sp, sp, #524	@ 0x20c
 00003660:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; branch from above
 00003664:	e1a00005 	mov	r0, r5
 00003668:	e1a01005 	mov	r1, r5
 0000366c:	e1a02005 	mov	r2, r5
@@ -4011,11 +4085,11 @@
 0000372c:	e58d006c 	str	r0, [sp, #108]	@ 0x6c
 00003730:	e1a01000 	mov	r1, r0
 00003734:	e28d00b0 	add	r0, sp, #176	@ 0xb0
-00003738:	ebfff73c 	bl	0x1430
+00003738:	ebfff73c 	bl	0x1430		; memcpy
 0000373c:	e1a01006 	mov	r1, r6
 00003740:	e3a02040 	mov	r2, #64	@ 0x40
 00003744:	e28d0070 	add	r0, sp, #112	@ 0x70
-00003748:	ebfff738 	bl	0x1430
+00003748:	ebfff738 	bl	0x1430		; memcpy
 0000374c:	e59d4070 	ldr	r4, [sp, #112]	@ 0x70
 00003750:	e59d50a8 	ldr	r5, [sp, #168]	@ 0xa8
 00003754:	e58d403c 	str	r4, [sp, #60]	@ 0x3c
@@ -5012,11 +5086,15 @@
 000046d0:	e58b301c 	str	r3, [fp, #28]
 000046d4:	e28dd0d4 	add	sp, sp, #212	@ 0xd4
 000046d8:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine - 2 calls
+
+; strd is "store dual" Here we store r2 and r3 to the target
 000046dc:	e92d4010 	push	{r4, lr}
 000046e0:	e59f1028 	ldr	r1, [pc, #40]	@ 0x4710
-000046e4:	e3a02020 	mov	r2, #32
-000046e8:	e1a04000 	mov	r4, r0
-000046ec:	ebfff34f 	bl	0x1430
+000046e4:	e3a02020 	mov	r2, #32		; count
+000046e8:	e1a04000 	mov	r4, r0		; dest
+000046ec:	ebfff34f 	bl	0x1430		; memcpy
 000046f0:	e3a02000 	mov	r2, #0
 000046f4:	e3a03000 	mov	r3, #0
 000046f8:	e2840020 	add	r0, r4, #32
@@ -5024,9 +5102,21 @@
 00004700:	e3a01000 	mov	r1, #0
 00004704:	e3a02040 	mov	r2, #64	@ 0x40
 00004708:	e8bd4010 	pop	{r4, lr}
-0000470c:	eafff332 	b	0x13dc
+0000470c:	eafff332 	b	0x13dc		; memset
 
-00004710:	00018534 	andeq	r8, r1, r4, lsr r5
+; address constant for the above, to fetch the following.
+00004710:	00018534
+
+; 00018534:	6a09e667
+; 00018538:	bb67ae85
+; 0001853c:	3c6ef372
+; 00018540:	a54ff53a
+
+; 00018544:	510e527f
+; 00018548:	9b05688c
+; 0001854c:	1f83d9ab
+; 00018550:	5be0cd19
+
 00004714:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00004718:	e3520000 	cmp	r2, #0
 0000471c:	e24dd08c 	sub	sp, sp, #140	@ 0x8c
@@ -5282,7 +5372,7 @@
 00004b04:	e59d1040 	ldr	r1, [sp, #64]	@ 0x40
 00004b08:	e08e0009 	add	r0, lr, r9
 00004b0c:	e1a02003 	mov	r2, r3
-00004b10:	ebfff246 	bl	0x1430
+00004b10:	ebfff246 	bl	0x1430		; memcpy
 00004b14:	eafffff5 	b	0x4af0
 00004b18:	e59de044 	ldr	lr, [sp, #68]	@ 0x44
 00004b1c:	e2890020 	add	r0, r9, #32
@@ -5290,7 +5380,7 @@
 00004b24:	e1a02004 	mov	r2, r4
 00004b28:	e080000e 	add	r0, r0, lr
 00004b2c:	e58d303c 	str	r3, [sp, #60]	@ 0x3c
-00004b30:	ebfff23e 	bl	0x1430
+00004b30:	ebfff23e 	bl	0x1430		; memcpy
 00004b34:	e5d9a037 	ldrb	sl, [r9, #55]	@ 0x37
 00004b38:	e5d97023 	ldrb	r7, [r9, #35]	@ 0x23
 00004b3c:	e5d95027 	ldrb	r5, [r9, #39]	@ 0x27
@@ -7088,11 +7178,11 @@
 000066f0:	e30627d0	movw	r2, #0x67d0
 000066f4:	e586c000 	str	ip, [r6]
 000066f8:	e585e000 	str	lr, [r5]
-000066fc:	ebffeb36 	bl	0x13dc
+000066fc:	ebffeb36 	bl	0x13dc		; memset
 00006700:	e3a01000 	mov	r1, #0
 00006704:	e3a02010 	mov	r2, #16
 00006708:	e1a00004 	mov	r0, r4
-0000670c:	ebffeb32 	bl	0x13dc
+0000670c:	ebffeb32 	bl	0x13dc		; memset
 00006710:	e3a00a0e 	mov	r0, #57344	@ 0xe000
 00006714:	e5962000 	ldr	r2, [r6]
 00006718:	e7df0810 	bfi	r0, r0, #16, #16
@@ -7475,7 +7565,7 @@
 00006ccc:	e1a02004 	mov	r2, r4
 00006cd0:	e08a1003 	add	r1, sl, r3
 00006cd4:	e1a00006 	mov	r0, r6
-00006cd8:	ebffe9d4 	bl	0x1430
+00006cd8:	ebffe9d4 	bl	0x1430		; memcpy
 00006cdc:	e0588004 	subs	r8, r8, r4
 00006ce0:	e5953018 	ldr	r3, [r5, #24]
 00006ce4:	1affffdf 	bne	0x6c68
@@ -8623,7 +8713,7 @@
 00007ea8:	e2840f71 	add	r0, r4, #452	@ 0x1c4
 00007eac:	03a07001 	moveq	r7, #1
 00007eb0:	13a07002 	movne	r7, #2
-00007eb4:	ebffe548 	bl	0x13dc
+00007eb4:	ebffe548 	bl	0x13dc		; memset
 00007eb8:	e1c423d8 	ldrd	r2, [r4, #56]	@ 0x38
 00007ebc:	e1921003 	orrs	r1, r2, r3
 00007ec0:	0a00003e 	beq	0x7fc0
@@ -10723,7 +10813,7 @@
 00009f14:	e1a00006 	mov	r0, r6
 00009f18:	e3401007 	movt	r1, #7
 00009f1c:	e3a02c02 	mov	r2, #512	@ 0x200
-00009f20:	ebffdd42 	bl	0x1430
+00009f20:	ebffdd42 	bl	0x1430		; memcpy
 00009f24:	e5d58205 	ldrb	r8, [r5, #517]	@ 0x205
 00009f28:	e3180008 	tst	r8, #8
 00009f2c:	02844c02 	addeq	r4, r4, #512	@ 0x200
@@ -10736,7 +10826,7 @@
 00009f48:	e3a02c02 	mov	r2, #512	@ 0x200
 00009f4c:	e1a00006 	mov	r0, r6
 00009f50:	1a000022 	bne	0x9fe0
-00009f54:	ebffdd35 	bl	0x1430
+00009f54:	ebffdd35 	bl	0x1430		; memcpy
 00009f58:	e5d52205 	ldrb	r2, [r5, #517]	@ 0x205
 00009f5c:	e3120008 	tst	r2, #8
 00009f60:	12884001 	addne	r4, r8, #1
@@ -10754,7 +10844,7 @@
 00009f90:	e3a02c02 	mov	r2, #512	@ 0x200
 00009f94:	e1a00006 	mov	r0, r6
 00009f98:	1a000010 	bne	0x9fe0
-00009f9c:	ebffdd23 	bl	0x1430
+00009f9c:	ebffdd23 	bl	0x1430		; memcpy
 00009fa0:	e2477001 	sub	r7, r7, #1
 00009fa4:	e5d50205 	ldrb	r0, [r5, #517]	@ 0x205
 00009fa8:	e3a02000 	mov	r2, #0
@@ -11172,7 +11262,7 @@
 0000a5ac:	c0602002 	rsbgt	r2, r0, r2
 0000a5b0:	e1a00001 	mov	r0, r1
 0000a5b4:	e1a01003 	mov	r1, r3
-0000a5b8:	ebffdb9c 	bl	0x1430
+0000a5b8:	ebffdb9c 	bl	0x1430		; memcpy
 0000a5bc:	e3a00000 	mov	r0, #0
 0000a5c0:	e8bd8008 	pop	{r3, pc}
 0000a5c4:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
@@ -25572,14 +25662,16 @@
 00018524:	90befffa 	ldrshtls	pc, [lr], sl	@ <UNPREDICTABLE>
 00018528:	a4506ceb 	ldrbge	r6, [r0], #-3307	@ 0xfffff315
 00018530:	c67178f2 			@ <UNDEFINED> instruction: 0xc67178f2
-00018534:	6a09e667 	bvs	0x291ed8
-00018538:	bb67ae85 	bllt	0x1a03f54
-0001853c:	3c6ef372 	stclcc	3, cr15, [lr], #-456	@ 0xfffffe38
-00018540:	a54ff53a 	strbge	pc, [pc, #-1338]	@ 0x1800e	@ <UNPREDICTABLE>
-00018544:	510e527f 	tstpl	lr, pc, ror r2
-00018548:	9b05688c 	blls	0x172780
-0001854c:	1f83d9ab 	svcne	0x0083d9ab
-00018550:	5be0cd19 	blpl	0xff84b9bc
+
+00018534:	6a09e667
+00018538:	bb67ae85
+0001853c:	3c6ef372
+00018540:	a54ff53a
+00018544:	510e527f
+00018548:	9b05688c
+0001854c:	1f83d9ab
+00018550:	5be0cd19
+
 00018554:	00000080 	andeq	r0, r0, r0, lsl #1
 00018558:	00000000 	andeq	r0, r0, r0
 0001855c:	00000000 	andeq	r0, r0, r0
@@ -25596,6 +25688,7 @@
 00018588:	00000000 	andeq	r0, r0, r0
 0001858c:	00000000 	andeq	r0, r0, r0
 00018590:	00000000 	andeq	r0, r0, r0
+
 00018594:	0000000d 	andeq	r0, r0, sp
 00018598:	0000000e 	andeq	r0, r0, lr
 0001859c:	0000000f 	andeq	r0, r0, pc
