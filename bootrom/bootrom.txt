@@ -12293,24 +12293,51 @@
 0000b430:	ebfffedf 	bl	0xafb4		; io_read
 0000b434:	e6ef0070 	uxtb	r0, r0
 0000b438:	e8bd8038 	pop	{r3, r4, r5, pc}
+
+; subroutine - many calls
+; arguments in r0 and r1
+; returns result in r0
+;
+; tst does a bitwise AND, discarding the result
+;  (same as ands, but the result is ditched)
+; clz counts the number of leading zeros
+; rsb is reverse subtraction
+;  so if we have rsb  r3, x, y
+;  it does r3 = y - x
+
 0000b43c:	e2512001 	subs	r2, r1, #1
 0000b440:	012fff1e 	bxeq	lr
+; What is value of r0 if the above returns?
+
 0000b444:	3a000074 	bcc	0xb61c
+
 0000b448:	e1500001 	cmp	r0, r1
 0000b44c:	9a00006b 	bls	0xb600
 0000b450:	e1110002 	tst	r1, r2
 0000b454:	0a00006c 	beq	0xb60c
+
 0000b458:	e16f3f10 	clz	r3, r0
 0000b45c:	e16f2f11 	clz	r2, r1
+
 0000b460:	e0423003 	sub	r3, r2, r3
 0000b464:	e273301f 	rsbs	r3, r3, #31
+
+; r3 = r3 + r3<<1  (i.e. r3 = 3 * r3)
+; the "3" is the number of instructions in each
+; "table" entry below.
 0000b468:	10833083 	addne	r3, r3, r3, lsl #1
 0000b46c:	e3a02000 	mov	r2, #0
+
+; Aha!  a jump into the instructions below
+; note above we have already calculated r3 = 3 * r3
+; now we do pc += r3 * 4 where 4 is the size of an ARM instruction
 0000b470:	108ff103 	addne	pc, pc, r3, lsl #2
 0000b474:	e320f000 	nop	{0}
+
 0000b478:	e1500f81 	cmp	r0, r1, lsl #31
 0000b47c:	e0a22002 	adc	r2, r2, r2
 0000b480:	20400f81 	subcs	r0, r0, r1, lsl #31
+
 0000b484:	e1500f01 	cmp	r0, r1, lsl #30
 0000b488:	e0a22002 	adc	r2, r2, r2
 0000b48c:	20400f01 	subcs	r0, r0, r1, lsl #30
@@ -12398,36 +12425,50 @@
 0000b5d4:	e1500101 	cmp	r0, r1, lsl #2
 0000b5d8:	e0a22002 	adc	r2, r2, r2
 0000b5dc:	20400101 	subcs	r0, r0, r1, lsl #2
+
 0000b5e0:	e1500081 	cmp	r0, r1, lsl #1
 0000b5e4:	e0a22002 	adc	r2, r2, r2
 0000b5e8:	20400081 	subcs	r0, r0, r1, lsl #1
+
 0000b5ec:	e1500001 	cmp	r0, r1
 0000b5f0:	e0a22002 	adc	r2, r2, r2
 0000b5f4:	20400001 	subcs	r0, r0, r1
+
+; r2 gives the return value.
 0000b5f8:	e1a00002 	mov	r0, r2
 0000b5fc:	e12fff1e 	bx	lr
 
+; branched to from above
 0000b600:	03a00001 	moveq	r0, #1
 0000b604:	13a00000 	movne	r0, #0
 0000b608:	e12fff1e 	bx	lr
 
+; branched to from above
 0000b60c:	e16f2f11 	clz	r2, r1
 0000b610:	e262201f 	rsb	r2, r2, #31
 0000b614:	e1a00230 	lsr	r0, r0, r2
 0000b618:	e12fff1e 	bx	lr
 
-0000b61c:	e3500000 	cmp	r0, #0
+; part of subroutine below
+; and branched to from above
+0000b61c:	e3500000 	cmp	r0, #0		; r0 = 0
 0000b620:	13e00000 	mvnne	r0, #0
 0000b624:	ea000007 	b	0xb648
+
+; subroutine
 0000b628:	e3510000 	cmp	r1, #0
 0000b62c:	0afffffa 	beq	0xb61c
 0000b630:	e92d4003 	push	{r0, r1, lr}
-0000b634:	ebffff80 	bl	0xb43c
+0000b634:	ebffff80 	bl	0xb43c		; recursion
 0000b638:	e8bd4006 	pop	{r1, r2, lr}
 0000b63c:	e0030092 	mul	r3, r2, r0
 0000b640:	e0411003 	sub	r1, r1, r3
-0000b644:	e12fff1e 	bx	lr
-0000b648:	e12fff1e 	bx	lr
+0000b644:	e12fff1e 	bx	lr		; return
+
+; branched to from above (which is silly)
+0000b648:	e12fff1e 	bx	lr		; return
+
+; END of real code (see stub below)
 
 0000b64c:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
 0000b650:	ffffffff 			@ <UNDEFINED> instruction: 0xffffffff
@@ -17082,6 +17123,8 @@
 0000fed8:	e320f002 	wfe
 0000fedc:	eafffffc 	b	0xfed4
 
+; Stub code to hold processor waiting to be signaled
+; by someone writing to 0xffff_fff0
 0000fee0:	f57ff04f 	dsb	sy
 0000fee4:	e320f002 	wfe
 0000fee8:	e3e0000f 	mvn	r0, #15		; 0xffff_fff0
@@ -17098,6 +17141,8 @@
 
 ; spin
 0000ff10:	eafffffe 	b	0xff10
+
+; END of code
 
 ; It all looks like data from here on.
 0000ff14:	00070000 	andeq	r0, r7, r0
