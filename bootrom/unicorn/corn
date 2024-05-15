@@ -9,26 +9,78 @@ from unicorn.arm_const import *
 
 import struct
 
-f = open ( "../bootrom.bin", mode="rb" )
-rom_code = f.read ()
-f.close ()
+class Zynq_Rom () :
 
-print ( len(rom_code), " bytes in rom image" )
+    def __init__ ( self ) :
+        f = open ( "../bootrom.bin", mode="rb" )
+        rom_code = f.read ()
+        f.close ()
+        print ( len(rom_code), " bytes in rom image" )
 
-# mov r0, #0x37; sub r1, r2, r3
-arm_list = [ 0xe3a00037, 0xe0421003 ]
+        base = 0
+        self.emu = Uc ( UC_ARCH_ARM, UC_MODE_ARM )
+        self.emu.mem_map ( base, 128 * 1024 )
+        self.emu.mem_write ( base, rom_code )
 
-#arm_pack = struct.pack ( "<2L", *arm_list)
-arm_pack = struct.pack ( "<{}L".format(len(arm_list)), *arm_list)
+    def reg_set ( self, rr, val ) :
+        self.emu.reg_write ( rr, val )
 
-print ( len(arm_list), " ARM instructions" )
-print ( len(arm_pack), " bytes when packed" )
+    def reg_show ( self, rname, rr ) :
+        print("-- ", rname, ": %x" % self.emu.reg_read ( rr ) )
 
-# code to be emulated
-#ARM_CODE   = b"\x37\x00\xa0\xe3\x03\x10\x42\xe0"
+    def get_pc ( self ) :
+        return self.emu.reg_read ( UC_ARM_REG_PC )
 
-# memory address where emulation starts
-ADDRESS    = 0x10000
+    # Run, single stepping
+    def run ( self ) :
+        #start = 0x658
+        #limit = 0x698
+        start = 0xb43c
+        limit = 0x10000
+
+        pc = start
+
+        self.reg_set ( UC_ARM_REG_R0, 0xab )
+        self.reg_set ( UC_ARM_REG_R1, 0xf )
+
+        while True:
+            msg = "PC = %x, ready:" % pc
+            data = input ( msg )
+            if data == 'q' :
+                break
+            self.emu.emu_start ( pc, limit, count=1 )
+            self.reg_show ( "pc", UC_ARM_REG_PC )
+            self.reg_show ( "r0", UC_ARM_REG_R0 )
+            self.reg_show ( "r1", UC_ARM_REG_R1 )
+            self.reg_show ( "r2", UC_ARM_REG_R2 )
+            self.reg_show ( "r3", UC_ARM_REG_R3 )
+            self.reg_show ( "r4", UC_ARM_REG_R4 )
+            pc = self.get_pc ()
+
+    def run_range ( self ) :
+        # This runs from Start, up to but not including stop
+        start = 0x658
+        stop = 0x664
+        self.emu.emu_start ( start, stop )
+
+        self.reg_show ( "pc", UC_ARM_REG_PC )
+        self.reg_show ( "r0", UC_ARM_REG_R0 )
+        self.reg_show ( "r1", UC_ARM_REG_R1 )
+
+def run_zynq () :
+    try:
+        rom = Zynq_Rom ()
+        rom.run ()
+        #rom.run_range ()
+
+    except UcError as e:
+        print("Zynq emulation error: %s" % e)
+
+run_zynq ()
+
+# ===============================================================================
+
+# Test ARM (from the published ARM demo)
 
 # callback for tracing basic blocks
 def hook_block(uc, address, size, user_data):
@@ -39,52 +91,32 @@ def hook_block(uc, address, size, user_data):
 def hook_code(uc, address, size, user_data):
     print(">>> Tracing instruction at 0x%x, instruction size = 0x%x" %(address, size))
 
+# code to be emulated
+#ARM_CODE   = b"\x37\x00\xa0\xe3\x03\x10\x42\xe0"
 
-# Test ARM
-def test_arm():
-    print("Emulate ARM code")
-    try:
-        # Initialize emulator in ARM mode
-        mu = Uc(UC_ARCH_ARM, UC_MODE_ARM)
+# I like this better (32 bit instructions)
+# mov r0, #0x37; sub r1, r2, r3
+arm_list = [ 0xe3a00037, 0xe0421003 ]
 
-        # map 2MB memory for this emulation
-        #mu.mem_map(ADDRESS, 2 * 1024 * 1024)
-        mu.mem_map(ADDRESS, 128 * 1024)
+# memory address where emulation starts
+ADDRESS    = 0x10000
+
+class Demo () :
+    def __init__ ( self ) :
+        #arm_pack = struct.pack ( "<2L", *arm_list)
+        arm_pack = struct.pack ( "<{}L".format(len(arm_list)), *arm_list)
+        print ( len(arm_list), " ARM instructions" )
+        print ( len(arm_pack), " bytes when packed" )
+
+        base = ADDRESS
+        self.emu = Uc ( UC_ARCH_ARM, UC_MODE_ARM )
+        self.emu.mem_map ( base, 128 * 1024 )
 
         # write machine code to be emulated to memory
-        #mu.mem_write(ADDRESS, ARM_CODE)
-        mu.mem_write(ADDRESS, arm_pack)
+        #self.emu.mem_write(base, ARM_CODE)
+        self.emu.mem_write(base, arm_pack)
 
-        # initialize machine registers
-        mu.reg_write(UC_ARM_REG_R0, 0x1234)
-        mu.reg_write(UC_ARM_REG_R2, 0x6789)
-        mu.reg_write(UC_ARM_REG_R3, 0x3333)
-        mu.reg_write(UC_ARM_REG_APSR, 0xFFFFFFFF) #All application flags turned on
-   
-        # tracing all basic blocks with customized callback
-        mu.hook_add(UC_HOOK_BLOCK, hook_block)
-
-        # tracing one instruction at ADDRESS with customized callback
-        mu.hook_add(UC_HOOK_CODE, hook_code, begin=ADDRESS, end=ADDRESS)
-
-        # emulate machine code in infinite time
-        #mu.emu_start(ADDRESS, ADDRESS + len(ARM_CODE))
-        mu.emu_start(ADDRESS, ADDRESS + 4*len(arm_list))
-
-        # now print out some registers
-        print(">>> Emulation done. Below is the CPU context")
-
-        r0 = mu.reg_read(UC_ARM_REG_R0)
-        print(">>> R0 = 0x%x" %r0)
-        r1 = mu.reg_read(UC_ARM_REG_R1)
-        print(">>> R1 = 0x%x" %r1)
-        pc = mu.reg_read(UC_ARM_REG_PC)
-        print(">>> PC = 0x%x" %pc)
-
-    except UcError as e:
-        print("ERROR: %s" % e)
-
-def show_sctlr ( mu ):
+    def show_sctlr ( self ):
         # Read SCTLR
         # cp = 15
         # is64 = 0
@@ -93,22 +125,42 @@ def show_sctlr ( mu ):
         # crm = 0
         # opc1 = 0
         # opc2 = 0
-        val = mu.reg_read(UC_ARM_REG_CP_REG, (15, 0, 0, 1, 0, 0, 0))
+        val = self.emu.reg_read(UC_ARM_REG_CP_REG, (15, 0, 0, 1, 0, 0, 0))
         print(">>> SCTLR = 0x%x" % val)
 
+    def run ( self ) :
 
-def test_read_sctlr():
-    print("Read SCTLR")
-    try:
-        mu = Uc(UC_ARCH_ARM, UC_MODE_ARM)
-        show_sctlr ( mu )
+        print("Emulate ARM code")
+        self.show_sctlr ()
+        # initialize machine registers
+        self.emu.reg_write(UC_ARM_REG_R0, 0x1234)
+        self.emu.reg_write(UC_ARM_REG_R2, 0x6789)
+        self.emu.reg_write(UC_ARM_REG_R3, 0x3333)
+        self.emu.reg_write(UC_ARM_REG_APSR, 0xFFFFFFFF) #All application flags turned on
+   
+        # tracing all basic blocks with customized callback
+        self.emu.hook_add(UC_HOOK_BLOCK, hook_block)
 
-    except UcError as e:
-        print("ERROR: %s" % e)
+        # tracing one instruction at ADDRESS with customized callback
+        self.emu.hook_add(UC_HOOK_CODE, hook_code, begin=ADDRESS, end=ADDRESS)
 
-if __name__ == '__main__':
-    test_arm()
-    print("=" * 26)
-    test_read_sctlr()
+        # emulate machine code in infinite time
+        #mu.emu_start(ADDRESS, ADDRESS + len(ARM_CODE))
+        self.emu.emu_start(ADDRESS, ADDRESS + 4*len(arm_list))
+
+        # now print out some registers
+        print(">>> Emulation done. Below is the CPU context")
+
+        r0 = self.emu.reg_read(UC_ARM_REG_R0)
+        print(">>> R0 = 0x%x" %r0)
+        r1 = self.emu.reg_read(UC_ARM_REG_R1)
+        print(">>> R1 = 0x%x" %r1)
+        pc = self.emu.reg_read(UC_ARM_REG_PC)
+        print(">>> PC = 0x%x" %pc)
+
+        self.show_sctlr ()
+
+#demo = Demo ()
+#demo.run ()
 
 # THE END

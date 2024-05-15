@@ -3,6 +3,7 @@ bootrom.raw
 bootrom.dis
 bootrom.odx
 bootrom.bin
+*.swp
 wrap
 zzz
 *.bak1
