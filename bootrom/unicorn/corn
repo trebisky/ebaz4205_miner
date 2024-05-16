@@ -31,6 +31,38 @@ class Zynq_Rom () :
     def get_pc ( self ) :
         return self.emu.reg_read ( UC_ARM_REG_PC )
 
+    def fbit ( self, cpsr, mask, code ) :
+        if cpsr & mask :
+            flag = code
+        else :
+            flag = "."
+        return flag
+
+    def flags ( self, cpsr ) :
+        flags = ""
+        flags += self.fbit ( cpsr, 0x80000000, "N" )
+        flags += self.fbit ( cpsr, 0x40000000, "Z" )
+        flags += self.fbit ( cpsr, 0x20000000, "C" )
+        flags += self.fbit ( cpsr, 0x10000000, "V" )
+        flags += self.fbit ( cpsr, 0x08000000, "Q" )
+        return flags
+
+    def show_regs ( self ) :
+        self.reg_show ( "pc", UC_ARM_REG_PC )
+        self.reg_show ( "r0", UC_ARM_REG_R0 )
+        self.reg_show ( "r1", UC_ARM_REG_R1 )
+        self.reg_show ( "r2", UC_ARM_REG_R2 )
+        self.reg_show ( "r3", UC_ARM_REG_R3 )
+        self.reg_show ( "r4", UC_ARM_REG_R4 )
+
+        cpsr = self.emu.reg_read(UC_ARM_REG_CPSR)
+        h_cpsr = "0x{:04x}".format(cpsr)
+
+        flags = self.flags ( cpsr )
+        print("  CPSR = " + flags + " " + h_cpsr )
+        #print("  CPSR = 0x{:08x}".format(self.emu.reg_read(UC_ARM_REG_CPSR)))
+        #print("  SPSR = 0x{:08x}".format(self.emu.reg_read(UC_ARM_REG_SPSR)))
+
     # Run, single stepping
     def run ( self ) :
         #start = 0x658
@@ -49,12 +81,7 @@ class Zynq_Rom () :
             if data == 'q' :
                 break
             self.emu.emu_start ( pc, limit, count=1 )
-            self.reg_show ( "pc", UC_ARM_REG_PC )
-            self.reg_show ( "r0", UC_ARM_REG_R0 )
-            self.reg_show ( "r1", UC_ARM_REG_R1 )
-            self.reg_show ( "r2", UC_ARM_REG_R2 )
-            self.reg_show ( "r3", UC_ARM_REG_R3 )
-            self.reg_show ( "r4", UC_ARM_REG_R4 )
+            self.show_regs ()
             pc = self.get_pc ()
 
     def run_range ( self ) :
