@@ -1112,7 +1112,7 @@
 00000c30:	e1520003 	cmp	r2, r3
 00000c34:	1a000001 	bne	0xc40
 00000c38:	e3a00000 	mov	r0, #0
-00000c3c:	eb0029b9 	bl	0xb328
+00000c3c:	eb0029b9 	bl	0xb328		; mmu_setup ( 0 )
 00000c40:	e3a00f96 	mov	r0, #0x258
 00000c44:	e34f0800	movt	r0, #0xf800
 00000c48:	eb0028d9 	bl	0xafb4		; io_read
@@ -1771,7 +1771,7 @@
 00001574:	8a000007 	bhi	0x1598
 00001578:	e1a00007 	mov	r0, r7
 0000157c:	e3a08000 	mov	r8, #0
-00001580:	eb0027ad 	bl	0xb43c
+00001580:	eb0027ad 	bl	0xb43c		; walrus ()
 00001584:	e1a02008 	mov	r2, r8
 00001588:	e003009a 	mul	r3, sl, r0
 0000158c:	e1a09000 	mov	r9, r0
@@ -3539,6 +3539,8 @@
 00002ed0:	eaffffc6 	b	0x2df0
 00002ed4:	e3a00000 	mov	r0, #0
 00002ed8:	eaffffc5 	b	0x2df4
+
+; subroutine -- one call
 00002edc:	e3002e90	movw	r2, #0xe90
 00002ee0:	e92d47f0 	push	{r4, r5, r6, r7, r8, r9, sl, lr}
 00002ee4:	e3402007 	movt	r2, #7
@@ -3564,6 +3566,8 @@
 00002f34:	0a000001 	beq	0x2f40
 00002f38:	e28ddf52 	add	sp, sp, #328	@ 0x148
 00002f3c:	e8bd87f0 	pop	{r4, r5, r6, r7, r8, r9, sl, pc}
+
+; branch from above
 00002f40:	e2848d0a 	add	r8, r4, #640	@ 0x280
 00002f44:	e5949240 	ldr	r9, [r4, #576]	@ 0x240
 00002f48:	e1a00008 	mov	r0, r8
@@ -3690,18 +3694,19 @@
 0000312c:	e3400007 	movt	r0, #7
 00003130:	ebfffe27 	bl	0x29d4
 00003134:	e3a00001 	mov	r0, #1
-00003138:	eb00207a 	bl	0xb328
+00003138:	eb00207a 	bl	0xb328		; mmu_setup ( 1 )
 0000313c:	e300166c	movw	r1, #0x66c
 00003140:	e3401007 	movt	r1, #7
 00003144:	e3a00701 	mov	r0, #262144	@ 0x40000
 00003148:	ebffff63 	bl	0x2edc
 0000314c:	e1a05000 	mov	r5, r0
 00003150:	e3a00000 	mov	r0, #0
-00003154:	eb002073 	bl	0xb328
+00003154:	eb002073 	bl	0xb328		; mmu_setup ( 0 )
 00003158:	e3550000 	cmp	r5, #0
 0000315c:	1a000008 	bne	0x3184
 00003160:	e28dd00c 	add	sp, sp, #12
 00003164:	e8bd80f0 	pop	{r4, r5, r6, r7, pc}
+
 00003168:	e5952000 	ldr	r2, [r5]
 0000316c:	e5965010 	ldr	r5, [r6, #16]
 00003170:	e0820005 	add	r0, r2, r5
@@ -5127,6 +5132,7 @@
 ; 0001854c:	1f83d9ab
 ; 00018550:	5be0cd19
 
+; subroutine (big)
 00004714:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00004718:	e3520000 	cmp	r2, #0
 0000471c:	e24dd08c 	sub	sp, sp, #140	@ 0x8c
@@ -5376,6 +5382,7 @@
 00004aec:	1a000001 	bne	0x4af8
 00004af0:	e28dd08c 	add	sp, sp, #140	@ 0x8c
 00004af4:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
 00004af8:	e59d8038 	ldr	r8, [sp, #56]	@ 0x38
 00004afc:	e59d9044 	ldr	r9, [sp, #68]	@ 0x44
 00004b00:	e288e020 	add	lr, r8, #32
@@ -5563,6 +5570,8 @@
 00004dd8:	e3a0c000 	mov	ip, #0
 00004ddc:	e58dc044 	str	ip, [sp, #68]	@ 0x44
 00004de0:	eafffe62 	b	0x4770
+
+; subroutine
 00004de4:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 00004de8:	e5907064 	ldr	r7, [r0, #100]	@ 0x64
 00004dec:	e5904060 	ldr	r4, [r0, #96]	@ 0x60
@@ -5584,7 +5593,9 @@
 00004e2c:	e5cd0004 	strb	r0, [sp, #4]
 00004e30:	e5cd1005 	strb	r1, [sp, #5]
 00004e34:	e1a00006 	mov	r0, r6
-00004e38:	e59f1154 	ldr	r1, [pc, #340]	@ 0x4f94
+
+; at 18554 is a block of zeros!
+00004e38:	e59f1154 	ldr	r1, [pc, #340]	@ 0x4f94 (gets 18554)
 00004e3c:	e1a08c25 	lsr	r8, r5, #24
 00004e40:	e5cdc002 	strb	ip, [sp, #2]
 00004e44:	e5cd3006 	strb	r3, [sp, #6]
@@ -5671,14 +5682,18 @@
 00004f88:	e5c7301f 	strb	r3, [r7, #31]
 00004f8c:	e28dd008 	add	sp, sp, #8
 00004f90:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
-00004f94:	00018554 	andeq	r8, r1, r4, asr r5
+
+; constant
+00004f94:	00018554
+
+; subroutine
 00004f98:	e92d4070 	push	{r4, r5, r6, lr}
 00004f9c:	e1a05001 	mov	r5, r1
 00004fa0:	e24dd068 	sub	sp, sp, #104	@ 0x68
 00004fa4:	e1a06000 	mov	r6, r0
 00004fa8:	e1a0000d 	mov	r0, sp
 00004fac:	e1a04002 	mov	r4, r2
-00004fb0:	ebfffdc9 	bl	0x46dc
+00004fb0:	ebfffdc9 	bl	0x46dc		; setup block at *r0
 00004fb4:	e1a0000d 	mov	r0, sp
 00004fb8:	e1a01006 	mov	r1, r6
 00004fbc:	e1a02005 	mov	r2, r5
@@ -5688,6 +5703,7 @@
 00004fcc:	ebffff84 	bl	0x4de4
 00004fd0:	e28dd068 	add	sp, sp, #104	@ 0x68
 00004fd4:	e8bd8070 	pop	{r4, r5, r6, pc}
+
 00004fd8:	e92d4ff8 	push	{r3, r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00004fdc:	e3000708	movw	r0, #0x708
 00004fe0:	e30074a0	movw	r7, #0x4a0
@@ -6986,7 +7002,7 @@
 000063dc:	e593a000 	ldr	sl, [r3]
 000063e0:	e1a07000 	mov	r7, r0
 000063e4:	e2848d87 	add	r8, r4, #8640	@ 0x21c0
-000063e8:	eb001413 	bl	0xb43c
+000063e8:	eb001413 	bl	0xb43c		; walrus ()
 000063ec:	e2888004 	add	r8, r8, #4
 000063f0:	e3a03000 	mov	r3, #0
 000063f4:	e0020095 	mul	r2, r5, r0
@@ -7077,7 +7093,7 @@
 00006548:	e1a01007 	mov	r1, r7
 0000654c:	e0299097 	mla	r9, r7, r0, r9
 00006550:	e1a00009 	mov	r0, r9
-00006554:	eb0013b8 	bl	0xb43c
+00006554:	eb0013b8 	bl	0xb43c		; walrus ()
 00006558:	e150000a 	cmp	r0, sl
 0000655c:	e1a0b000 	mov	fp, r0
 00006560:	83a08000 	movhi	r8, #0
@@ -9230,7 +9246,7 @@
 0000866c:	e15a0000 	cmp	sl, r0
 00008670:	8affffae 	bhi	0x8530
 00008674:	e06a0000 	rsb	r0, sl, r0
-00008678:	eb000b6f 	bl	0xb43c
+00008678:	eb000b6f 	bl	0xb43c		; walrus ()
 0000867c:	e3500000 	cmp	r0, #0
 00008680:	0affffaa 	beq	0x8530
 00008684:	e3003ff5	movw	r3, #0xff5
@@ -9996,12 +10012,12 @@
 0000923c:	0a000029 	beq	0x92e8
 00009240:	e1a01005 	mov	r1, r5
 00009244:	e2470001 	sub	r0, r7, #1
-00009248:	eb00087b 	bl	0xb43c
+00009248:	eb00087b 	bl	0xb43c		; walrus ()
 0000924c:	e24aa001 	sub	sl, sl, #1
 00009250:	e1a09000 	mov	r9, r0
 00009254:	e1a01005 	mov	r1, r5
 00009258:	e1a0000a 	mov	r0, sl
-0000925c:	eb000876 	bl	0xb43c
+0000925c:	eb000876 	bl	0xb43c		; walrus ()
 00009260:	e1590000 	cmp	r9, r0
 00009264:	3a00001f 	bcc	0x92e8
 00009268:	e2650000 	rsb	r0, r5, #0
@@ -11038,6 +11054,9 @@
 0000a218:	e34f0800	movt	r0, #0xf800
 0000a21c:	ebffed60 	bl	0x57a4		; mio_pin()
 
+; the code here at "a220" is what tipped off 404 that there
+; was a hidden boot loader.
+
 0000a220:	ebffd91e 	bl	0x6a0		; initialize uart1
 
 ; 0xe0001030 is "rfifo" in the uart
@@ -11082,24 +11101,34 @@
 0000a2b8:	e3086748	movw	r6, #0x8748
 0000a2bc:	eb00034f 	bl	0xb000		; io_write
 
-0000a2c0:	e1a08005 	mov	r8, r5
+; getc() returns the character in r0
+
+; 0x18748 has the string "BAUD\0"
+
+0000a2c0:	e1a08005 	mov	r8, r5		; r8 = 0
 0000a2c4:	e5847000 	str	r7, [r4]
-0000a2c8:	e3406001 	movt	r6, #1
+0000a2c8:	e3406001 	movt	r6, #1		; r6 = 0x18748
+
 0000a2cc:	ebffffad 	bl	0xa188		; getc()
-0000a2d0:	e7d61008 	ldrb	r1, [r6, r8]
+0000a2d0:	e7d61008 	ldrb	r1, [r6, r8]	; 'B' .... AUD
 0000a2d4:	e1510000 	cmp	r1, r0
 0000a2d8:	0a000007 	beq	0xa2fc
-0000a2dc:	e2855001 	add	r5, r5, #1
+
+; read up to 128 characters, looking for a 'B'
+
+0000a2dc:	e2855001 	add	r5, r5, #1	; r5 = 1
 0000a2e0:	e3550080 	cmp	r5, #128	@ 0x80
 0000a2e4:	ca00009b 	bgt	0xa558
-0000a2e8:	e3a08000 	mov	r8, #0
+0000a2e8:	e3a08000 	mov	r8, #0		; r8 = 0
 0000a2ec:	ebffffa5 	bl	0xa188		; getc()
-0000a2f0:	e7d61008 	ldrb	r1, [r6, r8]
+0000a2f0:	e7d61008 	ldrb	r1, [r6, r8]	; 'B'
 0000a2f4:	e1510000 	cmp	r1, r0
-0000a2f8:	1afffff7 	bne	0xa2dc
-0000a2fc:	e2888001 	add	r8, r8, #1
+0000a2f8:	1afffff7 	bne	0xa2dc		; loop
+
+0000a2fc:	e2888001 	add	r8, r8, #1	; r8++
 0000a300:	e3580003 	cmp	r8, #3
 0000a304:	9afffff0 	bls	0xa2cc
+
 0000a308:	e594a000 	ldr	sl, [r4]
 0000a30c:	ebffff9d 	bl	0xa188		; getc()
 0000a310:	e5ca0000 	strb	r0, [sl]
@@ -11495,7 +11524,7 @@
 0000a8fc:	e1a0000a 	mov	r0, sl
 0000a900:	e4c79001 	strb	r9, [r7], #1
 0000a904:	e1a01004 	mov	r1, r4
-0000a908:	eb0002cb 	bl	0xb43c
+0000a908:	eb0002cb 	bl	0xb43c		; walrus ()
 0000a90c:	e1a09007 	mov	r9, r7
 0000a910:	e250a000 	subs	sl, r0, #0
 0000a914:	1afffff1 	bne	0xa8e0
@@ -11995,6 +12024,7 @@
 0000b034:	eafffffe 	b	0xb034
 
 ; subroutine - one call
+; a bunch of cache setup
 0000b038:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 0000b03c:	e3a05000 	mov	r5, #0
 0000b040:	ee405f10	mcr	r5, CSSELR
@@ -12007,7 +12037,7 @@
 0000b05c:	e2844001 	add	r4, r4, #1
 0000b060:	e1a01004 	mov	r1, r4
 0000b064:	e1a00380 	lsl	r0, r0, #7
-0000b068:	eb0000f3 	bl	0xb43c
+0000b068:	eb0000f3 	bl	0xb43c		; walrus ()
 0000b06c:	e2051007 	and	r1, r5, #7
 0000b070:	e2813004 	add	r3, r1, #4
 0000b074:	e3a02001 	mov	r2, #1
@@ -12057,10 +12087,10 @@
 ; subroutine - one call
 0000b120:	e92d4010 	push	{r4, lr}
 0000b124:	ee114f10	mrc	r4, SCTLR
-0000b128:	e3140004 	tst	r4, #4
+0000b128:	e3140004 	tst	r4, #4		; are caches enabled?
 0000b12c:	18bd8010 	popne	{r4, pc}
-0000b130:	ebffffc0 	bl	0xb038
-0000b134:	e3844004 	orr	r4, r4, #4
+0000b130:	ebffffc0 	bl	0xb038		; cache setup
+0000b134:	e3844004 	orr	r4, r4, #4	; enable them
 0000b138:	ee014f10	mcr	r4, SCTLR
 0000b13c:	f57ff04f 	dsb	sy
 0000b140:	e8bd8010 	pop	{r4, pc}
@@ -12078,7 +12108,7 @@
 0000b168:	e2844001 	add	r4, r4, #1
 0000b16c:	e1a01004 	mov	r1, r4
 0000b170:	e1a00380 	lsl	r0, r0, #7
-0000b174:	eb0000b0 	bl	0xb43c
+0000b174:	eb0000b0 	bl	0xb43c		; walrus ()
 0000b178:	e2051007 	and	r1, r5, #7
 0000b17c:	e2813004 	add	r3, r1, #4
 0000b180:	e3a02001 	mov	r2, #1
@@ -12157,8 +12187,9 @@
 0000b264:	f57ff04f 	dsb	sy
 0000b268:	e12fff1e 	bx	lr
 
-; subroutine
+; subroutine -- Icache_inval
 ; invalidates then disables the I cache
+; one call before setup of MMU tables
 0000b26c:	f57ff04f 	dsb	sy
 0000b270:	e3a01000 	mov	r1, #0
 0000b274:	ee071f15	mcr	r1, ICIALLU
@@ -12219,34 +12250,46 @@
 0000b320:	f57ff04f 	dsb	sy
 0000b324:	e12fff1e 	bx	lr
 
-; subroutine - 3 calls
+; subroutine - 3 calls -- mmu_setup ()
+; fools with MMU translation tables
+; r0 is argument (0 or 1)
 0000b328:	e3500001 	cmp	r0, #1
 0000b32c:	e92d4010 	push	{r4, lr}
 0000b330:	0a000015 	beq	0xb38c
 0000b334:	f57ff04f 	dsb	sy
+
+; check if caches are enabled
 0000b338:	ee112f10	mrc	r2, SCTLR
 0000b33c:	e3120004 	tst	r2, #4
 0000b340:	1a00000f 	bne	0xb384
-0000b344:	ebffffc8 	bl	0xb26c
-0000b348:	e3a03801 	mov	r3, #65536	@ 0x10000
+
+0000b344:	ebffffc8 	bl	0xb26c		; Icache_inval
+
+0000b348:	e3a03801 	mov	r3, #0x10000	; MMU table
 0000b34c:	ee023f10	mcr	r3, TTBR0
 0000b350:	f57ff04f 	dsb	sy
 0000b354:	ee023f30	mcr	r3, TTBR1
 0000b358:	f57ff04f 	dsb	sy
 0000b35c:	f57ff04f 	dsb	sy
+
 0000b360:	e3a0c000 	mov	ip, #0
 0000b364:	ee08cf17	mcr	ip, TLBIALL
 0000b368:	f57ff04f 	dsb	sy
 0000b36c:	f57ff04f 	dsb	sy
+
 0000b370:	ee07cfd5	mcr	ip, BPIALL
 0000b374:	f57ff04f 	dsb	sy
 0000b378:	f57ff04f 	dsb	sy
 0000b37c:	f57ff06f 	isb	sy
+
 0000b380:	e8bd8010 	pop	{r4, pc}
+; continued below
 
 ; branch from above
+; disable caches, then rejoin the above
 0000b384:	ebffffa8 	bl	0xb22c
 0000b388:	eaffffed 	b	0xb344
+
 0000b38c:	f57ff04f 	dsb	sy
 0000b390:	e3041019	movw	r1, #0x4019
 0000b394:	e7df1810 	bfi	r1, r0, #16, #16
@@ -12265,10 +12308,12 @@
 0000b3c8:	f57ff04f 	dsb	sy
 0000b3cc:	f57ff04f 	dsb	sy
 0000b3d0:	f57ff06f 	isb	sy
-0000b3d4:	ebffff9b 	bl	0xb248
+0000b3d4:	ebffff9b 	bl	0xb248		; enable I cache
+; final call sets up and enables caches
 0000b3d8:	e8bd4010 	pop	{r4, lr}
-0000b3dc:	eaffff4f 	b	0xb120
+0000b3dc:	eaffff4f 	b	0xb120		; tail call
 
+; ----------------------------------------------
 ; branch to here from far away
 0000b3e0:	e92d4070 	push	{r4, r5, r6, lr}
 0000b3e4:	e1a04000 	mov	r4, r0
@@ -12294,7 +12339,8 @@
 0000b434:	e6ef0070 	uxtb	r0, r0
 0000b438:	e8bd8038 	pop	{r3, r4, r5, pc}
 
-; subroutine - many calls
+; subroutine - many calls -- "walrus()"
+; just a silly name until I figure out what it does.
 ; arguments in r0 and r1
 ; returns result in r0
 ;
@@ -12459,7 +12505,7 @@
 0000b628:	e3510000 	cmp	r1, #0
 0000b62c:	0afffffa 	beq	0xb61c
 0000b630:	e92d4003 	push	{r0, r1, lr}
-0000b634:	ebffff80 	bl	0xb43c		; recursion
+0000b634:	ebffff80 	bl	0xb43c		; recursion (walrus)
 0000b638:	e8bd4006 	pop	{r1, r2, lr}
 0000b63c:	e0030092 	mul	r3, r2, r0
 0000b640:	e0411003 	sub	r1, r1, r3
@@ -25861,19 +25907,29 @@
 0001873c:	3d3c3b3a 	vldmdbcc	ip!, {d3-d31}
 00018740:	5d5b3f3e 	ldclpl	15, cr3, [fp, #-248]	@ 0xffffff08
 00018744:	00007f7c 	andeq	r7, r0, ip, ror pc
-00018748:	44554142 	ldrbmi	r4, [r5], #-322	@ 0xfffffebe
-0001874c:	00000000 	andeq	r0, r0, r0
-00018750:	33323130 	teqcc	r2, #48, 2
-00018754:	37363534 			@ <UNDEFINED> instruction: 0x37363534
-00018758:	42413938 	submi	r3, r1, #56, 18	@ 0xe0000
-0001875c:	46454443 	strbmi	r4, [r5], -r3, asr #8
-00018760:	00000000 	andeq	r0, r0, r0
 
-00018764:	ffc5dead 			@ <UNDEFINED> instruction: 0xffc5dead
-00018768:	ffc5dead 			@ <UNDEFINED> instruction: 0xffc5dead
+; referenced in the uart loader
+; objdump "fixed" the byte order for a 32 bit value,
+; so see the dump below.
+00018748:	44554142
+0001874c:	00000000
+00018750:	33323130
+00018754:	37363534
+00018758:	42413938
+0001875c:	46454443
+00018760:	00000000
+
+; 00018740 .... .... .... .... 4241 5544 0000 0000   >?[]|   BAUD
+; 00018750 3031 3233 3435 3637 3839 4142 4344 4546   0123456789ABCDEF
+; 00018760 0000 0000
+
+; The rest of memory is filled with this odd pattern
+
+00018764:	ffc5dead
+00018768:	ffc5dead
  ...
  ...
-0001fff8:	ffc5dead 			@ <UNDEFINED> instruction: 0xffc5dead
-0001fffc:	ffc5dead 			@ <UNDEFINED> instruction: 0xffc5dead
+0001fff8:	ffc5dead
+0001fffc:	ffc5dead
 
 ; THE END

@@ -72,8 +72,15 @@ class Zynq_Rom () :
 
         pc = start
 
+        self.reg_set ( UC_ARM_REG_CPSR, 0x01d3 )
+
         self.reg_set ( UC_ARM_REG_R0, 0xab )
         self.reg_set ( UC_ARM_REG_R1, 0xf )
+
+        # Our code has a spin loop here
+        self.reg_set ( UC_ARM_REG_LR, 0xd0 )
+
+        self.show_regs ()
 
         while True:
             msg = "PC = %x, ready:" % pc
