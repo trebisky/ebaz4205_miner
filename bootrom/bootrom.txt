@@ -161,6 +161,15 @@
 ;   There is a lot of this in this code.
 ;   (I am surprised things get this fancy in a RISC processor)
 
+; ARM flags -- these are the first 5 bits of the CPSR
+; These are:  NZCVQ
+
+; One surprise for me is the C bit on subtraction.
+; It gets set (for example) if we subtract 1 from 4!
+; The ARM documents say:
+;  The carry (C) flag is set when an operation results in a carry,
+;  or when a subtraction results in no borrow.
+
 ; ------------------------------------------------
 ; ------------------------------------------------
 ; Addresses --
@@ -230,9 +239,12 @@
 0000002c:	e129f002 	msr	CPSR_fc, r2
 00000030:	e59fd008 	ldr	sp, [pc, #8]	@ 0x40
 00000034:	e3a00c26 	mov	r0, #9728	@ 0x2600
-00000038:	ea0002f1 	b	0xc04
+00000038:	ea0002f1 	b	0xc04		; wally ()
+
+; spin
 0000003c:	eafffffe 	b	0x3c
-00000040:	0007d4a0 	andeq	sp, r7, r0, lsr #9
+
+00000040:	0007d4a0	; initial stack
 
 ; First code to run is here.
 00000044:	eb000022 	bl	0xd4		; setup caches
@@ -267,12 +279,14 @@
 00000098:	e0012000 	and	r2, r1, r0
 0000009c:	e382201f 	orr	r2, r2, #31
 000000a0:	e129f002 	msr	CPSR_fc, r2
+
 ; set the initial stack
 000000a4:	e59fd0b8 	ldr	sp, [pc, #184]	@ 0x164
 000000a8:	e3e00000 	mvn	r0, #0
 000000ac:	ee030f10	mcr	r0, DACR
+
 ; set the initial MMU tables
-000000b0:	e59f00b0 	ldr	r0, [pc, #176]	@ 0x168
+000000b0:	e59f00b0 	ldr	r0, [pc, #176]	@ 0x168 (0x10000)
 000000b4:	ee020f10	mcr	r0, TTBR0
 000000b8:	ee020f30	mcr	r0, TTBR1
 
@@ -332,11 +346,11 @@
 ; 0x168 holds a pointer to MMU translation tables.
 ; the other two values are used in the cache routine above.
 
-00000164:	0007d4a0
-00000168:	00010000
+00000164:	0007d4a0	; initial stack
+00000168:	00010000	; points to MMU tables
 
-0000016c:	000003ff
-00000170:	00007fff
+0000016c:	000003ff	; used above
+00000170:	00007fff	; used above
 
 ; subroutine	-- 5 calls
 00000174:	e3520000 	cmp	r2, #0
@@ -398,23 +412,27 @@
 00000248:	e28dd00c 	add	sp, sp, #12
 0000024c:	e49df004 	pop	{pc}
 
+;-- 00018018:	98e5fcc9
+;-- 0001801c:	8a75e5bc
+;-- 00018020:	00000000
+
 ; subroutine
 00000250:	e92d4010 	push	{r4, lr}
-00000254:	e3e0c000 	mvn	ip, #0
+00000254:	e3e0c000 	mvn	ip, #0		; ip = 0xffff_ffff
 00000258:	e24dd008 	sub	sp, sp, #8
-0000025c:	e3a01000 	mov	r1, #0
+0000025c:	e3a01000 	mov	r1, #0		; r1 = 0
 00000260:	e28d4008 	add	r4, sp, #8
-00000264:	e3a02906 	mov	r2, #98304	@ 0x18000
+00000264:	e3a02906 	mov	r2, #0x18000
 00000268:	e524c004 	str	ip, [r4, #-4]!
 0000026c:	e1a00004 	mov	r0, r4
 00000270:	ebffffbf 	bl	0x174
 00000274:	e3081020	movw	r1, #0x8020
 00000278:	e1a00004 	mov	r0, r4
 0000027c:	e3072fe0	movw	r2, #0x7fe0
-00000280:	e3401001 	movt	r1, #1
+00000280:	e3401001 	movt	r1, #1		; 0x18020
 00000284:	ebffffba 	bl	0x174
 00000288:	e308101c	movw	r1, #0x801c
-0000028c:	e3401001 	movt	r1, #1
+0000028c:	e3401001 	movt	r1, #1		; 0x1801c
 00000290:	e59d2004 	ldr	r2, [sp, #4]
 00000294:	e1e00002 	mvn	r0, r2
 00000298:	e5913000 	ldr	r3, [r1]
@@ -438,7 +456,7 @@
 
 000002d0:	e3a00a01 	mov	r0, #4096	@ 0x1000
 000002d4:	e8bd4010 	pop	{r4, lr}
-000002d8:	ea000249 	b	0xc04
+000002d8:	ea000249 	b	0xc04		; wally ()
 
 000002dc:	ebffffcb 	bl	0x210
 000002e0:	eb0006d0 	bl	0x1e28		; devcfg_unlock
@@ -784,9 +802,11 @@
 00000730:	e34f08f0	movt	r0, #0xf8f0
 00000734:	ea002a31 	b	0xb000		; io_write
 
+; subroutine (part of error handling)
+; fred ()
 00000738:	e92d4070 	push	{r4, r5, r6, lr}
 0000073c:	e3a06014 	mov	r6, #20
-00000740:	e34e6000	movt	r6, #0xe000
+00000740:	e34e6000	movt	r6, #0xe000	; 0xe0000014 uart_isr
 00000744:	e1a05000 	mov	r5, r0
 00000748:	e1a00006 	mov	r0, r6
 0000074c:	e3a04f96 	mov	r4, #600	@ 0x258
@@ -1096,7 +1116,18 @@
 00000c00:	ea000484 	b	0x1e18
 
 ; subroutine - many calls
+;
+; wally ( errno )
+;
+; argument (in r0) is an error number like 0x2501 or 0x2001
+; it seems that all error numbers have 0x2xxx,
+; the second digit may be the subsystem
+;  (such as 0x250x for the secret uart)
+; the last two digits are the specific error within
+;  the subsystem
+
 ; 0xf800d010 is in eFuse
+
 00000c04:	e92d4010 	push	{r4, lr}
 00000c08:	e1a04000 	mov	r4, r0
 00000c0c:	e30d0010	movw	r0, #0xd010
@@ -1118,7 +1149,7 @@
 00000c48:	eb0028d9 	bl	0xafb4		; io_read
 00000c4c:	e58d0000 	str	r0, [sp]
 00000c50:	e59d1000 	ldr	r1, [sp]
-00000c54:	e2010903 	and	r0, r1, #49152	@ 0xc000
+00000c54:	e2010903 	and	r0, r1, #0xc000
 00000c58:	e1844000 	orr	r4, r4, r0
 
 00000c5c:	eb00046a 	bl	0x1e0c
@@ -1154,7 +1185,7 @@
 00000cc4:	e3400001 	movt	r0, #1
 00000cc8:	eb00273d 	bl	0xa9c4
 00000ccc:	e1a00004 	mov	r0, r4
-00000cd0:	ebfffe98 	bl	0x738
+00000cd0:	ebfffe98 	bl	0x738		; fred ()
 00000cd4:	e301002c	movw	r0, #0x102c
 00000cd8:	ea000005 	b	0xcf4
 00000cdc:	e3010014	movw	r0, #0x1014
@@ -1280,7 +1311,7 @@
 00000eb8:	e8bd8070 	pop	{r4, r5, r6, pc}
 
 00000ebc:	e302001a	movw	r0, #0x201a
-00000ec0:	ebffff4f 	bl	0xc04
+00000ec0:	ebffff4f 	bl	0xc04		; wally ()
 00000ec4:	eafffffa 	b	0xeb4
 00000ec8:	eb0003cf 	bl	0x1e0c
 00000ecc:	e3800101 	orr	r0, r0, #1073741824	@ 0x40000000
@@ -1302,7 +1333,7 @@
 00000f0c:	e3500000 	cmp	r0, #0
 00000f10:	0afffff5 	beq	0xeec
 00000f14:	e3020015	movw	r0, #0x2015
-00000f18:	ebffff39 	bl	0xc04
+00000f18:	ebffff39 	bl	0xc04		; wally ()
 00000f1c:	e3160010 	tst	r6, #16
 00000f20:	0afffff3 	beq	0xef4
 00000f24:	e3540040 	cmp	r4, #64	@ 0x40
@@ -1326,15 +1357,15 @@
 00000f6c:	e1500003 	cmp	r0, r3
 00000f70:	0affffcf 	beq	0xeb4
 00000f74:	e3020019	movw	r0, #0x2019
-00000f78:	ebffff21 	bl	0xc04
+00000f78:	ebffff21 	bl	0xc04		; wally ()
 00000f7c:	eaffffcc 	b	0xeb4
 00000f80:	e3020016	movw	r0, #0x2016
-00000f84:	ebffff1e 	bl	0xc04
+00000f84:	ebffff1e 	bl	0xc04		; wally ()
 00000f88:	eaffffeb 	b	0xf3c
 00000f8c:	e3140a01 	tst	r4, #4096	@ 0x1000
 00000f90:	1afffff0 	bne	0xf58
 00000f94:	e3020017	movw	r0, #0x2017
-00000f98:	ebffff19 	bl	0xc04
+00000f98:	ebffff19 	bl	0xc04		; wally ()
 00000f9c:	eaffffed 	b	0xf58
 00000fa0:	eb000399 	bl	0x1e0c
 00000fa4:	e3c00d3a 	bic	r0, r0, #3712	@ 0xe80
@@ -1365,7 +1396,7 @@
 00001008:	eb0027fc 	bl	0xb000		; io_write
 0000100c:	eaffffd1 	b	0xf58
 00001010:	e3020018	movw	r0, #0x2018
-00001014:	ebfffefa 	bl	0xc04
+00001014:	ebfffefa 	bl	0xc04		; wally ()
 00001018:	eaffffce 	b	0xf58
 0000101c:	eb00037a 	bl	0x1e0c
 00001020:	e3800a01 	orr	r0, r0, #4096	@ 0x1000
@@ -1471,7 +1502,7 @@
 000011a8:	e302001b	movw	r0, #0x201b
 000011ac:	e28dd00c 	add	sp, sp, #12
 000011b0:	e8bd4030 	pop	{r4, r5, lr}
-000011b4:	eafffe92 	b	0xc04
+000011b4:	eafffe92 	b	0xc04		; wally ()
 
 000011b8:	e92d4010 	push	{r4, lr}
 000011bc:	e1a04000 	mov	r4, r0
@@ -1495,7 +1526,7 @@
 00001204:	e302001c	movw	r0, #0x201c
 00001208:	e28dd008 	add	sp, sp, #8
 0000120c:	e8bd4010 	pop	{r4, lr}
-00001210:	eafffe7b 	b	0xc04
+00001210:	eafffe7b 	b	0xc04		; wally ()
 
 00001214:	e92d4010 	push	{r4, lr}
 00001218:	e1a04000 	mov	r4, r0
@@ -1519,7 +1550,7 @@
 00001260:	e302001d	movw	r0, #0x201d
 00001264:	e28dd008 	add	sp, sp, #8
 00001268:	e8bd4010 	pop	{r4, lr}
-0000126c:	eafffe64 	b	0xc04
+0000126c:	eafffe64 	b	0xc04		; wally ()
 
 00001270:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 00001274:	e24dd014 	sub	sp, sp, #20
@@ -1984,8 +2015,8 @@
 000017ec:	0a0000ea 	beq	0x1b9c		; mystery boot 2
 
 ; How can we get here?  All 8 cases get taken above.
-000017f0:	e3020009	movw	r0, #0x2009
-000017f4:	ebfffd02 	bl	0xc04
+000017f0:	e3020009	movw	r0, #0x2009	; error 0x2009
+000017f4:	ebfffd02 	bl	0xc04		; wally ()
 
 ; shared code for several boot modes (NAND and NOR)
 ; they branch here -- when done
@@ -2050,7 +2081,7 @@
 000018b4:	e1520009 	cmp	r2, r9
 000018b8:	9affffe4 	bls	0x1850
 000018bc:	e302000b	movw	r0, #0x200b
-000018c0:	ebfffccf 	bl	0xc04
+000018c0:	ebfffccf 	bl	0xc04		; wally ()
 000018c4:	e59d3004 	ldr	r3, [sp, #4]
 000018c8:	e5933000 	ldr	r3, [r3]
 000018cc:	e353033f 	cmp	r3, #0xfc000000
@@ -2059,7 +2090,7 @@
 000018d8:	e15e0009 	cmp	lr, r9
 000018dc:	9affffdb 	bls	0x1850
 000018e0:	e302000c	movw	r0, #0x200c
-000018e4:	ebfffcc6 	bl	0xc04
+000018e4:	ebfffcc6 	bl	0xc04		; wally ()
 000018e8:	e59a3000 	ldr	r3, [sl]
 000018ec:	e35304e1 	cmp	r3, #0xe1000000
 000018f0:	1affffd6 	bne	0x1850
@@ -2067,10 +2098,13 @@
 000018f8:	e150000b 	cmp	r0, fp
 000018fc:	9affffd3 	bls	0x1850
 00001900:	e302000d	movw	r0, #0x200d
-00001904:	ebfffcbe 	bl	0xc04
+00001904:	ebfffcbe 	bl	0xc04		; wally ()
 00001908:	eaffffd0 	b	0x1850
+
+# I see this error when I give a totally bogus boot header
+# and a zero checksum to pass it through the checksum check.
 0000190c:	e302000a	movw	r0, #0x200a
-00001910:	ebfffcbb 	bl	0xc04
+00001910:	ebfffcbb 	bl	0xc04		; wally ()
 00001914:	eaffffe2 	b	0x18a4
 00001918:	e5943000 	ldr	r3, [r4]
 0000191c:	e3001e90	movw	r1, #0xe90
@@ -2087,7 +2121,7 @@
 00001948:	e3500000 	cmp	r0, #0
 0000194c:	0a000001 	beq	0x1958
 00001950:	e3020023	movw	r0, #0x2023
-00001954:	ebfffcaa 	bl	0xc04
+00001954:	ebfffcaa 	bl	0xc04		; wally ()
 00001958:	ebfffd39 	bl	0xe44
 0000195c:	eb001097 	bl	0x5bc0
 00001960:	e5942000 	ldr	r2, [r4]
@@ -2106,7 +2140,7 @@
 00001994:	e1500004 	cmp	r0, r4
 00001998:	0a000001 	beq	0x19a4
 0000199c:	e3020024	movw	r0, #0x2024
-000019a0:	ebfffc97 	bl	0xc04
+000019a0:	ebfffc97 	bl	0xc04		; wally ()
 000019a4:	e3a0e001 	mov	lr, #1
 000019a8:	e3580001 	cmp	r8, #1
 000019ac:	e5c6e000 	strb	lr, [r6]
@@ -2137,7 +2171,7 @@
 00001a10:	e1a00004 	mov	r0, r4
 00001a14:	ebfffde7 	bl	0x11b8
 00001a18:	e3020014	movw	r0, #0x2014
-00001a1c:	ebfffc78 	bl	0xc04
+00001a1c:	ebfffc78 	bl	0xc04		; wally ()
 00001a20:	e3a00000 	mov	r0, #0
 00001a24:	e28dd01c 	add	sp, sp, #28
 00001a28:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
@@ -2157,45 +2191,45 @@
 00001a60:	ebfffe02 	bl	0x1270
 00001a64:	eaffff47 	b	0x1788
 00001a68:	e3020010	movw	r0, #0x2010
-00001a6c:	ebfffc64 	bl	0xc04
+00001a6c:	ebfffc64 	bl	0xc04		; wally ()
 00001a70:	e1a00004 	mov	r0, r4
 00001a74:	ebfffde6 	bl	0x1214
 00001a78:	eaffffe6 	b	0x1a18
 00001a7c:	e302000f	movw	r0, #0x200f
-00001a80:	ebfffc5f 	bl	0xc04
+00001a80:	ebfffc5f 	bl	0xc04		; wally ()
 00001a84:	e1a00004 	mov	r0, r4
 00001a88:	ebfffda9 	bl	0x1134
 00001a8c:	eaffffe1 	b	0x1a18
 
-; Handler for Uart boot
+; Handler for Uart boot ------
 00001a90:	e3a00701 	mov	r0, #262144	@ 0x40000
 00001a94:	eb0021ce 	bl	0xa1d4		; call uart-loader
 00001a98:	e3500000 	cmp	r0, #0
 00001a9c:	1a0000cb 	bne	0x1dd0
 00001aa0:	e300068c	movw	r0, #0x68c
-00001aa4:	e30a2578	movw	r2, #0xa578
-00001aa8:	e3400007 	movt	r0, #7
+00001aa4:	e30a2578	movw	r2, #0xa578	; callback routine
+00001aa8:	e3400007 	movt	r0, #7		; 0x7068c
 00001aac:	e3402000 	movt	r2, #0
-00001ab0:	e5802000 	str	r2, [r0]
+00001ab0:	e5802000 	str	r2, [r0]	; save callback addr
 00001ab4:	eaffff4f 	b	0x17f8
 
 ; Handler for JTAG boot
 00001ab8:	ebfffa0c 	bl	0x2f0
-00001abc:	e3a00f97 	mov	r0, #604	@ 0x25c
-00001ac0:	e34f0800	movt	r0, #0xf800
+00001abc:	e3a00f97 	mov	r0, #0x25c
+00001ac0:	e34f0800	movt	r0, #0xf800	; 0xf800025c
 00001ac4:	eb00253a 	bl	0xafb4		; io_read
 00001ac8:	e3100008 	tst	r0, #8
 00001acc:	1a000089 	bne	0x1cf8
 00001ad0:	eb000254 	bl	0x2428
-00001ad4:	e3020005	movw	r0, #0x2005
-00001ad8:	ebfffc49 	bl	0xc04
+00001ad4:	e3020005	movw	r0, #0x2005	; error 0x2005
+00001ad8:	ebfffc49 	bl	0xc04		; wally ()
 00001adc:	eaffff45 	b	0x17f8
 
 ; Odd code fragment.
 ; branched to from 000019b0
 
-00001ae0:	e302000e	movw	r0, #0x200e
-00001ae4:	ebfffc46 	bl	0xc04
+00001ae0:	e302000e	movw	r0, #0x200e	; error 0x2003
+00001ae4:	ebfffc46 	bl	0xc04		; wally ()
 00001ae8:	eaffffb1 	b	0x19b4
 
 ; Handler for Quad SPI boot
@@ -2203,8 +2237,8 @@
 00001af0:	e3500001 	cmp	r0, #1
 00001af4:	0a0000b8 	beq	0x1ddc
 00001af8:	e300368c	movw	r3, #0x68c
-00001afc:	e305043c	movw	r0, #0x543c
-00001b00:	e3403007 	movt	r3, #7
+00001afc:	e305043c	movw	r0, #0x543c	; callback
+00001b00:	e3403007 	movt	r3, #7		; 0x7068c
 00001b04:	e3400000 	movt	r0, #0
 00001b08:	e5830000 	str	r0, [r3]
 00001b0c:	eaffff39 	b	0x17f8
@@ -2217,8 +2251,8 @@
 00001b20:	e3500001 	cmp	r0, #1
 00001b24:	0a0000af 	beq	0x1de8
 00001b28:	e300868c	movw	r8, #0x68c
-00001b2c:	e306142c	movw	r1, #0x642c
-00001b30:	e3408007 	movt	r8, #7
+00001b2c:	e306142c	movw	r1, #0x642c	; callback
+00001b30:	e3408007 	movt	r8, #7		; 0x7068c
 00001b34:	e3401000 	movt	r1, #0
 00001b38:	e5881000 	str	r1, [r8]
 00001b3c:	eaffff2d 	b	0x17f8
@@ -2228,15 +2262,15 @@
 00001b44:	e3500001 	cmp	r0, #1
 00001b48:	0a0000a9 	beq	0x1df4
 00001b4c:	e300b68c	movw	fp, #0x68c
-00001b50:	e30596ac	movw	r9, #0x56ac
-00001b54:	e340b007 	movt	fp, #7
+00001b50:	e30596ac	movw	r9, #0x56ac	; callback
+00001b54:	e340b007 	movt	fp, #7		; 0x7068c
 00001b58:	e3409000 	movt	r9, #0
 00001b5c:	e58b9000 	str	r9, [fp]	; 0x7068c
 00001b60:	eaffff24 	b	0x17f8
 
 ; branch to here from way the heck above.
-00001b64:	e3020013	movw	r0, #0x2013
-00001b68:	ebfffc25 	bl	0xc04
+00001b64:	e3020013	movw	r0, #0x2013	; error 0x2013
+00001b68:	ebfffc25 	bl	0xc04		; wally ()
 00001b6c:	eaffffa7 	b	0x1a10
 
 ; handler for SD card boot
@@ -2247,7 +2281,7 @@
 00001b7c:	e3500000 	cmp	r0, #0
 00001b80:	1a00008f 	bne	0x1dc4
 00001b84:	e300e68c	movw	lr, #0x68c
-00001b88:	e30ac104	movw	ip, #0xa104
+00001b88:	e30ac104	movw	ip, #0xa104	; callback
 00001b8c:	e340e007 	movt	lr, #7		; 0x7068c
 00001b90:	e340c000 	movt	ip, #0		; 0x0a104
 00001b94:	e58ec000 	str	ip, [lr]
@@ -2325,17 +2359,17 @@
 00001cac:	e58de00c 	str	lr, [sp, #12]
 00001cb0:	9afffff7 	bls	0x1c94
 00001cb4:	e3020007	movw	r0, #0x2007
-00001cb8:	ebfffbd1 	bl	0xc04
+00001cb8:	ebfffbd1 	bl	0xc04		; wally ()
 00001cbc:	eafffff4 	b	0x1c94
 00001cc0:	eb0001e8 	bl	0x2468
 00001cc4:	e3020008	movw	r0, #0x2008
-00001cc8:	ebfffbcd 	bl	0xc04
+00001cc8:	ebfffbcd 	bl	0xc04		; wally ()
 00001ccc:	eafffec9 	b	0x17f8
 00001cd0:	e3020011	movw	r0, #0x2011
-00001cd4:	ebfffbca 	bl	0xc04
+00001cd4:	ebfffbca 	bl	0xc04		; wally ()
 00001cd8:	eaffff4c 	b	0x1a10
 00001cdc:	e3020012	movw	r0, #0x2012
-00001ce0:	ebfffbc7 	bl	0xc04
+00001ce0:	ebfffbc7 	bl	0xc04		; wally ()
 00001ce4:	eaffff49 	b	0x1a10
 
 ; -----------------------------------------------------------------------
@@ -2351,7 +2385,7 @@
 ; Handler for mystery boot 1 (boot mode 6)
 00001ce8:	eb0001ce 	bl	0x2428
 00001cec:	e3020006	movw	r0, #0x2006
-00001cf0:	ebfffbc3 	bl	0xc04
+00001cf0:	ebfffbc3 	bl	0xc04		; wally ()
 00001cf4:	eafffebf 	b	0x17f8
 
 00001cf8:	eb000098 	bl	0x1f60
@@ -2419,22 +2453,22 @@
 00001db0:	e3e000df 	mvn	r0, #223	@ 0xdf
 00001db4:	eb0037b1 	bl	0xfc80
 00001db8:	e3020022	movw	r0, #0x2022
-00001dbc:	ebfffb90 	bl	0xc04
+00001dbc:	ebfffb90 	bl	0xc04		; wally ()
 00001dc0:	eaffff42 	b	0x1ad0
 00001dc4:	e3020003	movw	r0, #0x2003
-00001dc8:	ebfffb8d 	bl	0xc04
+00001dc8:	ebfffb8d 	bl	0xc04		; wally ()
 00001dcc:	eaffff6c 	b	0x1b84
 00001dd0:	e3020004	movw	r0, #0x2004
-00001dd4:	ebfffb8a 	bl	0xc04
+00001dd4:	ebfffb8a 	bl	0xc04		; wally ()
 00001dd8:	eaffff30 	b	0x1aa0
 00001ddc:	e3a00a02 	mov	r0, #8192	@ 0x2000
-00001de0:	ebfffb87 	bl	0xc04
+00001de0:	ebfffb87 	bl	0xc04		; wally ()
 00001de4:	eaffff43 	b	0x1af8
 00001de8:	e3020001	movw	r0, #0x2001
-00001dec:	ebfffb84 	bl	0xc04
+00001dec:	ebfffb84 	bl	0xc04		; wally ()
 00001df0:	eaffff4c 	b	0x1b28
 00001df4:	e3020002	movw	r0, #0x2002
-00001df8:	ebfffb81 	bl	0xc04
+00001df8:	ebfffb81 	bl	0xc04		; wally ()
 00001dfc:	eaffff52 	b	0x1b4c
 00001e00:	e3070014	movw	r0, #0x7014
 00001e04:	e34f0800	movt	r0, #0xf800
@@ -2472,7 +2506,7 @@
 00001e5c:	e3140001 	tst	r4, #1
 00001e60:	0a000003 	beq	0x1e74
 00001e64:	e3a00002 	mov	r0, #2
-00001e68:	ebfffa32 	bl	0x738
+00001e68:	ebfffa32 	bl	0x738		; fred ()
 
 ; spin
 00001e6c:	e320f002 	wfe
@@ -2824,7 +2858,7 @@
 000023b4:	eb002311 	bl	0xb000		; io_write
 000023b8:	eaffff3c 	b	0x20b0
 000023bc:	e3a00c22 	mov	r0, #8704	@ 0x2200
-000023c0:	ebfffa0f 	bl	0xc04
+000023c0:	ebfffa0f 	bl	0xc04		; wally ()
 000023c4:	eaffff91 	b	0x2210
 000023c8:	e303ec5a	movw	lr, #0x3c5a
 000023cc:	e30c35a3	movw	r3, #0xc5a3
@@ -2853,7 +2887,7 @@
 00002428:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 0000242c:	e3a00002 	mov	r0, #2
 00002430:	e24dd00c 	sub	sp, sp, #12
-00002434:	ebfff8bf 	bl	0x738
+00002434:	ebfff8bf 	bl	0x738		; fred ()
 00002438:	ebfffec8 	bl	0x1f60
 0000243c:	ebfffe72 	bl	0x1e0c
 00002440:	e58d0004 	str	r0, [sp, #4]
@@ -3639,7 +3673,7 @@
 00003050:	e3500000 	cmp	r0, #0
 00003054:	1a000001 	bne	0x3060
 00003058:	e3020025	movw	r0, #0x2025
-0000305c:	ebfff6e8 	bl	0xc04
+0000305c:	ebfff6e8 	bl	0xc04		; wally ()
 00003060:	e5945020 	ldr	r5, [r4, #32]
 00003064:	e5946010 	ldr	r6, [r4, #16]
 00003068:	e0854006 	add	r4, r5, r6
@@ -3652,7 +3686,7 @@
 00003084:	e3570803 	cmp	r7, #196608	@ 0x30000
 00003088:	9a000001 	bls	0x3094
 0000308c:	e3020026	movw	r0, #0x2026
-00003090:	ebfff6db 	bl	0xc04
+00003090:	ebfff6db 	bl	0xc04		; wally ()
 00003094:	e3005498	movw	r5, #0x498
 00003098:	e3001560	movw	r1, #0x560
 0000309c:	e3405007 	movt	r5, #7
@@ -3749,10 +3783,10 @@
 000031fc:	e320f002 	wfe
 00003200:	eafffffd 	b	0x31fc
 00003204:	e3020027	movw	r0, #0x2027
-00003208:	ebfff67d 	bl	0xc04
+00003208:	ebfff67d 	bl	0xc04		; wally ()
 0000320c:	eaffffc5 	b	0x3128
 00003210:	e3020028	movw	r0, #0x2028
-00003214:	ebfff67a 	bl	0xc04
+00003214:	ebfff67a 	bl	0xc04		; wally ()
 00003218:	eafffff3 	b	0x31ec
 0000321c:	e1a06f05 	lsl	r6, r5, #30
 00003220:	e3a00f96 	mov	r0, #600	@ 0x258
@@ -6239,23 +6273,23 @@
 000057fc:	e34d1f0d	movt	r1, #0xdf0d
 00005800:	e3004724	movw	r4, #0x724
 00005804:	eb0015fd 	bl	0xb000		; io_write
-00005808:	e3a00c07 	mov	r0, #1792	@ 0x700
-0000580c:	e34f0800	movt	r0, #0xf800
+00005808:	e3a00c07 	mov	r0, #0x700
+0000580c:	e34f0800	movt	r0, #0xf800	; 0xf8000700
 00005810:	e3011601	movw	r1, #0x1601
 00005814:	eb0015f9 	bl	0xb000		; io_write
 00005818:	e3000704	movw	r0, #0x704
-0000581c:	e34f0800	movt	r0, #0xf800
+0000581c:	e34f0800	movt	r0, #0xf800	; 0xf8000704
 00005820:	e3011601	movw	r1, #0x1601
 00005824:	eb0015f5 	bl	0xb000		; io_write
 00005828:	e3000708	movw	r0, #0x708
-0000582c:	e34f0800	movt	r0, #0xf800
+0000582c:	e34f0800	movt	r0, #0xf800	; 0xf8000708
 00005830:	e3001601	movw	r1, #0x601
 00005834:	eb0015f1 	bl	0xb000		; io_write
 00005838:	e300070c	movw	r0, #0x70c
-0000583c:	e34f0800	movt	r0, #0xf800
+0000583c:	e34f0800	movt	r0, #0xf800	; 0xf800070c
 00005840:	e3001601	movw	r1, #0x601
 00005844:	eb0015ed 	bl	0xb000		; io_write
-00005848:	e3a00e71 	mov	r0, #1808	@ 0x710
+00005848:	e3a00e71 	mov	r0, #0x710
 0000584c:	e34f0800	movt	r0, #0xf800
 00005850:	e3001601	movw	r1, #0x601
 00005854:	eb0015e9 	bl	0xb000		; io_write
@@ -6271,7 +6305,7 @@
 0000587c:	e34f0800	movt	r0, #0xf800
 00005880:	e3001601	movw	r1, #0x601
 00005884:	eb0015dd 	bl	0xb000		; io_write
-00005888:	e3a00e72 	mov	r0, #1824	@ 0x720
+00005888:	e3a00e72 	mov	r0, #0x720
 0000588c:	e34f0800	movt	r0, #0xf800
 00005890:	e3001601	movw	r1, #0x601
 00005894:	e30067d8	movw	r6, #0x7d8
@@ -6292,11 +6326,14 @@
 000058d0:	e1540006 	cmp	r4, r6
 000058d4:	1afffff2 	bne	0x58a4
 000058d8:	e8bd8070 	pop	{r4, r5, r6, pc}
+
+; subroutine, one call from below
 000058dc:	e3520004 	cmp	r2, #4
 000058e0:	0a000001 	beq	0x58ec
 000058e4:	e3a00000 	mov	r0, #0
 000058e8:	e12fff1e 	bx	lr
 
+; branch from above
 000058ec:	e3003498	movw	r3, #0x498
 000058f0:	e30fcfe0	movw	ip, #0xffe0
 000058f4:	e3403007 	movt	r3, #7
@@ -6307,6 +6344,7 @@
 00005908:	e3500028 	cmp	r0, #40	@ 0x28
 0000590c:	83a00000 	movhi	r0, #0
 00005910:	812fff1e 	bxhi	lr
+
 00005914:	e3002e90	movw	r2, #0xe90
 00005918:	e1a03120 	lsr	r3, r0, #2
 0000591c:	e3402007 	movt	r2, #7
@@ -6315,6 +6353,7 @@
 00005928:	e581c000 	str	ip, [r1]
 0000592c:	e12fff1e 	bx	lr
 
+; how do we get here ??  No calls.
 00005930:	e300c498	movw	ip, #0x498
 00005934:	e30f1fe0	movw	r1, #0xffe0
 00005938:	e340c007 	movt	ip, #7
@@ -6326,6 +6365,10 @@
 00005950:	83a00000 	movhi	r0, #0
 00005954:	93a00001 	movls	r0, #1
 00005958:	e12fff1e 	bx	lr
+
+; subroutine - many calls
+; this calls a callback that has been registered
+; by whatever boot method was selected
 
 0000595c:	e92d4070 	push	{r4, r5, r6, lr}
 00005960:	e300449c	movw	r4, #0x49c
@@ -6341,12 +6384,13 @@
 00005988:	08bd8070 	popeq	{r4, r5, r6, pc}
 0000598c:	e300268c	movw	r2, #0x68c
 00005990:	e1a00006 	mov	r0, r6
-00005994:	e3402007 	movt	r2, #7
+00005994:	e3402007 	movt	r2, #7		; 0x7068c
 00005998:	e1a01005 	mov	r1, r5
-0000599c:	e592c000 	ldr	ip, [r2]
+0000599c:	e592c000 	ldr	ip, [r2]	; get callback
 000059a0:	e1a02004 	mov	r2, r4
-000059a4:	e12fff3c 	blx	ip
+000059a4:	e12fff3c 	blx	ip		; call the callback
 000059a8:	e8bd8070 	pop	{r4, r5, r6, pc}
+
 000059ac:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 000059b0:	e300e498	movw	lr, #0x498
 000059b4:	e340e007 	movt	lr, #7
@@ -6534,7 +6578,7 @@
 00005c8c:	e1560000 	cmp	r6, r0
 00005c90:	2a00008b 	bcs	0x5ec4
 00005c94:	e3020111	movw	r0, #0x2111
-00005c98:	ebffebd9 	bl	0xc04
+00005c98:	ebffebd9 	bl	0xc04		; wally ()
 00005c9c:	e3a08002 	mov	r8, #2
 00005ca0:	e1580007 	cmp	r8, r7
 00005ca4:	2a00003f 	bcs	0x5da8
@@ -6637,7 +6681,7 @@
 00005e28:	e1510002 	cmp	r1, r2
 00005e2c:	9affffb8 	bls	0x5d14
 00005e30:	e3020111	movw	r0, #0x2111
-00005e34:	ebffeb72 	bl	0xc04
+00005e34:	ebffeb72 	bl	0xc04		; wally ()
 00005e38:	eaffffb7 	b	0x5d1c
 00005e3c:	e240321e 	sub	r3, r0, #-536870911	@ 0xe0000001
 00005e40:	e3001ffb	movw	r1, #0xffb
@@ -6671,7 +6715,7 @@
 00005eb0:	e1510002 	cmp	r1, r2
 00005eb4:	9affffb5 	bls	0x5d90
 00005eb8:	e3020111	movw	r0, #0x2111
-00005ebc:	ebffeb50 	bl	0xc04
+00005ebc:	ebffeb50 	bl	0xc04		; wally ()
 00005ec0:	eaffffb4 	b	0x5d98
 00005ec4:	e3a0ca07 	mov	ip, #28672	@ 0x7000
 00005ec8:	e34fc800	movt	ip, #0xf800
@@ -6749,10 +6793,10 @@
 00005fe8:	9affff68 	bls	0x5d90
 00005fec:	eaffffa9 	b	0x5e98
 00005ff0:	e3020110	movw	r0, #0x2110
-00005ff4:	ebffeb02 	bl	0xc04
+00005ff4:	ebffeb02 	bl	0xc04		; wally ()
 00005ff8:	eafffef8 	b	0x5be0
 00005ffc:	e302010f	movw	r0, #0x210f
-00006000:	ebffeaff 	bl	0xc04
+00006000:	ebffeaff 	bl	0xc04		; wally ()
 00006004:	eafffef2 	b	0x5bd4
 00006008:	e3a0ef93 	mov	lr, #588	@ 0x24c
 0000600c:	e34fe800	movt	lr, #0xf800
@@ -6825,7 +6869,7 @@
 00006118:	e3530807 	cmp	r3, #458752	@ 0x70000
 0000611c:	9a000002 	bls	0x612c
 00006120:	e3020104	movw	r0, #0x2104
-00006124:	ebffeab6 	bl	0xc04
+00006124:	ebffeab6 	bl	0xc04		; wally ()
 00006128:	e59d3018 	ldr	r3, [sp, #24]
 0000612c:	e59d2010 	ldr	r2, [sp, #16]
 00006130:	e3520000 	cmp	r2, #0
@@ -6836,7 +6880,7 @@
 00006144:	959d3018 	ldrls	r3, [sp, #24]
 00006148:	9a000003 	bls	0x615c
 0000614c:	e3020106	movw	r0, #0x2106
-00006150:	ebffeaab 	bl	0xc04
+00006150:	ebffeaab 	bl	0xc04		; wally ()
 00006154:	e59d3018 	ldr	r3, [sp, #24]
 00006158:	e59d2010 	ldr	r2, [sp, #16]
 0000615c:	e3a01001 	mov	r1, #1
@@ -6853,7 +6897,7 @@
 00006188:	e3520701 	cmp	r2, #262144	@ 0x40000
 0000618c:	0a000001 	beq	0x6198
 00006190:	e3020109	movw	r0, #0x2109
-00006194:	ebffea9a 	bl	0xc04
+00006194:	ebffea9a 	bl	0xc04		; wally ()
 00006198:	e303ec5a	movw	lr, #0x3c5a
 0000619c:	e30c05a3	movw	r0, #0xc5a3
 000061a0:	e59dc008 	ldr	ip, [sp, #8]
@@ -6901,7 +6945,7 @@
 00006248:	e153000e 	cmp	r3, lr
 0000624c:	1affffed 	bne	0x6208
 00006250:	e302010e	movw	r0, #0x210e
-00006254:	ebffea6a 	bl	0xc04
+00006254:	ebffea6a 	bl	0xc04		; wally ()
 00006258:	eaffffea 	b	0x6208
 0000625c:	e3530803 	cmp	r3, #196608	@ 0x30000
 00006260:	8a00003c 	bhi	0x6358
@@ -6941,47 +6985,47 @@
 000062e8:	e3e00000 	mvn	r0, #0
 000062ec:	eaffffc6 	b	0x620c
 000062f0:	e3020102	movw	r0, #0x2102
-000062f4:	ebffea42 	bl	0xc04
+000062f4:	ebffea42 	bl	0xc04		; wally ()
 000062f8:	e59d301c 	ldr	r3, [sp, #28]
 000062fc:	eaffff7b 	b	0x60f0
 00006300:	e3020107	movw	r0, #0x2107
-00006304:	ebffea3e 	bl	0xc04
+00006304:	ebffea3e 	bl	0xc04		; wally ()
 00006308:	e59d2010 	ldr	r2, [sp, #16]
 0000630c:	eaffff97 	b	0x6170
 00006310:	e3020103	movw	r0, #0x2103
-00006314:	ebffea3a 	bl	0xc04
+00006314:	ebffea3a 	bl	0xc04		; wally ()
 00006318:	eaffff79 	b	0x6104
 0000631c:	e3020105	movw	r0, #0x2105
-00006320:	ebffea37 	bl	0xc04
+00006320:	ebffea37 	bl	0xc04		; wally ()
 00006324:	e59d2010 	ldr	r2, [sp, #16]
 00006328:	e3520803 	cmp	r2, #196608	@ 0x30000
 0000632c:	959d3018 	ldrls	r3, [sp, #24]
 00006330:	8affff85 	bhi	0x614c
 00006334:	eaffff88 	b	0x615c
 00006338:	e3020108	movw	r0, #0x2108
-0000633c:	ebffea30 	bl	0xc04
+0000633c:	ebffea30 	bl	0xc04		; wally ()
 00006340:	eaffff8f 	b	0x6184
 00006344:	e302010a	movw	r0, #0x210a
-00006348:	ebffea2d 	bl	0xc04
+00006348:	ebffea2d 	bl	0xc04		; wally ()
 0000634c:	e59d3010 	ldr	r3, [sp, #16]
 00006350:	e59dc008 	ldr	ip, [sp, #8]
 00006354:	eaffff9a 	b	0x61c4
 00006358:	e302010d	movw	r0, #0x210d
-0000635c:	ebffea28 	bl	0xc04
+0000635c:	ebffea28 	bl	0xc04		; wally ()
 00006360:	eaffffae 	b	0x6220
 00006364:	e302010c	movw	r0, #0x210c
-00006368:	ebffea25 	bl	0xc04
+00006368:	ebffea25 	bl	0xc04		; wally ()
 0000636c:	eaffffa5 	b	0x6208
 00006370:	e302010b	movw	r0, #0x210b
-00006374:	ebffea22 	bl	0xc04
+00006374:	ebffea22 	bl	0xc04		; wally ()
 00006378:	eaffffa2 	b	0x6208
 0000637c:	e3a00c21 	mov	r0, #8448	@ 0x2100
-00006380:	ebffea1f 	bl	0xc04
+00006380:	ebffea1f 	bl	0xc04		; wally ()
 00006384:	ebfffd98 	bl	0x59ec
 00006388:	e3500001 	cmp	r0, #1
 0000638c:	1affff33 	bne	0x6060
 00006390:	e3020101	movw	r0, #0x2101
-00006394:	ebffea1a 	bl	0xc04
+00006394:	ebffea1a 	bl	0xc04		; wally ()
 00006398:	eaffff30 	b	0x6060
 0000639c:	e5942000 	ldr	r2, [r4]
 000063a0:	e59dc01c 	ldr	ip, [sp, #28]
@@ -11021,7 +11065,7 @@
 0000a1ac:	0afffff7 	beq	0xa190
 
 0000a1b0:	e3a00c25 	mov	r0, #9472	@ 0x2500
-0000a1b4:	ebffda92 	bl	0xc04
+0000a1b4:	ebffda92 	bl	0xc04		; wally ()
 0000a1b8:	e3140002 	tst	r4, #2
 0000a1bc:	1afffff5 	bne	0xa198
 
@@ -11060,7 +11104,10 @@
 0000a220:	ebffd91e 	bl	0x6a0		; initialize uart1
 
 ; 0xe0001030 is "rfifo" in the uart
-; This prints the prompt for the "secret" uart downloader
+
+; This prints the greeting for the "secret" uart downloader
+; namely: XLNX-ZYNQ
+
 0000a224:	e3010030	movw	r0, #0x1030
 0000a228:	e3a01058 	mov	r1, #88	@ 0x58			'X'
 0000a22c:	e34e0000	movt	r0, #0xe000
@@ -11104,9 +11151,12 @@
 ; getc() returns the character in r0
 
 ; 0x18748 has the string "BAUD\0"
+; this code is looking for the character 'B'
+;  (which starts off the sequence "BAUD"
+; a4 = 0x70488
 
 0000a2c0:	e1a08005 	mov	r8, r5		; r8 = 0
-0000a2c4:	e5847000 	str	r7, [r4]
+0000a2c4:	e5847000 	str	r7, [r4]	; (r7 holds 0)
 0000a2c8:	e3406001 	movt	r6, #1		; r6 = 0x18748
 
 0000a2cc:	ebffffad 	bl	0xa188		; getc()
@@ -11118,33 +11168,52 @@
 
 0000a2dc:	e2855001 	add	r5, r5, #1	; r5 = 1
 0000a2e0:	e3550080 	cmp	r5, #128	@ 0x80
-0000a2e4:	ca00009b 	bgt	0xa558
+0000a2e4:	ca00009b 	bgt	0xa558		; error 2501
 0000a2e8:	e3a08000 	mov	r8, #0		; r8 = 0
 0000a2ec:	ebffffa5 	bl	0xa188		; getc()
 0000a2f0:	e7d61008 	ldrb	r1, [r6, r8]	; 'B'
 0000a2f4:	e1510000 	cmp	r1, r0
 0000a2f8:	1afffff7 	bne	0xa2dc		; loop
 
+; we branch here once we find "B"
+
+; Some clumsy compiler finds a dozen ways to needlessly reconstruct
+;  the pointer 0x70488.
+; This address holds a pointer to the actual rbuf
+
 0000a2fc:	e2888001 	add	r8, r8, #1	; r8++
 0000a300:	e3580003 	cmp	r8, #3
-0000a304:	9afffff0 	bls	0xa2cc
+0000a304:	9afffff0 	bls	0xa2cc		; loop up to get "AUD"
 
-0000a308:	e594a000 	ldr	sl, [r4]
+# Now get the first integer
+
+0000a308:	e594a000 	ldr	sl, [r4]	; sl = *(0x70488)
 0000a30c:	ebffff9d 	bl	0xa188		; getc()
 0000a310:	e5ca0000 	strb	r0, [sl]
 0000a314:	e300a488	movw	sl, #0x488
-0000a318:	e5946000 	ldr	r6, [r4]
+0000a318:	e5946000 	ldr	r6, [r4]	; r6 = *(0x70488)
 0000a31c:	ebffff99 	bl	0xa188		; getc()
 0000a320:	e5c60001 	strb	r0, [r6, #1]
-0000a324:	e340a007 	movt	sl, #7
-0000a328:	e5945000 	ldr	r5, [r4]
+0000a324:	e340a007 	movt	sl, #7		; sl = 0x70488
+0000a328:	e5945000 	ldr	r5, [r4]	; r5 = *(0x70488)
 0000a32c:	ebffff95 	bl	0xa188		; getc()
 0000a330:	e5c50002 	strb	r0, [r5, #2]
-0000a334:	e5948000 	ldr	r8, [r4]
+0000a334:	e5948000 	ldr	r8, [r4]	; why?
 0000a338:	ebffff92 	bl	0xa188		; getc()
 0000a33c:	e5c80003 	strb	r0, [r8, #3]
-0000a340:	e5947000 	ldr	r7, [r4]
-0000a344:	e5978000 	ldr	r8, [r7]
+
+; The above has placed a 4 byte value at *(0x70488).
+; note that r4 has held a pointer to this all along,
+; despite the compilers contortions
+
+0000a340:	e5947000 	ldr	r7, [r4]	; r7 = *(0x70488)
+0000a344:	e5978000 	ldr	r8, [r7]	; r8 = *r7
+
+; We have now fetched that 4 byte value into r8 and will reuse
+; the buffer to get another
+;
+; Now get the second integer
+
 0000a348:	ebffff8e 	bl	0xa188		; getc()
 0000a34c:	e5c70000 	strb	r0, [r7]
 0000a350:	e5946000 	ldr	r6, [r4]
@@ -11156,8 +11225,14 @@
 0000a368:	e5947000 	ldr	r7, [r4]
 0000a36c:	ebffff85 	bl	0xa188		; getc()
 0000a370:	e5c70003 	strb	r0, [r7, #3]
+
 0000a374:	e5946000 	ldr	r6, [r4]
 0000a378:	e5967000 	ldr	r7, [r6]
+
+; We have now fetched the second 4 byte value into r7
+;
+; Now get the third integer (size)
+
 0000a37c:	ebffff81 	bl	0xa188		; getc()
 0000a380:	e5c60000 	strb	r0, [r6]
 0000a384:	e5945000 	ldr	r5, [r4]
@@ -11169,10 +11244,19 @@
 0000a39c:	e5945000 	ldr	r5, [r4]
 0000a3a0:	ebffff78 	bl	0xa188		; getc()
 0000a3a4:	e5c50003 	strb	r0, [r5, #3]
+
 0000a3a8:	e5946000 	ldr	r6, [r4]
 0000a3ac:	e5965000 	ldr	r5, [r6]
+
+; Finally, we have the third value in r5
+; The third value is a "size".
+; If it is too big, we call it error 2502
+;
+; Now get a fourth integer (the checksum)
+
 0000a3b0:	e3550803 	cmp	r5, #196608	@ 0x30000
-0000a3b4:	ca00006b 	bgt	0xa568
+0000a3b4:	ca00006b 	bgt	0xa568		; error 2502
+
 0000a3b8:	ebffff72 	bl	0xa188		; getc()
 0000a3bc:	e5c60000 	strb	r0, [r6]
 0000a3c0:	e5946000 	ldr	r6, [r4]
@@ -11184,71 +11268,107 @@
 0000a3d8:	e5946000 	ldr	r6, [r4]
 0000a3dc:	ebffff69 	bl	0xa188		; getc()
 0000a3e0:	e5c60003 	strb	r0, [r6, #3]
-0000a3e4:	e3a00a01 	mov	r0, #4096	@ 0x1000
+
+; Now fool with serial hardware.
+; 0xe0001000 is the base address for uart1
+; (we have uart0 and uart1)
+
+0000a3e4:	e3a00a01 	mov	r0, #0x1000
 0000a3e8:	e5943000 	ldr	r3, [r4]
-0000a3ec:	e34e0000	movt	r0, #0xe000
+0000a3ec:	e34e0000	movt	r0, #0xe000	; 0xe0001000
 0000a3f0:	e5936000 	ldr	r6, [r3]
 0000a3f4:	eb0002ee 	bl	0xafb4		; io_read
 0000a3f8:	e3801028 	orr	r1, r0, #40	@ 0x28
-0000a3fc:	e3a00a01 	mov	r0, #4096	@ 0x1000
+0000a3fc:	e3a00a01 	mov	r0, #0x1000
 0000a400:	e34e0000	movt	r0, #0xe000
 0000a404:	eb0002fd 	bl	0xb000		; io_write
+
+; the above code did uart->ctrl |= 0x28
+
 0000a408:	e3010018	movw	r0, #0x1018
-0000a40c:	e34e0000	movt	r0, #0xe000
+0000a40c:	e34e0000	movt	r0, #0xe000	; 0xe0001018
 0000a410:	e1a01008 	mov	r1, r8
 0000a414:	eb0002f9 	bl	0xb000		; io_write
+
+; the above writes the value in r8
+; into the uart baudgen register
+
 0000a418:	e3010034	movw	r0, #0x1034
 0000a41c:	e1a01007 	mov	r1, r7
-0000a420:	e34e0000	movt	r0, #0xe000
+0000a420:	e34e0000	movt	r0, #0xe000	; 0xe0001034
 0000a424:	eb0002f5 	bl	0xb000		; io_write
-0000a428:	e3a00a01 	mov	r0, #4096	@ 0x1000
+
+; The above writes the value in r7
+; into the uart fifo trigger level register
+
+0000a428:	e3a00a01 	mov	r0, #0x1000
 0000a42c:	e34e0000	movt	r0, #0xe000
 0000a430:	eb0002df 	bl	0xafb4		; io_read
 0000a434:	e3801003 	orr	r1, r0, #3
-0000a438:	e3a00a01 	mov	r0, #4096	@ 0x1000
+0000a438:	e3a00a01 	mov	r0, #0x1000
 0000a43c:	e34e0000	movt	r0, #0xe000
 0000a440:	eb0002ee 	bl	0xb000		; io_write
+
+; the above did uart->ctrl |= 0x3
+
 0000a444:	e3010004	movw	r0, #0x1004
-0000a448:	e34e0000	movt	r0, #0xe000
+0000a448:	e34e0000	movt	r0, #0xe000	; 0xe0001004
 0000a44c:	e3a01020 	mov	r1, #32
 0000a450:	eb0002ea 	bl	0xb000		; io_write
-0000a454:	e3a00a01 	mov	r0, #4096	@ 0x1000
+
+; the above wrote 0x20 into the uart mode register
+
+0000a454:	e3a00a01 	mov	r0, #0x1000
 0000a458:	e34e0000	movt	r0, #0xe000
 0000a45c:	e3a01f45 	mov	r1, #276	@ 0x114
 0000a460:	eb0002e6 	bl	0xb000		; io_write
+
+; the above did uart->ctrl = 0x114
+
+;----------------------------------
+; r5 is our "size" value
+
+; skip checksum if size <= 0
 0000a464:	e3550000 	cmp	r5, #0
 0000a468:	da00001a 	ble	0xa4d8
-0000a46c:	e2450001 	sub	r0, r5, #1
-0000a470:	e5947000 	ldr	r7, [r4]
-0000a474:	e2008001 	and	r8, r0, #1
+
+0000a46c:	e2450001 	sub	r0, r5, #1	; r0 = size - 1
+0000a470:	e5947000 	ldr	r7, [r4]	; r7 = &buf
+0000a474:	e2008001 	and	r8, r0, #1	; r8 = r1 & 1
 0000a478:	ebffff42 	bl	0xa188		; getc()
 0000a47c:	e3550001 	cmp	r5, #1
-0000a480:	e5c70000 	strb	r0, [r7]
-0000a484:	e3a07001 	mov	r7, #1
-0000a488:	da000012 	ble	0xa4d8
+0000a480:	e5c70000 	strb	r0, [r7]	; buf[0] = char
+0000a484:	e3a07001 	mov	r7, #1		; r7 = 1
+0000a488:	da000012 	ble	0xa4d8		; size <= 1
+
 0000a48c:	e3580000 	cmp	r8, #0
 0000a490:	0a000006 	beq	0xa4b0
-0000a494:	e3a07002 	mov	r7, #2
-0000a498:	e5948000 	ldr	r8, [r4]
+0000a494:	e3a07002 	mov	r7, #2		; r7 = 2
+0000a498:	e5948000 	ldr	r8, [r4]	; r8 = &buf
 0000a49c:	ebffff39 	bl	0xa188		; getc()
 0000a4a0:	e1550007 	cmp	r5, r7
-0000a4a4:	e5c80001 	strb	r0, [r8, #1]
-0000a4a8:	e2888001 	add	r8, r8, #1
+0000a4a4:	e5c80001 	strb	r0, [r8, #1]	; buf[1] = char
+0000a4a8:	e2888001 	add	r8, r8, #1	; r8 += 1
 0000a4ac:	da000009 	ble	0xa4d8
-0000a4b0:	e594a000 	ldr	sl, [r4]
+
+0000a4b0:	e594a000 	ldr	sl, [r4]	; sl = &buf
 0000a4b4:	ebffff33 	bl	0xa188		; getc()
-0000a4b8:	e7ca0007 	strb	r0, [sl, r7]
-0000a4bc:	e2878001 	add	r8, r7, #1
-0000a4c0:	e2877002 	add	r7, r7, #2
-0000a4c4:	e594a000 	ldr	sl, [r4]
+0000a4b8:	e7ca0007 	strb	r0, [sl, r7]	; buf[2] = char
+0000a4bc:	e2878001 	add	r8, r7, #1	; r8 = r7 + 1 = 3
+0000a4c0:	e2877002 	add	r7, r7, #2	; r7 += 2 = 4
+0000a4c4:	e594a000 	ldr	sl, [r4]	; sl = &buf
 0000a4c8:	ebffff2e 	bl	0xa188		; getc()
 0000a4cc:	e1550007 	cmp	r5, r7
-0000a4d0:	e7ca0008 	strb	r0, [sl, r8]
-0000a4d4:	cafffff5 	bgt	0xa4b0
+0000a4d0:	e7ca0008 	strb	r0, [sl, r8]	; buf[3] = char
+0000a4d4:	cafffff5 	bgt	0xa4b0		; loop while r5 > r7
+
+; check the checksum
 0000a4d8:	e3560000 	cmp	r6, #0
-0000a4dc:	0a00001b 	beq	0xa550
+0000a4dc:	0a00001b 	beq	0xa550		; OK, return (0)
+
 0000a4e0:	e3550000 	cmp	r5, #0
-0000a4e4:	da000017 	ble	0xa548
+0000a4e4:	da000017 	ble	0xa548		; cksum error
+
 0000a4e8:	e5940000 	ldr	r0, [r4]
 0000a4ec:	e245e001 	sub	lr, r5, #1
 0000a4f0:	e3550001 	cmp	r5, #1
@@ -11256,13 +11376,16 @@
 0000a4f8:	e5d01000 	ldrb	r1, [r0]
 0000a4fc:	e3a03001 	mov	r3, #1
 0000a500:	0a00000e 	beq	0xa540
+
 0000a504:	e3520000 	cmp	r2, #0
 0000a508:	0a000004 	beq	0xa520
+
 0000a50c:	e3a03002 	mov	r3, #2
 0000a510:	e5d02001 	ldrb	r2, [r0, #1]
 0000a514:	e1550003 	cmp	r5, r3
 0000a518:	e0811002 	add	r1, r1, r2
 0000a51c:	0a000007 	beq	0xa540
+
 0000a520:	e283e001 	add	lr, r3, #1
 0000a524:	e7d0c003 	ldrb	ip, [r0, r3]
 0000a528:	e2833002 	add	r3, r3, #2
@@ -11270,31 +11393,64 @@
 0000a530:	e7d0200e 	ldrb	r2, [r0, lr]
 0000a534:	e1550003 	cmp	r5, r3
 0000a538:	e08c1002 	add	r1, ip, r2
-0000a53c:	1afffff7 	bne	0xa520
+0000a53c:	1afffff7 	bne	0xa520		; loop
+
 0000a540:	e1560001 	cmp	r6, r1
-0000a544:	0a000001 	beq	0xa550
+0000a544:	0a000001 	beq	0xa550		; return 0
+
+; error 2503 (checksum error)
 0000a548:	e3020503	movw	r0, #0x2503
-0000a54c:	ebffd9ac 	bl	0xc04
+0000a54c:	ebffd9ac 	bl	0xc04		; wally ()
+
+; normal return here
 0000a550:	e3a00000 	mov	r0, #0
 0000a554:	e8bd85f8 	pop	{r3, r4, r5, r6, r7, r8, sl, pc}
+
+; error 2501 when we did not see 'B' after 128 characters
+; it will display this message endlessly
 0000a558:	e3020501	movw	r0, #0x2501
 0000a55c:	e3a08000 	mov	r8, #0
-0000a560:	ebffd9a7 	bl	0xc04
-0000a564:	eaffff60 	b	0xa2ec
+0000a560:	ebffd9a7 	bl	0xc04		; wally ()
+0000a564:	eaffff60 	b	0xa2ec		; keep trying
+
+; error 2502 when the size is bigger than 0x30000
 0000a568:	e3020502	movw	r0, #0x2502
-0000a56c:	ebffd9a4 	bl	0xc04
+0000a56c:	ebffd9a4 	bl	0xc04		; wally ()
 0000a570:	e59a6000 	ldr	r6, [sl]
 0000a574:	eaffff8f 	b	0xa3b8
+
+; The following routine is a "callback" used by the uart loader
+; when it wants more data.
+; Here are some notes on it from "404" --
+
+; The intent of this routine is straightforward:
+;  Grab nbytes from offset bytes deep into the ROM image, and write them to dest.
+
+; The RSBGT weirdness at 0xa5ac is a check for the span of the request
+;  (combined with the check at 0xa5a8) , but is redundant and doesn't account
+;  for some wraparounds anyway.
+; The interesting part is the source address calculation:
+;  There is a check, but it is just for the upper bound, which we already know
+;  is constrained by earlier logic. Otherwise, it just adds our r0_offset argument
+;  directly. That's nice - if we fully control r0_offset at any point where r1_dest
+;  is something that persists after the ROM has locked itself down
+;  (which is kinda the whole idea of a bootrom...),
+;  we can stash stuff to look at later, as long as it lives below 0x70000.
+
+; Aside: The same logic exists in both NOR and QSPI boot processes, with mildly fewer constrains.
+
+; Note that OCM is mapped to 0x70000 while the bootrom is running.
+
 0000a578:	e92d4008 	push	{r3, lr}
 0000a57c:	e3003488	movw	r3, #0x488
-0000a580:	e3403007 	movt	r3, #7
+0000a580:	e3403007 	movt	r3, #7		; 0x70488
 0000a584:	e3a0c001 	mov	ip, #1
 0000a588:	e5933000 	ldr	r3, [r3]
-0000a58c:	e340c007 	movt	ip, #7
+0000a58c:	e340c007 	movt	ip, #7		; 0x70001
 0000a590:	e0833000 	add	r3, r3, r0
 0000a594:	e153000c 	cmp	r3, ip
-0000a598:	8a000007 	bhi	0xa5bc
-0000a59c:	e243c807 	sub	ip, r3, #458752	@ 0x70000
+0000a598:	8a000007 	bhi	0xa5bc		; (return)
+0000a59c:	e243c807 	sub	ip, r3, #0x70000
 0000a5a0:	e24ce001 	sub	lr, ip, #1
 0000a5a4:	e08e0002 	add	r0, lr, r2
 0000a5a8:	e3500000 	cmp	r0, #0
@@ -11304,6 +11460,8 @@
 0000a5b8:	ebffdb9c 	bl	0x1430		; memcpy
 0000a5bc:	e3a00000 	mov	r0, #0
 0000a5c0:	e8bd8008 	pop	{r3, pc}
+
+; subroutine
 0000a5c4:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 0000a5c8:	e24dd014 	sub	sp, sp, #20
 0000a5cc:	ebffda12 	bl	0xe1c
@@ -11377,6 +11535,7 @@
 0000a6dc:	0a000001 	beq	0xa6e8
 0000a6e0:	e28dd014 	add	sp, sp, #20
 0000a6e4:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
+
 0000a6e8:	e3042240	movw	r2, #0x4240
 0000a6ec:	e1a0000d 	mov	r0, sp
 0000a6f0:	e340200f 	movt	r2, #15
@@ -11412,18 +11571,18 @@
 0000a75c:	e12fff1e 	bx	lr
 
 ; data here
-0000a760:	00070000 	andeq	r0, r7, r0
-0000a764:	00070000 	andeq	r0, r7, r0
-0000a768:	00070000 	andeq	r0, r7, r0
-0000a76c:	00077694 	muleq	r7, r4, r6
-0000a770:	0007d4a0 	andeq	sp, r7, r0, lsr #9
+0000a760:	00070000
+0000a764:	00070000
+0000a768:	00070000
+0000a76c:	00077694
+0000a770:	0007d4a0	; initial stack pointer
 
 ; Startup branches to here.
 0000a774:	ebfffff1 	bl	0xa740
 0000a778:	e51fd010 	ldr	sp, [pc, #-16]	@ 0xa770
 0000a77c:	ebffdbc1 	bl	0x1688	; (main)
 0000a780:	e3a00c27 	mov	r0, #9984	@ 0x2700
-0000a784:	eaffd91e 	b	0xc04
+0000a784:	eaffd91e 	b	0xc04		; wally ()
 
 ; spin
 0000a788:	eafffffe 	b	0xa788
@@ -25449,9 +25608,9 @@
 
 ; data
 00018018:	98e5fcc9
+0001801c:	8a75e5bc
+00018020:	00000000
 
-0001801c:	8a75e5bc 	bhi	0x1d91714
-00018020:	00000000 	andeq	r0, r0, r0
 00018024:	77073096 			@ <UNDEFINED> instruction: 0x77073096
 00018028:	ee0e612c 	adfep	f6, f6, #4.0
 0001802c:	990951ba 	stmdbls	r9, {r1, r3, r4, r5, r7, r8, ip, lr}

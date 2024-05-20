@@ -4,6 +4,13 @@
 # using the secret uart loader.
 # This also was written by "404"
 
+# On my Fedora 40 system, I needed:
+# dnf install python3-pyserial
+
+# This should print:
+# checksum: 0x425b9
+# len: 2208
+
 from struct import pack as p
 from struct import unpack as up
 import serial
@@ -30,7 +37,8 @@ def hdrchksum(data):
 
 def gen_hdr():
     # xip ivt
-    hdr += p("<I", 0xeafffffe)
+#    hdr += p("<I", 0xeafffffe)
+    hdr = p("<I", 0xeafffffe)
     hdr += p("<I", 0xeafffffe)
     hdr += p("<I", 0xeafffffe)
     hdr += p("<I", 0xeafffffe)
@@ -79,23 +87,46 @@ ser.port = "/dev/ttyUSB0"
 ser.baudrate = 115200
 ser.open()
 
+print ( 'Waiting for XLNX-ZYNQ' )
 while ser.read(1) != b'X':
     continue
 assert ser.read(8) == b'LNX-ZYNQ'
+print ( "Got it" );
 
-ser.write(b"BAUD")
-ser.write(baudgen.to_bytes(4, 'little'))
-ser.write(reg0.to_bytes(4, 'little'))
-ser.write(size.to_bytes(4, 'little'))
-ser.write(checksum.to_bytes(4, 'little'))
+n = ser.write(b"BAUD")
+print ( "Write 1", n );
+n = ser.write(baudgen.to_bytes(4, 'little'))
+print ( "Write 2", n );
+n = ser.write(reg0.to_bytes(4, 'little'))
+print ( "Write 3", n );
+n = ser.write(size.to_bytes(4, 'little'))
+print ( "Write 4", n );
+n = ser.write(checksum.to_bytes(4, 'little'))
+print ( "Write 5", n );
+ser.flush ()
 
-print("writing image...")
+print ( "Baud set, now write header image" )
+#print("writing image...")
+
 # sleep here 'cause this is where they hit resets for the tx/rx logic,
 # and anything in-flight when that happens is lost (it happens a fair bit)
 time.sleep(0.1)
-print("wrote: " + str(ser.write(img)))
+x = ser.write(img)
+ser.flush ()
+
+print ( "wrote header, byes: ", x )
 # let any error logic propagate..
 time.sleep(0.1)
+
+n = ser.in_waiting
+print ( n, " waiting" )
+time.sleep(0.5)
+n = ser.in_waiting
+print ( n, " waiting" )
+time.sleep(1.0)
+n = ser.in_waiting
+print ( n, " waiting" )
+
 if ser.in_waiting == 0:
     print("ok, i think we are done, ROM is 0x2_0000 bytes starting at 0 :)")
 else:
