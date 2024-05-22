@@ -1125,6 +1125,9 @@
 ;  (such as 0x250x for the secret uart)
 ; the last two digits are the specific error within
 ;  the subsystem
+;
+; Note that the TRM has a fairly big (but not complete)
+; list of these on pages 199 to 202
 
 ; 0xf800d010 is in eFuse
 
@@ -17183,7 +17186,10 @@
 0000fca8:	e59f326c 	ldr	r3, [pc, #620]	@ 0xff1c
 0000fcac:	e3a05102 	mov	r5, #-2147483648	@ 0x80000000
 0000fcb0:	e5835000 	str	r5, [r3]
+
+; spin
 0000fcb4:	eafffffe 	b	0xfcb4
+
 0000fcb8:	e59f1254 	ldr	r1, [pc, #596]	@ 0xff14
 0000fcbc:	e59f2254 	ldr	r2, [pc, #596]	@ 0xff18
 0000fcc0:	e3a03000 	mov	r3, #0
