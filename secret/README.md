@@ -4,8 +4,8 @@ the "secret" uart loader option in the Zynq bootrom.
 <p>
 I am testing against an Antminer S9 board which has the
 Zynq XC7Z010-CLG400A chip.  On this board the serial console
-is on the right pins and there are handy jumpers for all
-of the boot mode options.
+is on the correct pins and there are handy jumpers for all
+of the boot mode options, making all of this relatively easy.
 
 1. 02-zynq-uart.py - original script by "404"
 1. dumper.py - original script by "404"
