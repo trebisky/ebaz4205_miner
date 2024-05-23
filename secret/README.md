@@ -1,7 +1,7 @@
+
 Python scripts (and some other stuff) to play with
 the "secret" uart loader option in the Zynq bootrom.
 
-<p>
 I am testing against an Antminer S9 board which has the
 Zynq XC7Z010-CLG400A chip.  On this board the serial console
 is on the correct pins and there are handy jumpers for all
