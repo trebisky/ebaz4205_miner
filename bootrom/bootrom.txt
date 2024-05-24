@@ -174,7 +174,29 @@
 ; ------------------------------------------------
 ; Addresses --
 ;
-; I had begun sprinkling them around in the code in the areas where
+; OCM (on chip memory).
+; We have 256K of ram and this 128K boot ROM
+; a bunch of tricks go on, not all of which are documented.
+;
+; After reset (when this code is running), we find the ROM mapped to
+; address 0, so it sits in the first 128K of the address space.
+; It seems that the 256K of ram is at 0x40000 to 0x7ffff
+; Certainly the 0x7xxxx region is ram, as it is used for the
+;  stack and a variety of variables by the bootrom.
+;
+; Some other trickery goes on with the high addresses
+;  like 0xffff0000 ...  The TRM says that the SRAM can be
+;  mapped high or low with 64K granularity.  So a single 64K "page"
+;  could be put up there -- the bootrom copies some code up there
+;  to bounce through when it maps itself out of existence (somehow).
+; The TRM says this is handled by slcr.OCM_CFG
+;  see page 1570 of the TRM for this.
+;  the base for the slcr is 0xF800_0000
+;  OCM_CFG is at offset 0x910
+;
+; --------------------------------------
+;
+; I had begun sprinkling Address notes around in the code in the areas where
 ; I tripped over them, but decided we would be better served to
 ; collect them all, in order, in a nice reference section up front.
 ; Namely right here ---
@@ -224,6 +246,9 @@
 ;
 ; Execution starts right here at address zero.
 ; (and jumps right away to 0x44)
+; This jump is followed by 7 interrupt vectors
+; The first 6 just fall into the last.
+; They all give boot_error 0x2600
 
 00000000:	ea00000f 	b	0x44
 00000004:	e320f000 	nop	{0}
@@ -1483,7 +1508,7 @@
 0000112c:	9afffff9 	bls	0x1118
 00001130:	e12fff1e 	bx	lr
 
-; subroutine OK_lets_boot ()
+; subroutine OK_lets_boot ( start_address )
 ; two calls from inside 0x1688
 ; only one is active.
 00001134:	e92d4030 	push	{r4, r5, lr}
@@ -1513,12 +1538,16 @@
 00001194:	e34d1f0d	movt	r1, #0xdf0d
 00001198:	eb002798 	bl	0xb000		; io_write
 0000119c:	ebfffd5d 	bl	0x718
+
+; We now have the image loaded, r0 = r4 = start address
 000011a0:	e1a00004 	mov	r0, r4
-000011a4:	eb003ac3 	bl	0xfcb8		; end_game ()
+000011a4:	eb003ac3 	bl	0xfcb8		; end_game ( r0 )
+
 000011a8:	e302001b	movw	r0, #0x201b
 000011ac:	e28dd00c 	add	sp, sp, #12
 000011b0:	e8bd4030 	pop	{r4, r5, lr}
 000011b4:	eafffe92 	b	0xc04		; boot_error ()
+; never returns
 
 000011b8:	e92d4010 	push	{r4, lr}
 000011bc:	e1a04000 	mov	r4, r0
@@ -2213,10 +2242,15 @@
 00001a34:	e3500001 	cmp	r0, #1
 00001a38:	1affffe5 	bne	0x19d4
 00001a3c:	eb00117d 	bl	0x6038
+
+; r4 = r0 - 0 (and set flags)
+; I am confused about the branch.
+; if we have a non-zero "start address" we flag an error.
+
 00001a40:	e2504000 	subs	r4, r0, #0
 00001a44:	1a00000c 	bne	0x1a7c
-00001a48:	e1a00004 	mov	r0, r4
-00001a4c:	ebfffdb8 	bl	0x1134		; OK_lets_boot ()
+00001a48:	e1a00004 	mov	r0, r4		; start address
+00001a4c:	ebfffdb8 	bl	0x1134		; OK_lets_boot ( start_address)
 ; never returns
 
 ; inaccessible code (1 line)
@@ -2230,11 +2264,15 @@
 
 00001a68:	e3020010	movw	r0, #0x2010
 00001a6c:	ebfffc64 	bl	0xc04		; boot_error ()
+; no return
+
 00001a70:	e1a00004 	mov	r0, r4
 00001a74:	ebfffde6 	bl	0x1214
 00001a78:	eaffffe6 	b	0x1a18
+
 00001a7c:	e302000f	movw	r0, #0x200f
 00001a80:	ebfffc5f 	bl	0xc04		; boot_error ()
+; no return
 
 ; no path to here (3 instructions)
 00001a84:	e1a00004 	mov	r0, r4
@@ -12752,13 +12790,14 @@
 
 ; subroutine -- called from 0x1134 -- end_game()
 ; This is the end game transferring to the loaded image.
+; It looks like r0 has the start address of the loaded image
 
 0000fcb8:	e59f1254 	ldr	r1, [pc, #596]	@ 0xff14
 0000fcbc:	e59f2254 	ldr	r2, [pc, #596]	@ 0xff18
 0000fcc0:	e3a03000 	mov	r3, #0
 0000fcc4:	ebffeab0 	bl	0xa78c
 0000fcc8:	e3a02000 	mov	r2, #0
-0000fccc:	e1a0e000 	mov	lr, r0
+0000fccc:	e1a0e000 	mov	lr, r0		; lr = r0 = start_address
 0000fcd0:	e59f3244 	ldr	r3, [pc, #580]	@ 0xff1c
 0000fcd4:	e5935000 	ldr	r5, [r3]
 0000fcd8:	e1822005 	orr	r2, r2, r5
@@ -12782,25 +12821,40 @@
 0000fd20:	e3a01028 	mov	r1, #40	@ 0x28
 0000fd24:	e0800001 	add	r0, r0, r1
 0000fd28:	e3e01000 	mvn	r1, #0
-0000fd2c:	e59f51f0 	ldr	r5, [pc, #496]	@ 0xff24
+
+; Write 0x8 to the OCM config register.
+; this maps the fourth (and last) 64K segment of the 256K
+; OCM sram to high addresses (0xffff0000 ...)
+; If I am guessing right about what is going on while the bootrom
+; is running, this is the segment that has up to now been at 0x70000.  Maybe.
+; --------
+; This changes the world, after this there should be no more access
+; to things in 0x7xxxx, in particular the stack
+; We should only be working in 0xffff_xxxx addresses
+
+0000fd2c:	e59f51f0 	ldr	r5, [pc, #496]	@ 0xff24 ; (0xf800910 - OCM_CFG)
 0000fd30:	e3a06008 	mov	r6, #8
 0000fd34:	e5856000 	str	r6, [r5]
-0000fd38:	e3a06018 	mov	r6, #24
-0000fd3c:	e3e0800f 	mvn	r8, #15
-0000fd40:	e3e090d3 	mvn	r9, #211	@ 0xd3
+
+0000fd38:	e3a06018 	mov	r6, #24		; r6 = 24
+0000fd3c:	e3e0800f 	mvn	r8, #15		; r8 = 0xffff_fff0
+0000fd40:	e3e090d3 	mvn	r9, #0xd3	; r9 = 0xffff_ff2c
 0000fd44:	e5889000 	str	r9, [r8]
-0000fd48:	e59fa1d8 	ldr	sl, [pc, #472]	@ 0xff28
-0000fd4c:	e3e0b0df 	mvn	fp, #223	@ 0xdf
-0000fd50:	e59fc1d4 	ldr	ip, [pc, #468]	@ 0xff2c
+0000fd48:	e59fa1d8 	ldr	sl, [pc, #472]	@ 0xff28 ; (0000fed4)
+0000fd4c:	e3e0b0df 	mvn	fp, #0xdf	; fp = 0xffff_ff20
+0000fd50:	e59fc1d4 	ldr	ip, [pc, #468]	@ 0xff2c ; (0000ff10)
 0000fd54:	e04cc00a 	sub	ip, ip, sl
+
+; A copy loop (just like below) copy from sl to fp -- ip is the count (0x3c)
+; i.e. it copies to 0xffff_ff20
 0000fd58:	e24cc004 	sub	ip, ip, #4
 0000fd5c:	e79ad00c 	ldr	sp, [sl, ip]
 0000fd60:	e78bd00c 	str	sp, [fp, ip]
 0000fd64:	e35c0000 	cmp	ip, #0
-0000fd68:	0a000000 	beq	0xfd70
-0000fd6c:	eafffff9 	b	0xfd58
+0000fd68:	0a000000 	beq	0xfd70		; break
+0000fd6c:	eafffff9 	b	0xfd58		; loop
 
-; branch from above
+; branch from above, set up another copy
 ; note: sl is r10, fp is r11, ip is r12
 0000fd70:	e59fa1b8 	ldr	sl, [pc, #440]	@ 0xff30 ; (0000fe1c)
 0000fd74:	e59fb1b8 	ldr	fp, [pc, #440]	@ 0xff34 ; (fffffe00)
@@ -12808,52 +12862,72 @@
 0000fd7c:	e04cc00a 	sub	ip, ip, sl
 
 ; A copy loop.  Copies from sl to fp (i.e. from 0xfe1c to 0xfffffe00)
-; cute that is uses the sp as a temporary register
+; cute that it uses the sp as a temporary register
+; (that is a hint that the code is all done with the stack at this point).
+; this copies to 0xffff_fe00
+
 0000fd80:	e24cc004 	sub	ip, ip, #4
 0000fd84:	e79ad00c 	ldr	sp, [sl, ip]
 0000fd88:	e78bd00c 	str	sp, [fp, ip]
 0000fd8c:	e35c0000 	cmp	ip, #0
-0000fd90:	0a000000 	beq	0xfd98
+0000fd90:	0a000000 	beq	0xfd98		; break
 0000fd94:	eafffff9 	b	0xfd80		; loop
 
+; The following monkeys with some SLCR registers.
+; 0xf8000004 is the lock register
+; 0xf8000240 is FPGA reset and control
+; 0xf8000244 is CPU reset and control
+; 0xf8000900 is level shifter enable
+
+; After we jump into the stub, we write 0x2 to the CPU reset and control
+; this tells it to hold CPU1 in reset
+
 0000fd98:	e59fa19c 	ldr	sl, [pc, #412]	@ 0xff3c ; (f8000244)
-0000fd9c:	e3a04000 	mov	r4, #0
+0000fd9c:	e3a04000 	mov	r4, #0		; r4 = 0;
 0000fda0:	e59f9198 	ldr	r9, [pc, #408]	@ 0xff40 ; (e3e0f0d3)
 0000fda4:	e3e070ff 	mvn	r7, #0xff	; 0xffffff00
 0000fda8:	e59f8194 	ldr	r8, [pc, #404]	@ 0xff44 ; (f8000004)
 0000fdac:	e5878000 	str	r8, [r7]
-0000fdb0:	e3e070fb 	mvn	r7, #251	@ 0xfb
+0000fdb0:	e3e070fb 	mvn	r7, #0xfb	; 0xffff_ff04
 0000fdb4:	e59f818c 	ldr	r8, [pc, #396]	@ 0xff48
 0000fdb8:	e5878000 	str	r8, [r7]
 0000fdbc:	e59f7188 	ldr	r7, [pc, #392]	@ 0xff4c
 0000fdc0:	e5978000 	ldr	r8, [r7]
 0000fdc4:	e208800f 	and	r8, r8, #15
-0000fdc8:	e3e070e7 	mvn	r7, #231	@ 0xe7
+0000fdc8:	e3e070e7 	mvn	r7, #0xe7	; 0xffff_ff18
 0000fdcc:	e5878000 	str	r8, [r7]
 0000fdd0:	e3580008 	cmp	r8, #8
 0000fdd4:	0a000001 	beq	0xfde0
 0000fdd8:	e35e0102 	cmp	lr, #0x80000000
 0000fddc:	1a00000b 	bne	0xfe10
-0000fde0:	e3e070f7 	mvn	r7, #247	@ 0xf7
-0000fde4:	e59f8164 	ldr	r8, [pc, #356]	@ 0xff50
+
+0000fde0:	e3e070f7 	mvn	r7, #0xf7	; 0xffff_ff08
+0000fde4:	e59f8164 	ldr	r8, [pc, #356]	@ 0xff50 ; (f8000900)
 0000fde8:	e5878000 	str	r8, [r7]
-0000fdec:	e3e070f3 	mvn	r7, #243	@ 0xf3
+0000fdec:	e3e070f3 	mvn	r7, #0xf3	; 0xffff_ff0c
 0000fdf0:	e3a0800f 	mov	r8, #15
 0000fdf4:	e5878000 	str	r8, [r7]
-0000fdf8:	e3e070ef 	mvn	r7, #239	@ 0xef
-0000fdfc:	e59f8150 	ldr	r8, [pc, #336]	@ 0xff54
+0000fdf8:	e3e070ef 	mvn	r7, #0xef	; 0xffff_ff10
+0000fdfc:	e59f8150 	ldr	r8, [pc, #336]	@ 0xff54 ; (f8000240)
 0000fe00:	e5878000 	str	r8, [r7]
-0000fe04:	e3e070eb 	mvn	r7, #235	@ 0xeb
+0000fe04:	e3e070eb 	mvn	r7, #0xeb	; 0xffff_ff14
 0000fe08:	e3a08000 	mov	r8, #0
 0000fe0c:	e5878000 	str	r8, [r7]
+
 0000fe10:	f57ff04f 	dsb	sy
 0000fe14:	f57ff06f 	isb	sy
-0000fe18:	e12fff1b 	bx	fp
+0000fe18:	e12fff1b 	bx	fp		; jump to 0xfffffe00
 
 ; The above (the bx fp) jumps into the block of code we copied
-; to 0xfffffe00
+; to 0xfffffe00 -- which follows directly below.
 ;
 ; and Below here is what we copy!
+; So this will be at 0xffff_fe00 when it runs via the jump immediately above
+; -------------
+; Once again, we have changed the world.
+; We have abandoned the code in the bootrom and are running
+; entirely in the "stub" code we copied into the final page (0xffff_0000)
+; All the state we care about should be in registers
 
 0000fe1c:	e5801000 	str	r1, [r0]
 0000fe20:	e5856000 	str	r6, [r5]
@@ -12870,29 +12944,32 @@
 0000fe4c:	e584b000 	str	fp, [r4]
 0000fe50:	f57ff04f 	dsb	sy
 0000fe54:	f57ff06f 	isb	sy
-0000fe58:	e3e040e7 	mvn	r4, #231	@ 0xe7
+0000fe58:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
 0000fe5c:	e5947000 	ldr	r7, [r4]
 0000fe60:	e3570008 	cmp	r7, #8
 0000fe64:	0a000001 	beq	0xfe70
 0000fe68:	e35e0102 	cmp	lr, #0x80000000
 0000fe6c:	1a00000d 	bne	0xfea8
-0000fe70:	e3e040f7 	mvn	r4, #247	@ 0xf7
+
+0000fe70:	e3e040f7 	mvn	r4, #0xf7	; 0xffff_ff08
 0000fe74:	e5947000 	ldr	r7, [r4]
-0000fe78:	e3e050f3 	mvn	r5, #243	@ 0xf3
+0000fe78:	e3e050f3 	mvn	r5, #0xf3	; 0xffff_ff0c
 0000fe7c:	e5958000 	ldr	r8, [r5]
 0000fe80:	e5878000 	str	r8, [r7]
-0000fe84:	e3e040e7 	mvn	r4, #231	@ 0xe7
+0000fe84:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
 0000fe88:	e5947000 	ldr	r7, [r4]
 0000fe8c:	e3570008 	cmp	r7, #8
 0000fe90:	0a000004 	beq	0xfea8
-0000fe94:	e3e040ef 	mvn	r4, #239	@ 0xef
+
+0000fe94:	e3e040ef 	mvn	r4, #0xef	; 0xffff_ff10
 0000fe98:	e5947000 	ldr	r7, [r4]
-0000fe9c:	e3e050eb 	mvn	r5, #235	@ 0xeb
+0000fe9c:	e3e050eb 	mvn	r5, #0xeb	; 0xffff_ff14
 0000fea0:	e5958000 	ldr	r8, [r5]
 0000fea4:	e5878000 	str	r8, [r7]
-0000fea8:	e3e040ff 	mvn	r4, #255	@ 0xff
+
+0000fea8:	e3e040ff 	mvn	r4, #0xff	; 0xffff_ff00
 0000feac:	e5947000 	ldr	r7, [r4]
-0000feb0:	e3e050fb 	mvn	r5, #251	@ 0xfb
+0000feb0:	e3e050fb 	mvn	r5, #0xfb	; 0xffff_ff04
 0000feb4:	e5958000 	ldr	r8, [r5]
 0000feb8:	e5878000 	str	r8, [r7]
 0000febc:	f57ff04f 	dsb	sy
@@ -12900,6 +12977,7 @@
 0000fec4:	e5832000 	str	r2, [r3]
 0000fec8:	f57ff04f 	dsb	sy
 0000fecc:	e12fff1e 	bx	lr
+; should never return
 
 ; spin
 0000fed0:	eafffffe 	b	0xfed0
@@ -12935,7 +13013,7 @@
 0000ff18:	0007d4a0
 0000ff1c:	f8007000
 0000ff20:	f800702c
-0000ff24:	f8000910
+0000ff24:	f8000910	; slcr.OCM_CFG
 0000ff28:	0000fed4
 0000ff2c:	0000ff10
 0000ff30:	0000fe1c
@@ -12951,48 +13029,12 @@
 
 0000ff58:	ffffffff
 0000ff5c:	ffffffff
-0000ff60:	ffffffff
-0000ff64:	ffffffff
-0000ff68:	ffffffff
-0000ff6c:	ffffffff
-0000ff70:	ffffffff
-0000ff74:	ffffffff
-0000ff78:	ffffffff
-0000ff7c:	ffffffff
-0000ff80:	ffffffff
-0000ff84:	ffffffff
-0000ff88:	ffffffff
-0000ff8c:	ffffffff
-0000ff90:	ffffffff
-0000ff94:	ffffffff
-0000ff98:	ffffffff
-0000ff9c:	ffffffff
-0000ffa0:	ffffffff
-0000ffa4:	ffffffff
-0000ffa8:	ffffffff
-0000ffac:	ffffffff
-0000ffb0:	ffffffff
-0000ffb4:	ffffffff
-0000ffb8:	ffffffff
-0000ffbc:	ffffffff
-0000ffc0:	ffffffff
-0000ffc4:	ffffffff
-0000ffc8:	ffffffff
-0000ffcc:	ffffffff
-0000ffd0:	ffffffff
-0000ffd4:	ffffffff
-0000ffd8:	ffffffff
-0000ffdc:	ffffffff
-0000ffe0:	ffffffff
-0000ffe4:	ffffffff
-0000ffe8:	ffffffff
-0000ffec:	ffffffff
-0000fff0:	ffffffff
-0000fff4:	ffffffff
+...
+...
 0000fff8:	ffffffff
 0000fffc:	ffffffff
 
-; These are MMU translation tables:
+; These are MMU translation tables (MMU1)
 00010000:	00000c02
 00010004:	00100000
 00010008:	00200000
@@ -17088,9 +17130,9 @@
 00013ff8:	ffe00000
 00013ffc:	fff00c02
 
-; END of MMU tables.
+; END of MMU tables. (MMU1)
 
-; This looks like a second MMU table,
+; This looks like a second MMU table, (MMU2)
 ; but I don't yet see a reference to it.
 00014000:	00000c0e
 00014004:	00100000
@@ -21187,7 +21229,7 @@
 00017ff8:	ffe00000
 00017ffc:	fff00c02
 
-; END of second MMU table
+; END of second MMU table (MMU2)
 
 00018000:	20636544
 00018004:	32203120
@@ -21515,7 +21557,6 @@
 00018524:	90befffa
 00018528:	a4506ceb
 00018530:	c67178f2
-
 00018534:	6a09e667
 00018538:	bb67ae85
 0001853c:	3c6ef372
