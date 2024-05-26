@@ -1193,8 +1193,7 @@
 00000c64:	eb0004bd 	bl	0x1f60
 00000c68:	eb000744 	bl	0x2980
 00000c6c:	e30e05c0	movw	r0, #0xe5c0
-00000c70:	e34f0800	movt	r0, #0xf800
-;	0xf800_e5c0
+00000c70:	e34f0800	movt	r0, #0xf800	; 0xf800_e5c0
 00000c74:	eb0028ce 	bl	0xafb4		; io_read
 00000c78:	e58d0004 	str	r0, [sp, #4]
 00000c7c:	e59dc004 	ldr	ip, [sp, #4]
@@ -1265,14 +1264,17 @@
 00000d74:	eb003bc7 	bl	0xfc98		; lockdown ()
 ; the above call does not return
 
-; spin loop where bootrom_error will end (in some cases)
+; no path to here.
+; one branch here from below, from code with no path to it.
+; spin
 00000d78:	e320f002 	wfe
 00000d7c:	e320f002 	wfe
 00000d80:	eafffffc 	b	0xd78
 
+; subroutine -- one call (just above)
 00000d84:	eb0006fd 	bl	0x2980
 00000d88:	e30e05c4	movw	r0, #0xe5c4
-00000d8c:	e34f0800	movt	r0, #0xf800
+00000d8c:	e34f0800	movt	r0, #0xf800	; 0xf800_e5c4
 00000d90:	eb002887 	bl	0xafb4		; io_read
 00000d94:	e58d0004 	str	r0, [sp, #4]
 00000d98:	eb0006ea 	bl	0x2948
@@ -1286,25 +1288,31 @@
 00000db8:	ebfffea3 	bl	0x84c
 00000dbc:	e1a00004 	mov	r0, r4
 00000dc0:	ebfffea1 	bl	0x84c
+
 00000dc4:	eb000410 	bl	0x1e0c
 00000dc8:	e58d0008 	str	r0, [sp, #8]
 00000dcc:	e59d3008 	ldr	r3, [sp, #8]
-00000dd0:	e3c32101 	bic	r2, r3, #1073741824	@ 0x40000000
+00000dd0:	e3c32101 	bic	r2, r3, #0x40000000
 00000dd4:	e58d2008 	str	r2, [sp, #8]
 00000dd8:	e59d0008 	ldr	r0, [sp, #8]
 00000ddc:	eb00040d 	bl	0x1e18
 00000de0:	eb000409 	bl	0x1e0c
 00000de4:	e58d0008 	str	r0, [sp, #8]
 00000de8:	e59dc008 	ldr	ip, [sp, #8]
-00000dec:	e3cc1502 	bic	r1, ip, #8388608	@ 0x800000
+00000dec:	e3cc1502 	bic	r1, ip, #0x800000
 00000df0:	e58d1008 	str	r1, [sp, #8]
 00000df4:	e59d0008 	ldr	r0, [sp, #8]
 00000df8:	eb000406 	bl	0x1e18
-00000dfc:	e3e000df 	mvn	r0, #223	@ 0xdf
-00000e00:	eb003b9e 	bl	0xfc80		; end_game2()
+
+; This address is a spin loop in the final stub
+00000dfc:	e3e000df 	mvn	r0, #0xdf	; 0xffff_ff20
+00000e00:	eb003b9e 	bl	0xfc80		; end_game2 ( 0xffff_ff20 )
 ; never returns
 
+; no path to here
 00000e04:	eaffffdb 	b	0xd78
+
+; one branch here from above.
 00000e08:	e3a00d1f 	mov	r0, #1984	@ 0x7c0
 00000e0c:	e3a010e0 	mov	r1, #224	@ 0xe0
 00000e10:	e34f0800	movt	r0, #0xf800
@@ -1545,7 +1553,7 @@
 
 ; We now have the image loaded, r0 = r4 = start address
 000011a0:	e1a00004 	mov	r0, r4
-000011a4:	eb003ac3 	bl	0xfcb8		; end_game ( r0 )
+000011a4:	eb003ac3 	bl	0xfcb8		; end_game1 ( r4 )
 
 000011a8:	e302001b	movw	r0, #0x201b
 000011ac:	e28dd00c 	add	sp, sp, #12
@@ -1571,7 +1579,7 @@
 000011f4:	e59d0004 	ldr	r0, [sp, #4]
 000011f8:	eb000306 	bl	0x1e18
 000011fc:	e1a00004 	mov	r0, r4
-00001200:	eb003a9e 	bl	0xfc80		; end_game2()
+00001200:	eb003a9e 	bl	0xfc80		; end_game2 ( r4 )
 ; never returns
 
 00001204:	e302001c	movw	r0, #0x201c
@@ -1597,7 +1605,7 @@
 00001250:	e59d0004 	ldr	r0, [sp, #4]
 00001254:	eb0002ef 	bl	0x1e18
 00001258:	e1a00004 	mov	r0, r4
-0000125c:	eb003a87 	bl	0xfc80		; end_game2()
+0000125c:	eb003a87 	bl	0xfc80		; end_game2 ( r4 )
 ; never returns
 
 00001260:	e302001d	movw	r0, #0x201d
@@ -2539,8 +2547,10 @@
 00001da4:	eb000054 	bl	0x1efc
 00001da8:	e3100004 	tst	r0, #4
 00001dac:	0afffffc 	beq	0x1da4
-00001db0:	e3e000df 	mvn	r0, #223	@ 0xdf
-00001db4:	eb0037b1 	bl	0xfc80		; end_game2()
+
+; This address is a spin loop in the final stub
+00001db0:	e3e000df 	mvn	r0, #0xdf	; 0xffff_ff20
+00001db4:	eb0037b1 	bl	0xfc80		; end_game2 ( 0xffff_ff20 )
 ; never returns
 
 00001db8:	e3020022	movw	r0, #0x2022
@@ -2985,18 +2995,20 @@
 0000243c:	ebfffe72 	bl	0x1e0c
 00002440:	e58d0004 	str	r0, [sp, #4]
 00002444:	e59d0004 	ldr	r0, [sp, #4]
-00002448:	e3c03502 	bic	r3, r0, #8388608	@ 0x800000
+00002448:	e3c03502 	bic	r3, r0, #0x800000
 0000244c:	e58d3004 	str	r3, [sp, #4]
 00002450:	e59d0004 	ldr	r0, [sp, #4]
 00002454:	ebfffe6f 	bl	0x1e18
-00002458:	e3e000df 	mvn	r0, #223	@ 0xdf
+00002458:	e3e000df 	mvn	r0, #0xdf
 0000245c:	e28dd00c 	add	sp, sp, #12
 00002460:	e49de004 	pop	{lr}		@ (ldr lr, [sp], #4)
-00002464:	ea003605 	b	0xfc80		; end_game2()
+
+; This address is a spin loop in the final stub
+00002464:	ea003605 	b	0xfc80		; end_game2 ( 0xffff_ff20 ))
 ; never returns
 
 00002468:	e3a00102 	mov	r0, #0x80000000
-0000246c:	ea003603 	b	0xfc80		; end_game2()
+0000246c:	ea003603 	b	0xfc80		; end_game2 ( 0x8000_0000)
 ; never returns
 
 ; subroutine - never called
@@ -12900,12 +12912,15 @@
 
 ; subroutine -- called from many places.
 ; end_game2()
+; several calls have r0 = 0xffff_ff20
+; one has r0 = 0x8000_0000
+
 0000fc80:	e59f128c 	ldr	r1, [pc, #652]	@ 0xff14 ; (00070000)
 0000fc84:	e59f228c 	ldr	r2, [pc, #652]	@ 0xff18 ; (0007d4a0)
 0000fc88:	e3a03000 	mov	r3, #0
 0000fc8c:	ebffeabe 	bl	0xa78c		; fill_mem ()
 0000fc90:	e3a0207f 	mov	r2, #127	@ 0x7f
-0000fc94:	ea00000c 	b	0xfccc		; below in "end_game"
+0000fc94:	ea00000c 	b	0xfccc		; below in "end_game1"
 
 ; ===============================================
 ; subroutine -- "lockdown()"
@@ -12931,7 +12946,7 @@
 ; ===============================================
 ; ENDGAME
 ;
-; subroutine -- One call from 0x1134 (at 0xfcb8) -- end_game()
+; subroutine -- One call from 0x1134 (at 0xfcb8) -- end_game1()
 ; (BUT note the path from end_game2() directly above).
 ; This is the end game transferring to the loaded image.
 ; It looks like r0 has the start address of the loaded image
@@ -12940,34 +12955,52 @@
 0000fcbc:	e59f2254 	ldr	r2, [pc, #596]	@ 0xff18 ; (0007d4a0)
 0000fcc0:	e3a03000 	mov	r3, #0
 0000fcc4:	ebffeab0 	bl	0xa78c		; fill_mem ()
-0000fcc8:	e3a02000 	mov	r2, #0
+0000fcc8:	e3a02000 	mov	r2, #0		; no JTAG (see below)
 
-; code above (in this stub) branches directly here.
+; Common code follows for end_game1() and end_game2()
 ; the difference is the value in r2 (either 0 or 0x7f)
+; end_game1() with the zero value will disallow JTAG in the
+; image it boots
 0000fccc:	e1a0e000 	mov	lr, r0		; lr = r0 = start_address
+
+; Read the Devconfig CTRL register
+; We either OR with 0x0 or 0x7f
+; The latter case enables debug, including the ARM DAP (for JTAG)
+; note that r2 and r3 don't get messed with so this can be done later
 0000fcd0:	e59f3244 	ldr	r3, [pc, #580]	@ 0xff1c ; (f8007000)
 0000fcd4:	e5935000 	ldr	r5, [r3]
 0000fcd8:	e1822005 	orr	r2, r2, r5
+
+; caches off
 0000fcdc:	e3a04000 	mov	r4, #0
 0000fce0:	ee014f10	mcr	r4, SCTLR
 0000fce4:	f57ff04f 	dsb	sy
 0000fce8:	f57ff06f 	isb	sy
+
+; invalidate I cache and branch predictors
 0000fcec:	ee070f15	mcr	r0, ICIALLU
 0000fcf0:	ee070fd5	mcr	r0, BPIALL
 0000fcf4:	f57ff04f 	dsb	sy
 0000fcf8:	f57ff06f 	isb	sy
+
 0000fcfc:	ee084f17	mcr	r4, TLBIALL
 0000fd00:	f57ff04f 	dsb	sy
 0000fd04:	f57ff06f 	isb	sy
-0000fd08:	e59f5210 	ldr	r5, [pc, #528]	@ 0xff20
-0000fd0c:	e3a01903 	mov	r1, #49152	@ 0xc000
-0000fd10:	e5950000 	ldr	r0, [r5]
+
+0000fd08:	e59f5210 	ldr	r5, [pc, #528]	@ 0xff20 ; (f800702c)
+0000fd0c:	e3a01903 	mov	r1, #0xc000
+0000fd10:	e5950000 	ldr	r0, [r5]	; devconfig - multiboot addr
 0000fd14:	e1800001 	orr	r0, r0, r1
 0000fd18:	e5850000 	str	r0, [r5]
+
+; Read the Devconfig CTRL register (again)
+; note that we already have this pointer in r3
+; adding 0x28 is strange, and I don't see anything
+; getting done with the value generated in r0
 0000fd1c:	e59f01f8 	ldr	r0, [pc, #504]	@ 0xff1c ; (f8007000)
 0000fd20:	e3a01028 	mov	r1, #40	@ 0x28
 0000fd24:	e0800001 	add	r0, r0, r1
-0000fd28:	e3e01000 	mvn	r1, #0
+0000fd28:	e3e01000 	mvn	r1, #0		; 0xffff_ffff
 
 ; Write 0x8 to the OCM config register.
 ; this maps the fourth (and last) 64K segment of the 256K
@@ -12985,7 +13018,8 @@
 
 0000fd38:	e3a06018 	mov	r6, #24		; r6 = 24
 
-; set up the "sentinel" value for the watch loop at xxxxx
+; set up the "sentinel" value for the watch loop at 0xffff_ff2c
+
 0000fd3c:	e3e0800f 	mvn	r8, #15		; r8 = 0xffff_fff0
 0000fd40:	e3e090d3 	mvn	r9, #0xd3	; r9 = 0xffff_ff2c
 0000fd44:	e5889000 	str	r9, [r8]
@@ -13051,22 +13085,34 @@
 0000fdcc:	e5878000 	str	r8, [r7]
 0000fdd0:	e3580008 	cmp	r8, #8
 0000fdd4:	0a000001 	beq	0xfde0
+
 0000fdd8:	e35e0102 	cmp	lr, #0x80000000
 0000fddc:	1a00000b 	bne	0xfe10
+
+; The following does this:
+;
+; *(0xffff_ff08) = 0xf8000900
+; *(0xffff_ff0c) = 15
+; *(0xffff_ff10) = 0xf8000240
+; *(0xffff_ff14) = 0
 
 0000fde0:	e3e070f7 	mvn	r7, #0xf7	; 0xffff_ff08
 0000fde4:	e59f8164 	ldr	r8, [pc, #356]	@ 0xff50 ; (f8000900)
 0000fde8:	e5878000 	str	r8, [r7]
+
 0000fdec:	e3e070f3 	mvn	r7, #0xf3	; 0xffff_ff0c
 0000fdf0:	e3a0800f 	mov	r8, #15
 0000fdf4:	e5878000 	str	r8, [r7]
+
 0000fdf8:	e3e070ef 	mvn	r7, #0xef	; 0xffff_ff10
 0000fdfc:	e59f8150 	ldr	r8, [pc, #336]	@ 0xff54 ; (f8000240)
 0000fe00:	e5878000 	str	r8, [r7]
+
 0000fe04:	e3e070eb 	mvn	r7, #0xeb	; 0xffff_ff14
 0000fe08:	e3a08000 	mov	r8, #0
 0000fe0c:	e5878000 	str	r8, [r7]
 
+; shortcut branch to here from above
 0000fe10:	f57ff04f 	dsb	sy
 0000fe14:	f57ff06f 	isb	sy
 0000fe18:	e12fff1b 	bx	fp		; jump to 0xfffffe00
@@ -13131,7 +13177,7 @@ ffff_fe90: 0000feb4:	e5958000 	ldr	r8, [r5]
 ffff_fe90: 0000feb8:	e5878000 	str	r8, [r7]
 ffff_fea0: 0000febc:	f57ff04f 	dsb	sy
 ffff_fea0: 0000fec0:	f57ff06f 	isb	sy
-ffff_fea0: 0000fec4:	e5832000 	str	r2, [r3]
+ffff_fea0: 0000fec4:	e5832000 	str	r2, [r3]	; enable JTAG (maybe)
 ffff_fea0: 0000fec8:	f57ff04f 	dsb	sy
 ffff_feb0: 0000fecc:	e12fff1e 	bx	lr
 ; should never return
