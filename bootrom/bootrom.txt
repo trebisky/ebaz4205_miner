@@ -13024,7 +13024,7 @@
 0000fd40:	e3e090d3 	mvn	r9, #0xd3	; r9 = 0xffff_ff2c
 0000fd44:	e5889000 	str	r9, [r8]
 
-; set up copy
+; set up copy 1
 0000fd48:	e59fa1d8 	ldr	sl, [pc, #472]	@ 0xff28 ; (0000fed4)
 0000fd4c:	e3e0b0df 	mvn	fp, #0xdf	; fp = 0xffff_ff20
 0000fd50:	e59fc1d4 	ldr	ip, [pc, #468]	@ 0xff2c ; (0000ff10)
@@ -13040,7 +13040,7 @@
 0000fd68:	0a000000 	beq	0xfd70		; break
 0000fd6c:	eafffff9 	b	0xfd58		; loop
 
-; branch from above, set up another copy
+; Set up copy 2
 ; note: sl is r10, fp is r11, ip is r12
 0000fd70:	e59fa1b8 	ldr	sl, [pc, #440]	@ 0xff30 ; (0000fe1c)
 0000fd74:	e59fb1b8 	ldr	fp, [pc, #440]	@ 0xff34 ; (fffffe00)
@@ -13136,49 +13136,59 @@ ffff_fe00: 0000fe1c:	e5801000 	str	r1, [r0]
 ffff_fe04: 0000fe20:	e5856000 	str	r6, [r5]
 ffff_fe08: 0000fe24:	f57ff04f 	dsb	sy
 ffff_fe0c: 0000fe28:	f57ff06f 	isb	sy
+
 ffff_fe10: 0000fe2c:	e594b000 	ldr	fp, [r4]
 ffff_fe14: 0000fe30:	e5849000 	str	r9, [r4]
+
 ffff_fe18: 0000fe34:	e3a0c002 	mov	ip, #2
-ffff_fe1c: 0000fe38:	e58ac000 	str	ip, [sl]
+ffff_fe1c: 0000fe38:	e58ac000 	str	ip, [sl]	; *sl = 2
 ffff_fe20: 0000fe3c:	e3a0c000 	mov	ip, #0
-ffff_fe24: 0000fe40:	e58ac000 	str	ip, [sl]
+ffff_fe24: 0000fe40:	e58ac000 	str	ip, [sl]	; *sl = 0
 ffff_fe28: 0000fe44:	f57ff04f 	dsb	sy
 ffff_fe2c: 0000fe48:	f57ff06f 	isb	sy
+
 ffff_fe30: 0000fe4c:	e584b000 	str	fp, [r4]
-ffff_fe30: 0000fe50:	f57ff04f 	dsb	sy
-ffff_fe30: 0000fe54:	f57ff06f 	isb	sy
-ffff_fe30: 0000fe58:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
+ffff_fe34: 0000fe50:	f57ff04f 	dsb	sy
+ffff_fe38: 0000fe54:	f57ff06f 	isb	sy
+
+ffff_fe3c: 0000fe58:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
 ffff_fe40: 0000fe5c:	e5947000 	ldr	r7, [r4]
-ffff_fe40: 0000fe60:	e3570008 	cmp	r7, #8
-ffff_fe40: 0000fe64:	0a000001 	beq	0xfe70
-ffff_fe40: 0000fe68:	e35e0102 	cmp	lr, #0x80000000
+ffff_fe44: 0000fe60:	e3570008 	cmp	r7, #8		; test *(0xffff_ff18)
+ffff_fe48: 0000fe64:	0a000001 	beq	0xfe70
+ffff_fe4c: 0000fe68:	e35e0102 	cmp	lr, #0x80000000
 ffff_fe50: 0000fe6c:	1a00000d 	bne	0xfea8
 
-ffff_fe50: 0000fe70:	e3e040f7 	mvn	r4, #0xf7	; 0xffff_ff08
-ffff_fe50: 0000fe74:	e5947000 	ldr	r7, [r4]
-ffff_fe50: 0000fe78:	e3e050f3 	mvn	r5, #0xf3	; 0xffff_ff0c
+; *(0xffff_ff08) = *(0xffff_ff0c)
+ffff_fe54: 0000fe70:	e3e040f7 	mvn	r4, #0xf7	; 0xffff_ff08
+ffff_fe58: 0000fe74:	e5947000 	ldr	r7, [r4]
+ffff_fe5c: 0000fe78:	e3e050f3 	mvn	r5, #0xf3	; 0xffff_ff0c
 ffff_fe60: 0000fe7c:	e5958000 	ldr	r8, [r5]
-ffff_fe60: 0000fe80:	e5878000 	str	r8, [r7]
-ffff_fe60: 0000fe84:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
-ffff_fe60: 0000fe88:	e5947000 	ldr	r7, [r4]
+ffff_fe64: 0000fe80:	e5878000 	str	r8, [r7]
+
+;  if ( *(0xffff_ff18) == 8 ) jump
+ffff_fe68: 0000fe84:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
+ffff_fe6c: 0000fe88:	e5947000 	ldr	r7, [r4]
 ffff_fe70: 0000fe8c:	e3570008 	cmp	r7, #8
-ffff_fe70: 0000fe90:	0a000004 	beq	0xfea8
+ffff_fe74: 0000fe90:	0a000004 	beq	0xfea8
 
-ffff_fe70: 0000fe94:	e3e040ef 	mvn	r4, #0xef	; 0xffff_ff10
-ffff_fe70: 0000fe98:	e5947000 	ldr	r7, [r4]
+; *(0xffff_ff10) = *(0xffff_ff14) 
+ffff_fe78: 0000fe94:	e3e040ef 	mvn	r4, #0xef	; 0xffff_ff10
+ffff_fe7c: 0000fe98:	e5947000 	ldr	r7, [r4]
 ffff_fe80: 0000fe9c:	e3e050eb 	mvn	r5, #0xeb	; 0xffff_ff14
-ffff_fe80: 0000fea0:	e5958000 	ldr	r8, [r5]
-ffff_fe80: 0000fea4:	e5878000 	str	r8, [r7]
+ffff_fe84: 0000fea0:	e5958000 	ldr	r8, [r5]
+ffff_fe88: 0000fea4:	e5878000 	str	r8, [r7]
 
-ffff_fe80: 0000fea8:	e3e040ff 	mvn	r4, #0xff	; 0xffff_ff00
+; *(0xffff_ff00) = *(0xffff_ff04)
+ffff_fe8c: 0000fea8:	e3e040ff 	mvn	r4, #0xff	; 0xffff_ff00
 ffff_fe90: 0000feac:	e5947000 	ldr	r7, [r4]
-ffff_fe90: 0000feb0:	e3e050fb 	mvn	r5, #0xfb	; 0xffff_ff04
-ffff_fe90: 0000feb4:	e5958000 	ldr	r8, [r5]
-ffff_fe90: 0000feb8:	e5878000 	str	r8, [r7]
+ffff_fe94: 0000feb0:	e3e050fb 	mvn	r5, #0xfb	; 0xffff_ff04
+ffff_fe98: 0000feb4:	e5958000 	ldr	r8, [r5]
+ffff_fe9c: 0000feb8:	e5878000 	str	r8, [r7]
+
 ffff_fea0: 0000febc:	f57ff04f 	dsb	sy
-ffff_fea0: 0000fec0:	f57ff06f 	isb	sy
-ffff_fea0: 0000fec4:	e5832000 	str	r2, [r3]	; enable JTAG (maybe)
-ffff_fea0: 0000fec8:	f57ff04f 	dsb	sy
+ffff_fea4: 0000fec0:	f57ff06f 	isb	sy
+ffff_fea8: 0000fec4:	e5832000 	str	r2, [r3]	; enable JTAG (maybe)
+ffff_feac: 0000fec8:	f57ff04f 	dsb	sy
 ffff_feb0: 0000fecc:	e12fff1e 	bx	lr
 ; should never return
 
