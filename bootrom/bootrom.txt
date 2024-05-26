@@ -120,6 +120,8 @@
 ;  The point of this is that storing negative values as
 ;   immediate values is not convenient for the ARM.
 ;   you will usually see code like this:
+; There are some fine points with "cmn" that you can read about
+;  further along in these notes.
 ;		cmn	r0, #1
 
 ; ARM "pre-increment" notation.
@@ -1260,7 +1262,7 @@
 00000d68:	e1a00004 	mov	r0, r4
 00000d6c:	ebfffeb6 	bl	0x84c
 00000d70:	e3e000df 	mvn	r0, #223	@ 0xdf
-00000d74:	eb003bc7 	bl	0xfc98
+00000d74:	eb003bc7 	bl	0xfc98		; lockdown ()
 ; the above call does not return
 
 ; spin loop where bootrom_error will end (in some cases)
@@ -1299,7 +1301,9 @@
 00000df4:	e59d0008 	ldr	r0, [sp, #8]
 00000df8:	eb000406 	bl	0x1e18
 00000dfc:	e3e000df 	mvn	r0, #223	@ 0xdf
-00000e00:	eb003b9e 	bl	0xfc80
+00000e00:	eb003b9e 	bl	0xfc80		; end_game2()
+; never returns
+
 00000e04:	eaffffdb 	b	0xd78
 00000e08:	e3a00d1f 	mov	r0, #1984	@ 0x7c0
 00000e0c:	e3a010e0 	mov	r1, #224	@ 0xe0
@@ -1567,7 +1571,9 @@
 000011f4:	e59d0004 	ldr	r0, [sp, #4]
 000011f8:	eb000306 	bl	0x1e18
 000011fc:	e1a00004 	mov	r0, r4
-00001200:	eb003a9e 	bl	0xfc80
+00001200:	eb003a9e 	bl	0xfc80		; end_game2()
+; never returns
+
 00001204:	e302001c	movw	r0, #0x201c
 00001208:	e28dd008 	add	sp, sp, #8
 0000120c:	e8bd4010 	pop	{r4, lr}
@@ -1591,7 +1597,9 @@
 00001250:	e59d0004 	ldr	r0, [sp, #4]
 00001254:	eb0002ef 	bl	0x1e18
 00001258:	e1a00004 	mov	r0, r4
-0000125c:	eb003a87 	bl	0xfc80
+0000125c:	eb003a87 	bl	0xfc80		; end_game2()
+; never returns
+
 00001260:	e302001d	movw	r0, #0x201d
 00001264:	e28dd008 	add	sp, sp, #8
 00001268:	e8bd4010 	pop	{r4, lr}
@@ -2309,6 +2317,7 @@
 
 00001ae0:	e302000e	movw	r0, #0x200e	; error 0x2003
 00001ae4:	ebfffc46 	bl	0xc04		; boot_error ()
+; never returns
 00001ae8:	eaffffb1 	b	0x19b4
 
 ; Handler for Quad SPI boot
@@ -2323,6 +2332,7 @@
 00001b0c:	eaffff39 	b	0x17f8
 00001b10:	e3020021	movw	r0, #0x2021
 00001b14:	ebfffb22 	bl	0x7a4
+; never returns
 00001b18:	eaffff17 	b	0x177c
 
 ; handler for NAND boot
@@ -2530,7 +2540,9 @@
 00001da8:	e3100004 	tst	r0, #4
 00001dac:	0afffffc 	beq	0x1da4
 00001db0:	e3e000df 	mvn	r0, #223	@ 0xdf
-00001db4:	eb0037b1 	bl	0xfc80
+00001db4:	eb0037b1 	bl	0xfc80		; end_game2()
+; never returns
+
 00001db8:	e3020022	movw	r0, #0x2022
 00001dbc:	ebfffb90 	bl	0xc04		; boot_error ()
 00001dc0:	eaffff42 	b	0x1ad0
@@ -2540,7 +2552,7 @@
 00001dd0:	e3020004	movw	r0, #0x2004
 00001dd4:	ebfffb8a 	bl	0xc04		; boot_error ()
 00001dd8:	eaffff30 	b	0x1aa0
-00001ddc:	e3a00a02 	mov	r0, #8192	@ 0x2000
+00001ddc:	e3a00a02 	mov	r0, #0x2000
 00001de0:	ebfffb87 	bl	0xc04		; boot_error ()
 00001de4:	eaffff43 	b	0x1af8
 00001de8:	e3020001	movw	r0, #0x2001
@@ -2549,6 +2561,8 @@
 00001df4:	e3020002	movw	r0, #0x2002
 00001df8:	ebfffb81 	bl	0xc04		; boot_error ()
 00001dfc:	eaffff52 	b	0x1b4c
+
+; no path to this code
 00001e00:	e3070014	movw	r0, #0x7014
 00001e04:	e34f0800	movt	r0, #0xf800
 00001e08:	ea002469 	b	0xafb4		; io_read
@@ -2978,9 +2992,14 @@
 00002458:	e3e000df 	mvn	r0, #223	@ 0xdf
 0000245c:	e28dd00c 	add	sp, sp, #12
 00002460:	e49de004 	pop	{lr}		@ (ldr lr, [sp], #4)
-00002464:	ea003605 	b	0xfc80
-00002468:	e3a00102 	mov	r0, #-2147483648	@ 0x80000000
-0000246c:	ea003603 	b	0xfc80
+00002464:	ea003605 	b	0xfc80		; end_game2()
+; never returns
+
+00002468:	e3a00102 	mov	r0, #0x80000000
+0000246c:	ea003603 	b	0xfc80		; end_game2()
+; never returns
+
+; subroutine - never called
 00002470:	e92d4010 	push	{r4, lr}
 00002474:	e3a04a07 	mov	r4, #28672	@ 0x7000
 00002478:	e34f4800	movt	r4, #0xf800
@@ -2991,6 +3010,8 @@
 0000248c:	e3811502 	orr	r1, r1, #8388608	@ 0x800000
 00002490:	e8bd4010 	pop	{r4, lr}
 00002494:	ea0022d9 	b	0xb000		; io_write
+
+; subroutine - one call
 00002498:	e1b031a2 	lsrs	r3, r2, #3
 0000249c:	e92d0030 	push	{r4, r5}
 000024a0:	0a000012 	beq	0x24f0
@@ -6152,11 +6173,14 @@
 00005508:	3affffee 	bcc	0x54c8
 0000550c:	e3a00000 	mov	r0, #0
 00005510:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+
 00005514:	ea0016a6 	b	0xafb4		; io_read
 00005518:	ea00169f 	b	0xaf9c
+
+; subroutine, 3 calls
 0000551c:	e92d4010 	push	{r4, lr}
 00005520:	e30044a0	movw	r4, #0x4a0
-00005524:	e3404007 	movt	r4, #7
+00005524:	e3404007 	movt	r4, #7		; 0x704a0
 00005528:	e3a010aa 	mov	r1, #170	@ 0xaa
 0000552c:	e5943000 	ldr	r3, [r4]
 00005530:	e2832eaa 	add	r2, r3, #2720	@ 0xaa0
@@ -6168,13 +6192,13 @@
 00005548:	e2800005 	add	r0, r0, #5
 0000554c:	eb0016a5 	bl	0xafe8		; io_writeB
 00005550:	e5940000 	ldr	r0, [r4]
-1144 (B.16) in the TRM.00005554:	e3a010f0 	mov	r1, #240	@ 0xf0
+00005554:	e3a010f0 	mov	r1, #240	@ 0xf0
 00005558:	e8bd4010 	pop	{r4, lr}
 0000555c:	ea0016a1 	b	0xafe8		; io_writeB
 
-; subroutine -- used by NAND boot (only that one call)
+; subroutine -- used by NAND boot (only one call)
 00005560:	e92d4070 	push	{r4, r5, r6, lr}
-00005564:	e3a06c07 	mov	r6, #1792	@ 0x700
+00005564:	e3a06c07 	mov	r6, #0x700
 00005568:	e3a04000 	mov	r4, #0
 0000556c:	e34f6800	movt	r6, #0xf800
 00005570:	e2443001 	sub	r3, r4, #1
@@ -6229,6 +6253,7 @@
 00005634:	e3a00000 	mov	r0, #0
 00005638:	e8bd8070 	pop	{r4, r5, r6, pc}
 
+; subroutine -- NEVER called
 0000563c:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 00005640:	e30044a0	movw	r4, #0x4a0
 00005644:	e1a05000 	mov	r5, r0
@@ -6257,6 +6282,8 @@
 000056a0:	ebffff9d 	bl	0x551c
 000056a4:	e3a00000 	mov	r0, #0
 000056a8:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+
+; subroutine - registered as a callback (see 0x1b58)
 000056ac:	e3120003 	tst	r2, #3
 000056b0:	e30034a0	movw	r3, #0x4a0
 000056b4:	13c22003 	bicne	r2, r2, #3
@@ -6448,6 +6475,10 @@
 ; subroutine - many calls
 ; this calls a callback that has been registered
 ; by whatever boot method was selected
+; 0x7049c is some one byte flag
+; 0x7068c is the pointer to the callback function
+;  (registered by whatever method, NAND, NOR, SD, qSPI, uart)
+;  JTAG boot does not use this callback
 
 0000595c:	e92d4070 	push	{r4, r5, r6, lr}
 00005960:	e300449c	movw	r4, #0x49c
@@ -6458,18 +6489,21 @@
 00005974:	e3530000 	cmp	r3, #0
 00005978:	e1a04002 	mov	r4, r2
 0000597c:	0a000002 	beq	0x598c
+
 00005980:	ebffffd5 	bl	0x58dc
 00005984:	e3500001 	cmp	r0, #1
 00005988:	08bd8070 	popeq	{r4, r5, r6, pc}
+
 0000598c:	e300268c	movw	r2, #0x68c
 00005990:	e1a00006 	mov	r0, r6
-00005994:	e3402007 	movt	r2, #7		; 0x7068c
+00005994:	e3402007 	movt	r2, #7		; 0x7068c (callback)
 00005998:	e1a01005 	mov	r1, r5
 0000599c:	e592c000 	ldr	ip, [r2]	; get callback
 000059a0:	e1a02004 	mov	r2, r4
 000059a4:	e12fff3c 	blx	ip		; call the callback
 000059a8:	e8bd8070 	pop	{r4, r5, r6, pc}
 
+; subroutine
 000059ac:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 000059b0:	e300e498	movw	lr, #0x498
 000059b4:	e340e007 	movt	lr, #7
@@ -6486,6 +6520,8 @@
 000059e0:	13a00001 	movne	r0, #1
 000059e4:	e28dd00c 	add	sp, sp, #12
 000059e8:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
+
+; subroutine
 000059ec:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 000059f0:	e3005498	movw	r5, #0x498
 000059f4:	e24dd014 	sub	sp, sp, #20
@@ -6577,6 +6613,8 @@
 00005b4c:	13a00001 	movne	r0, #1
 00005b50:	e28dd014 	add	sp, sp, #20
 00005b54:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine
 00005b58:	e92d4010 	push	{r4, lr}
 00005b5c:	e3a04000 	mov	r4, #0
 00005b60:	e24dd008 	sub	sp, sp, #8
@@ -6603,6 +6641,8 @@
 00005bb4:	03a00001 	moveq	r0, #1
 00005bb8:	e28dd008 	add	sp, sp, #8
 00005bbc:	e8bd8010 	pop	{r4, pc}
+
+; subroutine - one call - huge tangle of spaghetti code
 00005bc0:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00005bc4:	e24dd00c 	sub	sp, sp, #12
 00005bc8:	ebffff87 	bl	0x59ec
@@ -6728,6 +6768,8 @@
 00005da8:	e3a00000 	mov	r0, #0
 00005dac:	e28dd00c 	add	sp, sp, #12
 00005db0:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; branch from above
 00005db4:	e240e21e 	sub	lr, r0, #-536870911	@ 0xe0000001
 00005db8:	e3001ffb	movw	r1, #0xffb
 00005dbc:	e24e2601 	sub	r2, lr, #1048576	@ 0x100000
@@ -6796,6 +6838,8 @@
 00005eb8:	e3020111	movw	r0, #0x2111
 00005ebc:	ebffeb50 	bl	0xc04		; boot_error ()
 00005ec0:	eaffffb4 	b	0x5d98
+
+; branch from way above
 00005ec4:	e3a0ca07 	mov	ip, #28672	@ 0x7000
 00005ec8:	e34fc800	movt	ip, #0xf800
 00005ecc:	e000800c 	and	r8, r0, ip
@@ -6889,6 +6933,8 @@
 0000602c:	9affffd6 	bls	0x5f8c
 00006030:	eaffffcd 	b	0x5f6c
 00006034:	00070698 	muleq	r7, r8, r6
+
+; subroutine
 00006038:	e92d4010 	push	{r4, lr}
 0000603c:	e3e03000 	mvn	r3, #0
 00006040:	e24dd020 	sub	sp, sp, #32
@@ -7359,6 +7405,8 @@
 00006758:	13a00000 	movne	r0, #0
 0000675c:	03a00001 	moveq	r0, #1
 00006760:	e8bd8008 	pop	{r3, pc}
+
+; subroutine
 00006764:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 00006768:	e1b05122 	lsrs	r5, r2, #2
 0000676c:	e1a04000 	mov	r4, r0
@@ -7702,13 +7750,13 @@
 00006c8c:	e306b7cc	movw	fp, #0x67cc
 00006c90:	8282a004 	addhi	sl, r2, #4
 00006c94:	e1a01007 	mov	r1, r7
-00006c98:	e795c00b 	ldr	ip, [r5, fp]
+00006c98:	e795c00b 	ldr	ip, [r5, fp]	; fetch fn pointer
 00006c9c:	e3a02000 	mov	r2, #0
 00006ca0:	e1a0300a 	mov	r3, sl
 00006ca4:	e1a00005 	mov	r0, r5
 00006ca8:	83a09001 	movhi	r9, #1
 00006cac:	93a09000 	movls	r9, #0
-00006cb0:	e12fff3c 	blx	ip
+00006cb0:	e12fff3c 	blx	ip		; call via some fn pointer
 00006cb4:	e2877001 	add	r7, r7, #1
 00006cb8:	e250b000 	subs	fp, r0, #0
 00006cbc:	1a000009 	bne	0x6ce8
@@ -7725,6 +7773,8 @@
 00006ce8:	e1a0000b 	mov	r0, fp
 00006cec:	e28dd014 	add	sp, sp, #20
 00006cf0:	e8bd8ff0 	pop	{r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine
 00006cf4:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 00006cf8:	e1a0c000 	mov	ip, r0
 00006cfc:	e5d17009 	ldrb	r7, [r1, #9]
@@ -7772,6 +7822,7 @@
 00006da4:	e1a00005 	mov	r0, r5
 00006da8:	e8bd41f0 	pop	{r4, r5, r6, r7, r8, lr}
 00006dac:	ea001093 	b	0xb000		; io_write
+
 00006db0:	e3500000 	cmp	r0, #0
 00006db4:	11a01004 	movne	r1, r4
 00006db8:	1afffff9 	bne	0x6da4
@@ -7780,6 +7831,8 @@
 00006dc4:	01a030c3 	asreq	r3, r3, #1
 00006dc8:	e1a01003 	mov	r1, r3
 00006dcc:	eafffff4 	b	0x6da4
+
+; subroutine (saved as a callback)
 00006dd0:	e92d4ff8 	push	{r3, r4, r5, r6, r7, r8, r9, sl, fp, lr}
 00006dd4:	e1a06002 	mov	r6, r2
 00006dd8:	e1a0e001 	mov	lr, r1
@@ -7993,6 +8046,8 @@
 00007118:	eaffffef 	b	0x70dc
 0000711c:	e1a00006 	mov	r0, r6
 00007120:	e8bd8ff8 	pop	{r3, r4, r5, r6, r7, r8, r9, sl, fp, pc}
+
+; subroutine
 00007124:	e92d47f0 	push	{r4, r5, r6, r7, r8, r9, sl, lr}
 00007128:	e1a05002 	mov	r5, r2
 0000712c:	e1a0e001 	mov	lr, r1
@@ -8043,6 +8098,8 @@
 000071e0:	ebfffd5f 	bl	0x6764
 000071e4:	e1a00008 	mov	r0, r8
 000071e8:	e8bd87f0 	pop	{r4, r5, r6, r7, r8, r9, sl, pc}
+
+; subroutine
 000071ec:	e1a03001 	mov	r3, r1
 000071f0:	e30815e8	movw	r1, #0x85e8
 000071f4:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
@@ -8085,6 +8142,8 @@
 00007288:	ebfffd35 	bl	0x6764
 0000728c:	e1a00007 	mov	r0, r7
 00007290:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+
+; subroutine
 00007294:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
 00007298:	e2525000 	subs	r5, r2, #0
 0000729c:	e1a04000 	mov	r4, r0
@@ -8117,6 +8176,8 @@
 00007308:	e7c80007 	strb	r0, [r8, r7]
 0000730c:	3afffff5 	bcc	0x72e8
 00007310:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+
+; subroutine
 00007314:	e3e02000 	mvn	r2, #0
 00007318:	e92d4010 	push	{r4, lr}
 0000731c:	e1a03002 	mov	r3, r2
@@ -8133,7 +8194,11 @@
 00007348:	eb000f16 	bl	0xafa8		; io_readW
 0000734c:	e6ef0070 	uxtb	r0, r0
 00007350:	e8bd8010 	pop	{r4, pc}
-00007354:	0001860c 	andeq	r8, r1, ip, lsl #12
+
+; data
+00007354:	0001860c
+
+; subroutine
 00007358:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 0000735c:	e3e02000 	mvn	r2, #0
 00007360:	e24ddf49 	sub	sp, sp, #292	@ 0x124
@@ -8424,11 +8489,15 @@
 000077d4:	e30607c8	movw	r0, #0x67c8
 000077d8:	e7c4e000 	strb	lr, [r4, r0]
 000077dc:	eaffffab 	b	0x7690
-000077e0:	00018648 	andeq	r8, r1, r8, asr #12
-000077e4:	00018630 	andeq	r8, r1, r0, lsr r6
-000077e8:	0001863c 	andeq	r8, r1, ip, lsr r6
-000077ec:	00018660 	andeq	r8, r1, r0, ror #12
-000077f0:	00018654 	andeq	r8, r1, r4, asr r6
+
+; data
+000077e0:	00018648
+000077e4:	00018630
+000077e8:	0001863c
+000077ec:	00018660
+000077f0:	00018654
+
+; subroutine
 000077f4:	e5902038 	ldr	r2, [r0, #56]	@ 0x38
 000077f8:	e92d0030 	push	{r4, r5}
 000077fc:	e1a03122 	lsr	r3, r2, #2
@@ -8515,6 +8584,7 @@
 00007940:	e8bd0030 	pop	{r4, r5}
 00007944:	e12fff1e 	bx	lr
 
+; branch from below
 00007948:	e550c001 	ldrb	ip, [r0, #-1]
 0000794c:	e38cc002 	orr	ip, ip, #2
 00007950:	e540c001 	strb	ip, [r0, #-1]
@@ -8579,7 +8649,8 @@
 00007a3c:	e4c04001 	strb	r4, [r0], #1
 00007a40:	e203c003 	and	ip, r3, #3
 00007a44:	e35c0001 	cmp	ip, #1
-00007a48:	0affffbe 	beq	0x7948
+00007a48:	0affffbe 	beq	0x7948		; loop
+
 00007a4c:	3affffa2 	bcc	0x78dc
 00007a50:	e35c0002 	cmp	ip, #2
 00007a54:	0550c001 	ldrbeq	ip, [r0, #-1]
@@ -11670,16 +11741,29 @@
 ; spin
 0000a788:	eafffffe 	b	0xa788
 
+; Subroutine - fill_mem ( start, end, value )
+;  - called 3 times from end_game code
+; always with r3 = 0  (so always filling with zeros)
+; two of the calls are made with:
+; r1 = 0007_0000
+; r2 = 0007_d4a0
+; one call is made with:
+; r1 = 0004_0000
+; r2 = 0007_d4a0
+
+; set up r3 to r10 to be a block of zeros (8 registers, hence 32 bytes
 0000a78c:	e1a04003 	mov	r4, r3
 0000a790:	e1a05003 	mov	r5, r3
 0000a794:	e1a06003 	mov	r6, r3
 0000a798:	e1a07003 	mov	r7, r3
 0000a79c:	e1a08003 	mov	r8, r3
 0000a7a0:	e1a09003 	mov	r9, r3
-0000a7a4:	e1a0a003 	mov	sl, r3
+0000a7a4:	e1a0a003 	mov	sl, r3	; r10
+
 0000a7a8:	e281bc01 	add	fp, r1, #256	@ 0x100
 0000a7ac:	e15b0002 	cmp	fp, r2
 0000a7b0:	ca000008 	bgt	0xa7d8
+; 8 moves of 32 bytes = 256 bytes of zeros
 0000a7b4:	e8a107f8 	stmia	r1!, {r3, r4, r5, r6, r7, r8, r9, sl}
 0000a7b8:	e8a107f8 	stmia	r1!, {r3, r4, r5, r6, r7, r8, r9, sl}
 0000a7bc:	e8a107f8 	stmia	r1!, {r3, r4, r5, r6, r7, r8, r9, sl}
@@ -11688,17 +11772,24 @@
 0000a7c8:	e8a107f8 	stmia	r1!, {r3, r4, r5, r6, r7, r8, r9, sl}
 0000a7cc:	e8a107f8 	stmia	r1!, {r3, r4, r5, r6, r7, r8, r9, sl}
 0000a7d0:	e8a107f8 	stmia	r1!, {r3, r4, r5, r6, r7, r8, r9, sl}
-0000a7d4:	eafffff3 	b	0xa7a8
-0000a7d8:	e042b001 	sub	fp, r2, r1
-0000a7dc:	e1a0b12b 	lsr	fp, fp, #2
+0000a7d4:	eafffff3 	b	0xa7a8		; loop
+
+0000a7d8:	e042b001 	sub	fp, r2, r1	; fp = r2 - r1
+0000a7dc:	e1a0b12b 	lsr	fp, fp, #2	; fp >> 2
+
+; finish up 4 bytes at a time.
 0000a7e0:	e35b0000 	cmp	fp, #0
 0000a7e4:	0a000002 	beq	0xa7f4
 0000a7e8:	e8a10008 	stmia	r1!, {r3}
 0000a7ec:	e24bb001 	sub	fp, fp, #1
-0000a7f0:	eafffffa 	b	0xa7e0
-0000a7f4:	e12fff1e 	bx	lr
+0000a7f0:	eafffffa 	b	0xa7e0		; loop
 
+0000a7f4:	e12fff1e 	bx	lr		; return
+
+; spin
 0000a7f8:	eafffffe 	b	0xa7f8
+
+; subroutine
 0000a7fc:	e92d4010 	push	{r4, lr}
 0000a800:	e1a04000 	mov	r4, r0
 0000a804:	e24dd008 	sub	sp, sp, #8
@@ -12768,37 +12859,93 @@
 0000fc78:	ffffffff
 0000fc7c:	ffffffff
 
-; stub that gets copied to high memory
-0000fc80:	e59f128c 	ldr	r1, [pc, #652]	@ 0xff14
-0000fc84:	e59f228c 	ldr	r2, [pc, #652]	@ 0xff18
-0000fc88:	e3a03000 	mov	r3, #0
-0000fc8c:	ebffeabe 	bl	0xa78c
-0000fc90:	e3a0207f 	mov	r2, #127	@ 0x7f
-0000fc94:	ea00000c 	b	0xfccc
+; ===============================================
+; OCM --- short course
+;  We have 256 bytes of SRAM and 128K of bootrom code.
+;  Let's talk about 64K chunks
+;  For the SRAM we have A, B, C, and D
+;  From the bootrom we have R0 and R1 lets say.
+;  These get mapped into the address space in various ways
+;   at various times.
+;  The interesting spots in the address space can be talked
+;   about in the following way, again dealing with 64K chunks.
+;  Lets think about the first 8 chunks of address space
+;   and call them 0, 1, 2, ... 7
+;  We need to also talk about the last 64k (0xffff_xxxx),
+;   and let's just call it "F"
+; On reset, we deduce the following - 
+;  the bootrom is at zero so R0 is at A-0 and R1 is at A-1
+;  the SRAM is 4*64K up, i.e. A is at A-4, B is at A-5, .. D is at A-7
+;  This is special and undocumented, and changes when user code runs.
+; The bootrom uses the last 64k chunk (D) at A-7 (address 0x7_0000)
+;  for its own purposes.  The stack is here, as well as a variety of
+;  variables.
+; This means that only 3*64K is available for user code (the FSBL)
+;  This size limit of 0x3_0000 is enforced by the bootrom.
+; So while the bootrom is running, it places the user code (FSBL)
+;  into SRAM at address base 0x4_0000.
+; Finally when we get to what I call the "end game", several
+;  things happen.  One is that the bootrom remaps chunk "D"
+;  (which was previously at 0x7_0000) to address "F" (0xffff_xxxx)
+; The bootrom stack and its collection of variables thusly move up
+;  there, but the bootrom seems to never touch them once it does
+;  the remapping of this address.
+; Finally, the bootrom does something (and I have yet to figure out what)
+;  that moves SRARM chunks A, B, and C to address base 0, hiding the
+;  bootrom code itself
+; To do this, the bootrom copies code into the "F" segment and jumps into
+;  it, abandoning any need to run bootrom code based at address 0.
 
-; error cases come here to sit and spin (one call)
+; ===============================================
+
+; subroutine -- called from many places.
+; end_game2()
+0000fc80:	e59f128c 	ldr	r1, [pc, #652]	@ 0xff14 ; (00070000)
+0000fc84:	e59f228c 	ldr	r2, [pc, #652]	@ 0xff18 ; (0007d4a0)
+0000fc88:	e3a03000 	mov	r3, #0
+0000fc8c:	ebffeabe 	bl	0xa78c		; fill_mem ()
+0000fc90:	e3a0207f 	mov	r2, #127	@ 0x7f
+0000fc94:	ea00000c 	b	0xfccc		; below in "end_game"
+
+; ===============================================
+; subroutine -- "lockdown()"
+; One error case comes here to die and spin (one call)
+; first, clear the image in memory (security?)
 0000fc98:	e3a01701 	mov	r1, #262144	@ 0x40000
-0000fc9c:	e59f2274 	ldr	r2, [pc, #628]	@ 0xff18
+0000fc9c:	e59f2274 	ldr	r2, [pc, #628]	@ 0xff18 ; (0007d4a0)
 0000fca0:	e3a03000 	mov	r3, #0
-0000fca4:	ebffeab8 	bl	0xa78c
-0000fca8:	e59f326c 	ldr	r3, [pc, #620]	@ 0xff1c
-0000fcac:	e3a05102 	mov	r5, #-2147483648	@ 0x80000000
+0000fca4:	ebffeab8 	bl	0xa78c		; fill_mem ()
+
+; 0xf8007000 is DevConfig
+; This first register is the control register.
+; See TRM page 1146.
+; setting bit 31 like this "forces the PS into secure lockdown"
+
+0000fca8:	e59f326c 	ldr	r3, [pc, #620]	@ 0xff1c ; (f8007000)
+0000fcac:	e3a05102 	mov	r5, #0x80000000
 0000fcb0:	e5835000 	str	r5, [r3]
 
 ; spin
 0000fcb4:	eafffffe 	b	0xfcb4
 
-; subroutine -- called from 0x1134 -- end_game()
+; ===============================================
+; ENDGAME
+;
+; subroutine -- One call from 0x1134 (at 0xfcb8) -- end_game()
+; (BUT note the path from end_game2() directly above).
 ; This is the end game transferring to the loaded image.
 ; It looks like r0 has the start address of the loaded image
 
-0000fcb8:	e59f1254 	ldr	r1, [pc, #596]	@ 0xff14
-0000fcbc:	e59f2254 	ldr	r2, [pc, #596]	@ 0xff18
+0000fcb8:	e59f1254 	ldr	r1, [pc, #596]	@ 0xff14 ; (00070000)
+0000fcbc:	e59f2254 	ldr	r2, [pc, #596]	@ 0xff18 ; (0007d4a0)
 0000fcc0:	e3a03000 	mov	r3, #0
-0000fcc4:	ebffeab0 	bl	0xa78c
+0000fcc4:	ebffeab0 	bl	0xa78c		; fill_mem ()
 0000fcc8:	e3a02000 	mov	r2, #0
+
+; code above (in this stub) branches directly here.
+; the difference is the value in r2 (either 0 or 0x7f)
 0000fccc:	e1a0e000 	mov	lr, r0		; lr = r0 = start_address
-0000fcd0:	e59f3244 	ldr	r3, [pc, #580]	@ 0xff1c
+0000fcd0:	e59f3244 	ldr	r3, [pc, #580]	@ 0xff1c ; (f8007000)
 0000fcd4:	e5935000 	ldr	r5, [r3]
 0000fcd8:	e1822005 	orr	r2, r2, r5
 0000fcdc:	e3a04000 	mov	r4, #0
@@ -12817,7 +12964,7 @@
 0000fd10:	e5950000 	ldr	r0, [r5]
 0000fd14:	e1800001 	orr	r0, r0, r1
 0000fd18:	e5850000 	str	r0, [r5]
-0000fd1c:	e59f01f8 	ldr	r0, [pc, #504]	@ 0xff1c
+0000fd1c:	e59f01f8 	ldr	r0, [pc, #504]	@ 0xff1c ; (f8007000)
 0000fd20:	e3a01028 	mov	r1, #40	@ 0x28
 0000fd24:	e0800001 	add	r0, r0, r1
 0000fd28:	e3e01000 	mvn	r1, #0
@@ -12837,14 +12984,19 @@
 0000fd34:	e5856000 	str	r6, [r5]
 
 0000fd38:	e3a06018 	mov	r6, #24		; r6 = 24
+
+; set up the "sentinel" value for the watch loop at xxxxx
 0000fd3c:	e3e0800f 	mvn	r8, #15		; r8 = 0xffff_fff0
 0000fd40:	e3e090d3 	mvn	r9, #0xd3	; r9 = 0xffff_ff2c
 0000fd44:	e5889000 	str	r9, [r8]
+
+; set up copy
 0000fd48:	e59fa1d8 	ldr	sl, [pc, #472]	@ 0xff28 ; (0000fed4)
 0000fd4c:	e3e0b0df 	mvn	fp, #0xdf	; fp = 0xffff_ff20
 0000fd50:	e59fc1d4 	ldr	ip, [pc, #468]	@ 0xff2c ; (0000ff10)
 0000fd54:	e04cc00a 	sub	ip, ip, sl
 
+; COPY - 1
 ; A copy loop (just like below) copy from sl to fp -- ip is the count (0x3c)
 ; i.e. it copies to 0xffff_ff20
 0000fd58:	e24cc004 	sub	ip, ip, #4
@@ -12861,6 +13013,7 @@
 0000fd78:	e59fc1b8 	ldr	ip, [pc, #440]	@ 0xff38 ; (0000fed0)
 0000fd7c:	e04cc00a 	sub	ip, ip, sl
 
+; COPY - 2
 ; A copy loop.  Copies from sl to fp (i.e. from 0xfe1c to 0xfffffe00)
 ; cute that it uses the sp as a temporary register
 ; (that is a hint that the code is all done with the stack at this point).
@@ -12885,13 +13038,13 @@
 0000fd98:	e59fa19c 	ldr	sl, [pc, #412]	@ 0xff3c ; (f8000244)
 0000fd9c:	e3a04000 	mov	r4, #0		; r4 = 0;
 0000fda0:	e59f9198 	ldr	r9, [pc, #408]	@ 0xff40 ; (e3e0f0d3)
-0000fda4:	e3e070ff 	mvn	r7, #0xff	; 0xffffff00
+0000fda4:	e3e070ff 	mvn	r7, #0xff	; 0xfff_fff00
 0000fda8:	e59f8194 	ldr	r8, [pc, #404]	@ 0xff44 ; (f8000004)
 0000fdac:	e5878000 	str	r8, [r7]
 0000fdb0:	e3e070fb 	mvn	r7, #0xfb	; 0xffff_ff04
-0000fdb4:	e59f818c 	ldr	r8, [pc, #396]	@ 0xff48
+0000fdb4:	e59f818c 	ldr	r8, [pc, #396]	@ 0xff48 ; (0000767b)
 0000fdb8:	e5878000 	str	r8, [r7]
-0000fdbc:	e59f7188 	ldr	r7, [pc, #392]	@ 0xff4c
+0000fdbc:	e59f7188 	ldr	r7, [pc, #392]	@ 0xff4c ; (f800025c)
 0000fdc0:	e5978000 	ldr	r8, [r7]
 0000fdc4:	e208800f 	and	r8, r8, #15
 0000fdc8:	e3e070e7 	mvn	r7, #0xe7	; 0xffff_ff18
@@ -12928,80 +13081,107 @@
 ; We have abandoned the code in the bootrom and are running
 ; entirely in the "stub" code we copied into the final page (0xffff_0000)
 ; All the state we care about should be in registers
+;
+; This block of code gets copied into high RAM as shown
+; by copy block COPY - 2 above.
+; ---
 
-0000fe1c:	e5801000 	str	r1, [r0]
-0000fe20:	e5856000 	str	r6, [r5]
-0000fe24:	f57ff04f 	dsb	sy
-0000fe28:	f57ff06f 	isb	sy
-0000fe2c:	e594b000 	ldr	fp, [r4]
-0000fe30:	e5849000 	str	r9, [r4]
-0000fe34:	e3a0c002 	mov	ip, #2
-0000fe38:	e58ac000 	str	ip, [sl]
-0000fe3c:	e3a0c000 	mov	ip, #0
-0000fe40:	e58ac000 	str	ip, [sl]
-0000fe44:	f57ff04f 	dsb	sy
-0000fe48:	f57ff06f 	isb	sy
-0000fe4c:	e584b000 	str	fp, [r4]
-0000fe50:	f57ff04f 	dsb	sy
-0000fe54:	f57ff06f 	isb	sy
-0000fe58:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
-0000fe5c:	e5947000 	ldr	r7, [r4]
-0000fe60:	e3570008 	cmp	r7, #8
-0000fe64:	0a000001 	beq	0xfe70
-0000fe68:	e35e0102 	cmp	lr, #0x80000000
-0000fe6c:	1a00000d 	bne	0xfea8
+ffff_fe00: 0000fe1c:	e5801000 	str	r1, [r0]
+ffff_fe04: 0000fe20:	e5856000 	str	r6, [r5]
+ffff_fe08: 0000fe24:	f57ff04f 	dsb	sy
+ffff_fe0c: 0000fe28:	f57ff06f 	isb	sy
+ffff_fe10: 0000fe2c:	e594b000 	ldr	fp, [r4]
+ffff_fe14: 0000fe30:	e5849000 	str	r9, [r4]
+ffff_fe18: 0000fe34:	e3a0c002 	mov	ip, #2
+ffff_fe1c: 0000fe38:	e58ac000 	str	ip, [sl]
+ffff_fe20: 0000fe3c:	e3a0c000 	mov	ip, #0
+ffff_fe24: 0000fe40:	e58ac000 	str	ip, [sl]
+ffff_fe28: 0000fe44:	f57ff04f 	dsb	sy
+ffff_fe2c: 0000fe48:	f57ff06f 	isb	sy
+ffff_fe30: 0000fe4c:	e584b000 	str	fp, [r4]
+ffff_fe30: 0000fe50:	f57ff04f 	dsb	sy
+ffff_fe30: 0000fe54:	f57ff06f 	isb	sy
+ffff_fe30: 0000fe58:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
+ffff_fe40: 0000fe5c:	e5947000 	ldr	r7, [r4]
+ffff_fe40: 0000fe60:	e3570008 	cmp	r7, #8
+ffff_fe40: 0000fe64:	0a000001 	beq	0xfe70
+ffff_fe40: 0000fe68:	e35e0102 	cmp	lr, #0x80000000
+ffff_fe50: 0000fe6c:	1a00000d 	bne	0xfea8
 
-0000fe70:	e3e040f7 	mvn	r4, #0xf7	; 0xffff_ff08
-0000fe74:	e5947000 	ldr	r7, [r4]
-0000fe78:	e3e050f3 	mvn	r5, #0xf3	; 0xffff_ff0c
-0000fe7c:	e5958000 	ldr	r8, [r5]
-0000fe80:	e5878000 	str	r8, [r7]
-0000fe84:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
-0000fe88:	e5947000 	ldr	r7, [r4]
-0000fe8c:	e3570008 	cmp	r7, #8
-0000fe90:	0a000004 	beq	0xfea8
+ffff_fe50: 0000fe70:	e3e040f7 	mvn	r4, #0xf7	; 0xffff_ff08
+ffff_fe50: 0000fe74:	e5947000 	ldr	r7, [r4]
+ffff_fe50: 0000fe78:	e3e050f3 	mvn	r5, #0xf3	; 0xffff_ff0c
+ffff_fe60: 0000fe7c:	e5958000 	ldr	r8, [r5]
+ffff_fe60: 0000fe80:	e5878000 	str	r8, [r7]
+ffff_fe60: 0000fe84:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
+ffff_fe60: 0000fe88:	e5947000 	ldr	r7, [r4]
+ffff_fe70: 0000fe8c:	e3570008 	cmp	r7, #8
+ffff_fe70: 0000fe90:	0a000004 	beq	0xfea8
 
-0000fe94:	e3e040ef 	mvn	r4, #0xef	; 0xffff_ff10
-0000fe98:	e5947000 	ldr	r7, [r4]
-0000fe9c:	e3e050eb 	mvn	r5, #0xeb	; 0xffff_ff14
-0000fea0:	e5958000 	ldr	r8, [r5]
-0000fea4:	e5878000 	str	r8, [r7]
+ffff_fe70: 0000fe94:	e3e040ef 	mvn	r4, #0xef	; 0xffff_ff10
+ffff_fe70: 0000fe98:	e5947000 	ldr	r7, [r4]
+ffff_fe80: 0000fe9c:	e3e050eb 	mvn	r5, #0xeb	; 0xffff_ff14
+ffff_fe80: 0000fea0:	e5958000 	ldr	r8, [r5]
+ffff_fe80: 0000fea4:	e5878000 	str	r8, [r7]
 
-0000fea8:	e3e040ff 	mvn	r4, #0xff	; 0xffff_ff00
-0000feac:	e5947000 	ldr	r7, [r4]
-0000feb0:	e3e050fb 	mvn	r5, #0xfb	; 0xffff_ff04
-0000feb4:	e5958000 	ldr	r8, [r5]
-0000feb8:	e5878000 	str	r8, [r7]
-0000febc:	f57ff04f 	dsb	sy
-0000fec0:	f57ff06f 	isb	sy
-0000fec4:	e5832000 	str	r2, [r3]
-0000fec8:	f57ff04f 	dsb	sy
-0000fecc:	e12fff1e 	bx	lr
+ffff_fe80: 0000fea8:	e3e040ff 	mvn	r4, #0xff	; 0xffff_ff00
+ffff_fe90: 0000feac:	e5947000 	ldr	r7, [r4]
+ffff_fe90: 0000feb0:	e3e050fb 	mvn	r5, #0xfb	; 0xffff_ff04
+ffff_fe90: 0000feb4:	e5958000 	ldr	r8, [r5]
+ffff_fe90: 0000feb8:	e5878000 	str	r8, [r7]
+ffff_fea0: 0000febc:	f57ff04f 	dsb	sy
+ffff_fea0: 0000fec0:	f57ff06f 	isb	sy
+ffff_fea0: 0000fec4:	e5832000 	str	r2, [r3]
+ffff_fea0: 0000fec8:	f57ff04f 	dsb	sy
+ffff_feb0: 0000fecc:	e12fff1e 	bx	lr
 ; should never return
 
 ; spin
 0000fed0:	eafffffe 	b	0xfed0
 
-; spin
-0000fed4:	f57ff04f 	dsb	sy
-0000fed8:	e320f002 	wfe
-0000fedc:	eafffffc 	b	0xfed4
+; This block of code gets copied into high RAM as shown
+; by copy block COPY - 1 above.
+; ---
 
+; spin
+ffff_ff20: 0000fed4:	f57ff04f 	dsb	sy
+ffff_ff24: 0000fed8:	e320f002 	wfe
+ffff_ff28: 0000fedc:	eafffffc 	b	0xfed4
+
+; ======================================================
 ; Stub code to hold processor waiting to be signaled
 ; by someone writing to 0xffff_fff0
-0000fee0:	f57ff04f 	dsb	sy
-0000fee4:	e320f002 	wfe
-0000fee8:	e3e0000f 	mvn	r0, #15		; 0xffff_fff0
-0000feec:	e590e000 	ldr	lr, [r0]
-0000fef0:	e37e00d4 	cmn	lr, #212	@ 0xd4
-0000fef4:	0afffff9 	beq	0xfee0
+; Anything other than  0xffff_ff2c will "wake" this up.
+; and cause it to go there.
+;
+; You might think that the second core (core 1) might get parked
+; here, but I don't yet see how that happens.
 
-0000fef8:	ee070f15	mcr	r0, ICIALLU
-0000fefc:	ee070fd5	mcr	r0, BPIALL
-0000ff00:	ee080f17	mcr	r0, TLBIALL
-0000ff04:	e3a04000 	mov	r4, #0
-0000ff08:	ee014f10	mcr	r4, SCTLR
-0000ff0c:	e12fff1e 	bx	lr
+; The sentinel is set up at 0xfd40 above as follows:
+; 0000fd40:	e3e090d3 	mvn	r9, #0xd3	; r9 = 0xffff_ff2c
+; Note that the mvn instruction creates the "not" of the immediate value,
+; so 0xd3  (1100 0011) becomes 0x2c (0011 1100)
+; but the cmn instruction deals with "negative", not "not".
+; so 0xd4 becomes 0x2c -- how about that?
+;
+; There are more tricky issues with CMN -- assume nothing and
+;  read the ARM documents with care.
+;
+; https://devblogs.microsoft.com/oldnewthing/20210607-00/?p=105288
+
+ffff_ff2c: 0000fee0:	f57ff04f 	dsb	sy
+ffff_ff30: 0000fee4:	e320f002 	wfe
+ffff_ff34: 0000fee8:	e3e0000f 	mvn	r0, #15		; 0xffff_fff0
+ffff_ff38: 0000feec:	e590e000 	ldr	lr, [r0]
+ffff_ff3c: 0000fef0:	e37e00d4 	cmn	lr, #212	@ 0xd4
+ffff_ff40: 0000fef4:	0afffff9 	beq	0xfee0
+
+ffff_ff44: 0000fef8:	ee070f15	mcr	r0, ICIALLU
+ffff_ff48: 0000fefc:	ee070fd5	mcr	r0, BPIALL
+ffff_ff4c: 0000ff00:	ee080f17	mcr	r0, TLBIALL
+ffff_ff50: 0000ff04:	e3a04000 	mov	r4, #0
+ffff_ff54: 0000ff08:	ee014f10	mcr	r4, SCTLR
+ffff_ff58: 0000ff0c:	e12fff1e 	bx	lr
 
 ; spin
 0000ff10:	eafffffe 	b	0xff10
@@ -13027,6 +13207,7 @@
 0000ff50:	f8000900
 0000ff54:	f8000240
 
+; filler
 0000ff58:	ffffffff
 0000ff5c:	ffffffff
 ...
