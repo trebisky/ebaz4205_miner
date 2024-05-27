@@ -1,12 +1,14 @@
 Notes on compiler and Makefile issues for my EBAZ4205 Bitcoin miner board Zynq demos
 
-I have used my Fedora x86 disktop (currently running Fedora 40) to generate these demos.
+I have used my Fedora x86 desktop (currently running Fedora 40) to generate these demos.
 
 I originally used the "arm-linux-gnu" compiler, and have decided to stick with it.
-It works.  I might make more sense to use the "arm-none-eabi" compiler packages,
+It works.
+
+It might make more sense to use the "arm-none-eabi" compiler packages,
 but they require me to sort out a different set of options, and I am lazy.
 
-The new compilers (as of Fedora 40) give several annoying warnings:
+The new compilers (GCC 14.1.1 as of Fedora 40) give several annoying warnings:
 
 <pre>
 /usr/bin/arm-linux-gnu-ld: warning: start.o: missing .note.GNU-stack section implies executable stack
@@ -22,8 +24,8 @@ Here are some explanations on my website:
 
 In short, append this line to every assembler source (*.S) file:
 
-1. .section        .note.GNU-stack,"",%progbits
+* .section        .note.GNU-stack,"",%progbits
 
 Also add these options to the link line in the Makefile:
 
-1. -Wl,--no-warn-rwx-segments
+* -Wl,--no-warn-rwx-segments
