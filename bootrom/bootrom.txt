@@ -285,7 +285,14 @@
 0000005c:	e35b0000 	cmp	fp, #0
 00000060:	0a000002 	beq	0x70
 
-; spin here if we are core 1 (how do we escape??!!)
+; On the Zynq chip, both cores start up when it comes out of reset.
+; Without some care, they would both run the bootrom code side by side
+; which would lead to all kinds of bad things.
+; So, we trap the second core (core 1) right here.
+; It will stay in this spin loop until the endgame code
+; plays an interesting game to divert it into a wait loop
+; in high memory (for which, see the end_game routines).
+
 00000064:	f57ff04f 	dsb	sy
 00000068:	e320f002 	wfe
 0000006c:	eafffffc 	b	0x64
@@ -1304,7 +1311,7 @@
 00000df4:	e59d0008 	ldr	r0, [sp, #8]
 00000df8:	eb000406 	bl	0x1e18
 
-; This address is a spin loop in the final stub
+; The 0xffff_ff20 address is a spin loop in the final stub
 00000dfc:	e3e000df 	mvn	r0, #0xdf	; 0xffff_ff20
 00000e00:	eb003b9e 	bl	0xfc80		; end_game2 ( 0xffff_ff20 )
 ; never returns
@@ -1527,7 +1534,7 @@
 00001138:	e3a05a07 	mov	r5, #28672	@ 0x7000
 0000113c:	e24dd00c 	sub	sp, sp, #12
 00001140:	e34f5800	movt	r5, #0xf800
-00001144:	e1a04000 	mov	r4, r0
+00001144:	e1a04000 	mov	r4, r0		; start_addr
 00001148:	ebfffd72 	bl	0x718
 0000114c:	e1a00005 	mov	r0, r5
 00001150:	eb002797 	bl	0xafb4		; io_read
@@ -1561,8 +1568,9 @@
 000011b4:	eafffe92 	b	0xc04		; boot_error ()
 ; never returns
 
+; subroutine - one call
 000011b8:	e92d4010 	push	{r4, lr}
-000011bc:	e1a04000 	mov	r4, r0
+000011bc:	e1a04000 	mov	r4, r0		; start_addr
 000011c0:	e24dd008 	sub	sp, sp, #8
 000011c4:	ebfffd53 	bl	0x718
 000011c8:	e3a00008 	mov	r0, #8
@@ -1582,13 +1590,15 @@
 00001200:	eb003a9e 	bl	0xfc80		; end_game2 ( r4 )
 ; never returns
 
+; The following should never run or be called.
 00001204:	e302001c	movw	r0, #0x201c
 00001208:	e28dd008 	add	sp, sp, #8
 0000120c:	e8bd4010 	pop	{r4, lr}
 00001210:	eafffe7b 	b	0xc04		; boot_error ()
 
+; subroutine - one call
 00001214:	e92d4010 	push	{r4, lr}
-00001218:	e1a04000 	mov	r4, r0
+00001218:	e1a04000 	mov	r4, r0		; start_addr
 0000121c:	e24dd008 	sub	sp, sp, #8
 00001220:	ebfffd3c 	bl	0x718
 00001224:	e3a00008 	mov	r0, #8
@@ -1613,7 +1623,7 @@
 00001268:	e8bd4010 	pop	{r4, lr}
 0000126c:	eafffe64 	b	0xc04		; boot_error ()
 
-00001270:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
+00001270:	e52de004 	push	{lr}
 00001274:	e24dd014 	sub	sp, sp, #20
 00001278:	eb0002e3 	bl	0x1e0c
 0000127c:	e58d000c 	str	r0, [sp, #12]
@@ -2447,6 +2457,7 @@
 00001c88:	e3a00000 	mov	r0, #0
 00001c8c:	e58d000c 	str	r0, [sp, #12]
 00001c90:	ea000002 	b	0x1ca0
+
 00001c94:	eb000098 	bl	0x1efc
 00001c98:	e3100004 	tst	r0, #4
 00001c9c:	1a000007 	bne	0x1cc0
@@ -2454,17 +2465,24 @@
 00001ca4:	e283e001 	add	lr, r3, #1
 00001ca8:	e1530008 	cmp	r3, r8
 00001cac:	e58de00c 	str	lr, [sp, #12]
-00001cb0:	9afffff7 	bls	0x1c94
+00001cb0:	9afffff7 	bls	0x1c94		; loop
+
 00001cb4:	e3020007	movw	r0, #0x2007
 00001cb8:	ebfffbd1 	bl	0xc04		; boot_error ()
 00001cbc:	eafffff4 	b	0x1c94
+
+; branch from agove
 00001cc0:	eb0001e8 	bl	0x2468
+; never returns  - goes to end_Game2 ( 0x8000_0000 )
+
 00001cc4:	e3020008	movw	r0, #0x2008
 00001cc8:	ebfffbcd 	bl	0xc04		; boot_error ()
 00001ccc:	eafffec9 	b	0x17f8
+
 00001cd0:	e3020011	movw	r0, #0x2011
 00001cd4:	ebfffbca 	bl	0xc04		; boot_error ()
 00001cd8:	eaffff4c 	b	0x1a10
+
 00001cdc:	e3020012	movw	r0, #0x2012
 00001ce0:	ebfffbc7 	bl	0xc04		; boot_error ()
 00001ce4:	eaffff49 	b	0x1a10
@@ -2548,7 +2566,7 @@
 00001da8:	e3100004 	tst	r0, #4
 00001dac:	0afffffc 	beq	0x1da4
 
-; This address is a spin loop in the final stub
+; The address - 0xffff_ff20 is a spin loop in the final stub
 00001db0:	e3e000df 	mvn	r0, #0xdf	; 0xffff_ff20
 00001db4:	eb0037b1 	bl	0xfc80		; end_game2 ( 0xffff_ff20 )
 ; never returns
@@ -2999,7 +3017,7 @@
 0000244c:	e58d3004 	str	r3, [sp, #4]
 00002450:	e59d0004 	ldr	r0, [sp, #4]
 00002454:	ebfffe6f 	bl	0x1e18
-00002458:	e3e000df 	mvn	r0, #0xdf
+00002458:	e3e000df 	mvn	r0, #0xdf	; 0xffff_ff20
 0000245c:	e28dd00c 	add	sp, sp, #12
 00002460:	e49de004 	pop	{lr}		@ (ldr lr, [sp], #4)
 
@@ -3007,6 +3025,7 @@
 00002464:	ea003605 	b	0xfc80		; end_game2 ( 0xffff_ff20 ))
 ; never returns
 
+; subroutine, one call
 00002468:	e3a00102 	mov	r0, #0x80000000
 0000246c:	ea003603 	b	0xfc80		; end_game2 ( 0x8000_0000)
 ; never returns
@@ -11754,7 +11773,7 @@
 0000a788:	eafffffe 	b	0xa788
 
 ; Subroutine - fill_mem ( start, end, value )
-;  - called 3 times from end_game code
+;  - called 3 times from end_Game code
 ; always with r3 = 0  (so always filling with zeros)
 ; two of the calls are made with:
 ; r1 = 0007_0000
@@ -12944,6 +12963,8 @@
 0000fcb4:	eafffffe 	b	0xfcb4
 
 ; ===============================================
+; ===============================================
+;
 ; ENDGAME
 ;
 ; subroutine -- One call from 0x1134 (at 0xfcb8) -- end_game1()
@@ -12951,6 +12972,7 @@
 ; This is the end game transferring to the loaded image.
 ; It looks like r0 has the start address of the loaded image
 
+; Clear memory in page "D" of SRAM (at 0x70000
 0000fcb8:	e59f1254 	ldr	r1, [pc, #596]	@ 0xff14 ; (00070000)
 0000fcbc:	e59f2254 	ldr	r2, [pc, #596]	@ 0xff18 ; (0007d4a0)
 0000fcc0:	e3a03000 	mov	r3, #0
@@ -12960,7 +12982,9 @@
 ; Common code follows for end_game1() and end_game2()
 ; the difference is the value in r2 (either 0 or 0x7f)
 ; end_game1() with the zero value will disallow JTAG in the
-; image it boots
+; image it boots, calls via eng_game2() will allow it.
+
+; save the start address in "lr"
 0000fccc:	e1a0e000 	mov	lr, r0		; lr = r0 = start_address
 
 ; Read the Devconfig CTRL register
@@ -12970,6 +12994,7 @@
 0000fcd0:	e59f3244 	ldr	r3, [pc, #580]	@ 0xff1c ; (f8007000)
 0000fcd4:	e5935000 	ldr	r5, [r3]
 0000fcd8:	e1822005 	orr	r2, r2, r5
+; r2 and r3 are "loaded up" for later.
 
 ; caches off
 0000fcdc:	e3a04000 	mov	r4, #0
@@ -12983,40 +13008,56 @@
 0000fcf4:	f57ff04f 	dsb	sy
 0000fcf8:	f57ff06f 	isb	sy
 
+; invalidate TLB
 0000fcfc:	ee084f17	mcr	r4, TLBIALL
 0000fd00:	f57ff04f 	dsb	sy
 0000fd04:	f57ff06f 	isb	sy
 
+; fetch/modify/save for the "multiboot address"
 0000fd08:	e59f5210 	ldr	r5, [pc, #528]	@ 0xff20 ; (f800702c)
 0000fd0c:	e3a01903 	mov	r1, #0xc000
 0000fd10:	e5950000 	ldr	r0, [r5]	; devconfig - multiboot addr
 0000fd14:	e1800001 	orr	r0, r0, r1
 0000fd18:	e5850000 	str	r0, [r5]
 
-; Read the Devconfig CTRL register (again)
-; note that we already have this pointer in r3
-; adding 0x28 is strange, and I don't see anything
-; getting done with the value generated in r0
+; Fetch the base address of Devconfig (0xf8007000)
+; add a 0x28 offset, so r0 = 0xf8007028
+; This address will be used later (in the stub)
+; This address is undocumented in the TRM (it jumps from 0x24 to 0x2c)
+
 0000fd1c:	e59f01f8 	ldr	r0, [pc, #504]	@ 0xff1c ; (f8007000)
-0000fd20:	e3a01028 	mov	r1, #40	@ 0x28
+0000fd20:	e3a01028 	mov	r1, #0x28
 0000fd24:	e0800001 	add	r0, r0, r1
+
+; This is loaded up for much later
 0000fd28:	e3e01000 	mvn	r1, #0		; 0xffff_ffff
+; now we have r0, r1, r2, and r3 "loaded up"
 
 ; Write 0x8 to the OCM config register.
 ; this maps the fourth (and last) 64K segment of the 256K
 ; OCM sram to high addresses (0xffff0000 ...)
 ; If I am guessing right about what is going on while the bootrom
-; is running, this is the segment that has up to now been at 0x70000.  Maybe.
+; is running, this is the segment that has up to now been at 0x70000.
 ; --------
 ; This changes the world, after this there should be no more access
-; to things in 0x7xxxx, in particular the stack
-; We should only be working in 0xffff_xxxx addresses
+; to things in 0x7xxxx, in particular the stack.
+; Note that as far as I can see it would be perfectly OK to
+; now access the stuff that used to be at 0x7_0000 via 0xffff_0000 addresses,
+; but the bootrom never seems to do that.
+; This may simply be "convenience" as it would be difficult to configure a
+; compiler to deal with trickery like thos.
+; Anything we need at 0xffff_xxxx addresses we now write fresh.
 
 0000fd2c:	e59f51f0 	ldr	r5, [pc, #496]	@ 0xff24 ; (0xf800910 - OCM_CFG)
 0000fd30:	e3a06008 	mov	r6, #8
 0000fd34:	e5856000 	str	r6, [r5]
 
-0000fd38:	e3a06018 	mov	r6, #24		; r6 = 24
+; We will write this value later to the OCM_CFG register
+; Note that the 0x10 bit is essentially undocumented in the TRM
+; on page 1690, they label this bit as "SWAP" and simply state
+; that you should always write what you read (i.e. maintain it).
+; ?? Could this be the magic bit that unmaps the bootrom ??
+0000fd38:	e3a06018 	mov	r6, #0x18	; r6 = 0x18
 
 ; set up the "sentinel" value for the watch loop at 0xffff_ff2c
 
@@ -13060,54 +13101,62 @@
 0000fd90:	0a000000 	beq	0xfd98		; break
 0000fd94:	eafffff9 	b	0xfd80		; loop
 
-; The following monkeys with some SLCR registers.
-; 0xf8000004 is the lock register
-; 0xf8000240 is FPGA reset and control
 ; 0xf8000244 is CPU reset and control
-; 0xf8000900 is level shifter enable
-
-; After we jump into the stub, we write 0x2 to the CPU reset and control
-; this tells it to hold CPU1 in reset
-
 0000fd98:	e59fa19c 	ldr	sl, [pc, #412]	@ 0xff3c ; (f8000244)
+; now sl = 0xf800_0244 for later
+
 0000fd9c:	e3a04000 	mov	r4, #0		; r4 = 0;
+; now r4 = 0 for later (base address of user image)
+
 0000fda0:	e59f9198 	ldr	r9, [pc, #408]	@ 0xff40 ; (e3e0f0d3)
-0000fda4:	e3e070ff 	mvn	r7, #0xff	; 0xfff_fff00
+; now r9 is an instruction we patch in at that address (see below)
+
+; *(0xffff_ff00) = 0xf800_0004
+; 0xf8000004 is the lock register
+0000fda4:	e3e070ff 	mvn	r7, #0xff	; 0xffff_ff00
 0000fda8:	e59f8194 	ldr	r8, [pc, #404]	@ 0xff44 ; (f8000004)
 0000fdac:	e5878000 	str	r8, [r7]
+
+; *(0xffff_ff04) = 0000767b
 0000fdb0:	e3e070fb 	mvn	r7, #0xfb	; 0xffff_ff04
 0000fdb4:	e59f818c 	ldr	r8, [pc, #396]	@ 0xff48 ; (0000767b)
 0000fdb8:	e5878000 	str	r8, [r7]
+
+; 0xf800025c is BOOT mode
+; read it and mask out lower 4 bits
+; save to ffff_ff18
+
 0000fdbc:	e59f7188 	ldr	r7, [pc, #392]	@ 0xff4c ; (f800025c)
 0000fdc0:	e5978000 	ldr	r8, [r7]
-0000fdc4:	e208800f 	and	r8, r8, #15
+0000fdc4:	e208800f 	and	r8, r8, #15	; 0xf
 0000fdc8:	e3e070e7 	mvn	r7, #0xe7	; 0xffff_ff18
 0000fdcc:	e5878000 	str	r8, [r7]
+
+; The value 8 is JTAG boot and PLL bypassed
 0000fdd0:	e3580008 	cmp	r8, #8
 0000fdd4:	0a000001 	beq	0xfde0
 
 0000fdd8:	e35e0102 	cmp	lr, #0x80000000
 0000fddc:	1a00000b 	bne	0xfe10
 
-; The following does this:
-;
 ; *(0xffff_ff08) = 0xf8000900
-; *(0xffff_ff0c) = 15
-; *(0xffff_ff10) = 0xf8000240
-; *(0xffff_ff14) = 0
-
+; 0xf8000900 is level shifter enable
 0000fde0:	e3e070f7 	mvn	r7, #0xf7	; 0xffff_ff08
 0000fde4:	e59f8164 	ldr	r8, [pc, #356]	@ 0xff50 ; (f8000900)
 0000fde8:	e5878000 	str	r8, [r7]
 
+; *(0xffff_ff0c) = 15
 0000fdec:	e3e070f3 	mvn	r7, #0xf3	; 0xffff_ff0c
 0000fdf0:	e3a0800f 	mov	r8, #15
 0000fdf4:	e5878000 	str	r8, [r7]
 
+; *(0xffff_ff10) = 0xf8000240
+; 0xf8000240 is FPGA reset and control
 0000fdf8:	e3e070ef 	mvn	r7, #0xef	; 0xffff_ff10
 0000fdfc:	e59f8150 	ldr	r8, [pc, #336]	@ 0xff54 ; (f8000240)
 0000fe00:	e5878000 	str	r8, [r7]
 
+; *(0xffff_ff14) = 0
 0000fe04:	e3e070eb 	mvn	r7, #0xeb	; 0xffff_ff14
 0000fe08:	e3a08000 	mov	r8, #0
 0000fe0c:	e5878000 	str	r8, [r7]
@@ -13132,14 +13181,28 @@
 ; by copy block COPY - 2 above.
 ; ---
 
-ffff_fe00: 0000fe1c:	e5801000 	str	r1, [r0]
-ffff_fe04: 0000fe20:	e5856000 	str	r6, [r5]
+; ** begin the first block, which is the usual endgame path
+
+; r0 = 0xf800_0028 -- undocumented register in Devconfig
+; r5 = 0xf800_0910 -- the OCM_CFG register
+
+ffff_fe00: 0000fe1c:	e5801000 	str	r1, [r0]	; *(0xf800_7028) = 0xffff_ffff
+ffff_fe04: 0000fe20:	e5856000 	str	r6, [r5]	; *(0xf800_0910) = 0x18 
 ffff_fe08: 0000fe24:	f57ff04f 	dsb	sy
 ffff_fe0c: 0000fe28:	f57ff06f 	isb	sy
 
-ffff_fe10: 0000fe2c:	e594b000 	ldr	fp, [r4]
+; r4 is 0
+; r9 is e3e0f0d3 -- this is an instruction we deposit
+;  in location 0.  Near as I can tell "mvn pc, 0xffff_ff2c"
+; This causes CPU 1 to enter the wait loop in the stub
+
+ffff_fe10: 0000fe2c:	e594b000 	ldr	fp, [r4]	; save
 ffff_fe14: 0000fe30:	e5849000 	str	r9, [r4]
 
+; sl is f8000244
+; this is in SLCR -- "cpu reset and control"
+; this pulses the reset line for the other core (CPU 1)
+; asserting then releasing it
 ffff_fe18: 0000fe34:	e3a0c002 	mov	ip, #2
 ffff_fe1c: 0000fe38:	e58ac000 	str	ip, [sl]	; *sl = 2
 ffff_fe20: 0000fe3c:	e3a0c000 	mov	ip, #0
@@ -13147,14 +13210,24 @@ ffff_fe24: 0000fe40:	e58ac000 	str	ip, [sl]	; *sl = 0
 ffff_fe28: 0000fe44:	f57ff04f 	dsb	sy
 ffff_fe2c: 0000fe48:	f57ff06f 	isb	sy
 
+; restore whatever was at address 0 (i.e. the user image)
+;  now that we have CPU 1 running where we want it.
 ffff_fe30: 0000fe4c:	e584b000 	str	fp, [r4]
 ffff_fe34: 0000fe50:	f57ff04f 	dsb	sy
 ffff_fe38: 0000fe54:	f57ff06f 	isb	sy
+
+; ffff_ff18 holds boot mode (4 bits)
+; the value 8 would be JTAG with PLL bypassed
 
 ffff_fe3c: 0000fe58:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
 ffff_fe40: 0000fe5c:	e5947000 	ldr	r7, [r4]
 ffff_fe44: 0000fe60:	e3570008 	cmp	r7, #8		; test *(0xffff_ff18)
 ffff_fe48: 0000fe64:	0a000001 	beq	0xfe70
+
+; This is strange.  How can we boldly branch to 0x8000_0000 as if it is
+; user code?  The TRM says this address is a "general purpose access port to the PL",
+; i.e. the FPGA fabric.  We may learn more by examining the path that brings this
+; address our way.
 ffff_fe4c: 0000fe68:	e35e0102 	cmp	lr, #0x80000000
 ffff_fe50: 0000fe6c:	1a00000d 	bne	0xfea8
 
@@ -13165,20 +13238,37 @@ ffff_fe5c: 0000fe78:	e3e050f3 	mvn	r5, #0xf3	; 0xffff_ff0c
 ffff_fe60: 0000fe7c:	e5958000 	ldr	r8, [r5]
 ffff_fe64: 0000fe80:	e5878000 	str	r8, [r7]
 
+; Test bootmode and take shortcut if it is "8"
 ;  if ( *(0xffff_ff18) == 8 ) jump
+;  bootmode "8" is JTAG with PLL bypassed
 ffff_fe68: 0000fe84:	e3e040e7 	mvn	r4, #0xe7	; 0xffff_ff18
 ffff_fe6c: 0000fe88:	e5947000 	ldr	r7, [r4]
 ffff_fe70: 0000fe8c:	e3570008 	cmp	r7, #8
 ffff_fe74: 0000fe90:	0a000004 	beq	0xfea8
 
-; *(0xffff_ff10) = *(0xffff_ff14) 
+; Clear FPGA reset and control register
+; 0xffff_ff10 = 0xf8000240
+; 0xffff_ff14 = 0
+;
+; *(*0xffff_ff10) = *(0xffff_ff14) 
 ffff_fe78: 0000fe94:	e3e040ef 	mvn	r4, #0xef	; 0xffff_ff10
 ffff_fe7c: 0000fe98:	e5947000 	ldr	r7, [r4]
 ffff_fe80: 0000fe9c:	e3e050eb 	mvn	r5, #0xeb	; 0xffff_ff14
 ffff_fe84: 0000fea0:	e5958000 	ldr	r8, [r5]
 ffff_fe88: 0000fea4:	e5878000 	str	r8, [r7]
 
-; *(0xffff_ff00) = *(0xffff_ff04)
+; Write to the "lock register"
+; This is the magic value that should be written.
+; Doing this locks all the SLCR registers
+;  (locking means they are write protected)
+; They can be unlocked by writing 0xdf0d to the
+;   unlock register at 0xf800_0008
+; See TRM pages 1576 - 1577
+;
+; 0xffff_ff00 = 0xf800_0004 (the lock register)
+; 0xffff_ff04 = 0x0000_767b
+;
+; *(*0xffff_ff00) = *(0xffff_ff04)
 ffff_fe8c: 0000fea8:	e3e040ff 	mvn	r4, #0xff	; 0xffff_ff00
 ffff_fe90: 0000feac:	e5947000 	ldr	r7, [r4]
 ffff_fe94: 0000feb0:	e3e050fb 	mvn	r5, #0xfb	; 0xffff_ff04
@@ -13187,13 +13277,25 @@ ffff_fe9c: 0000feb8:	e5878000 	str	r8, [r7]
 
 ffff_fea0: 0000febc:	f57ff04f 	dsb	sy
 ffff_fea4: 0000fec0:	f57ff06f 	isb	sy
+
 ffff_fea8: 0000fec4:	e5832000 	str	r2, [r3]	; enable JTAG (maybe)
 ffff_feac: 0000fec8:	f57ff04f 	dsb	sy
 ffff_feb0: 0000fecc:	e12fff1e 	bx	lr
-; should never return
+; The above jumps to user code (FSBL)
+; and should never return
 
 ; spin
 0000fed0:	eafffffe 	b	0xfed0
+
+; ====================================================
+; Here is the second block (handled by COPY - 1
+; It has two loops.
+; The first at 0xffff_ff20 is a place for the processor
+;  (Core 0) to come and die, no doubt on severe
+;  errors of some kind.
+; The second (at 0xffff_ff2c) is where the second core
+;  (Core 1) will be parked when control is transfered
+;  to the user code (FSBL)
 
 ; This block of code gets copied into high RAM as shown
 ; by copy block COPY - 1 above.
