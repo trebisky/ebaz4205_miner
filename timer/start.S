@@ -560,4 +560,6 @@ cpu_leave:
 	msr	cpsr, r0
 	bx	lr
 
+.section        .note.GNU-stack,"",%progbits
+
 /* THE END */

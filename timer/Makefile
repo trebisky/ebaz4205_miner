@@ -5,9 +5,13 @@
 #
 # Tom Trebisky  1-13-2021
 
+# Changed 5-27-2024, then reverted
 CROSS = arm-linux-gnu-
-
 CC = $(CROSS)gcc
+
+#CROSS = arm-none-eabi-
+#CC = $(CROSS)gcc -marm -march=armv7-a
+
 
 GCCVERSION = `$(CC) -dumpversion`
 
@@ -25,7 +29,6 @@ ARM_ELF_FLAGS += -mno-thumb-interwork -fno-stack-protector -fno-toplevel-reorder
 ARM_ELF_FLAGS += -Wstrict-prototypes -Wno-format-nonliteral -Wno-format-security
 ARM_ELF_FLAGS += -Wno-implicit-function-declaration
 ARM_ELF_FLAGS += -Wno-unused-function $(ABI)
-
 
 #OBJS = start.o main.o prf.o serial.o gpio.o timer.o bbb_irq.o show_regs.o gic.o
 OBJS = start.o main.o prf.o uart.o timer.o arm_irq.o arm_regs.o gic.o
@@ -62,7 +65,7 @@ version:
 	$(CC) --version
 
 #LINKER = -Wl,-N,--build-id=none
-LINKER = -Wl,--build-id=none
+LINKER = -Wl,--build-id=none -Wl,--no-warn-rwx-segments
 
 interrupts.elf: $(OBJS)
 	$(CC) -o $@ -nostdlib $(OBJS) -T basic.lds $(LINKER) $(LIBS)

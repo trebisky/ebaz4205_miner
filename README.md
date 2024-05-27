@@ -29,3 +29,8 @@ Here are the projects you will find here:
 1. blink2 - blink (make an AXI gpio LED gadget and AXI gpio driver)
 
 1. bootrom - the Zynq bootrom
+1. secret - python to talk to the "secret" uart mode in the bootrom
+
+Some imporant notes about Compilers and Makefiles:
+
+[a relative link](Compiler.md)

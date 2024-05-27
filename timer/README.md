@@ -1,5 +1,32 @@
 Get timer and uart interrupts on the EBAZ4205
 
+----
+
+Originally written in January, 2021 using arm-linux-gnu-gcc
+as the cross compiler.
+
+In May of 2024, I tried to build it again.  I no longer have
+arm-linux-gnu-gcc.  I tried switching to arm-none-eabi, but that
+will take some work to sort out compiler options in the Makefile.
+
+The quick answer is: "dnf install gcc-arm-linux-gnu"
+
+This "just works", but now we get annoying warnings from "ld".
+
+1. /usr/bin/arm-linux-gnu-ld: warning: start.o: missing .note.GNU-stack section implies executable stack
+1. /usr/bin/arm-linux-gnu-ld: NOTE: This behaviour is deprecated and will be removed in a future version of the linker
+1. /usr/bin/arm-linux-gnu-ld: warning: interrupts.elf has a LOAD segment with RWX permissions
+
+Append this to xxx.S
+
+.section        .note.GNU-stack,"",%progbits
+
+Add this to the linker options:
+
+-Wl,--no-warn-rwx-segments
+
+----
+
 Copied from /u1/Projects/OrangePi/Archive/inter_kyu
 
 This was first made to work with a serial rcv interrupt,
