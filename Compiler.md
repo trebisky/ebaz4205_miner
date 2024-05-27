@@ -19,8 +19,8 @@ The new compilers (GCC 14.1.1 as of Fedora 40) give several annoying warnings:
 The build still works, but I would rather not be afflicted by irrelevant warnings.
 Here are some explanations on my website:
 
-[2023 - linker warnings] (http://cholla.mmto.org/orange_pi/pc_h3/notes/update_2023.html)
-[2024 - linker warnings] (http://cholla.mmto.org/fpga/ebaz4205/bare/compiler.html)
+* [2023 - linker warnings] (http://cholla.mmto.org/orange_pi/pc_h3/notes/update_2023.html)
+* [2024 - linker warnings] (http://cholla.mmto.org/fpga/ebaz4205/bare/compiler.html)
 
 In short, append this line to every assembler source (*.S) file:
 
