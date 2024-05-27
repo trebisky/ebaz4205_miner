@@ -1,4 +1,4 @@
-; Zynq XC7Z010-CLG400A bootrom project
+ Zynq XC7Z010-CLG400A bootrom project
 ;
 ;  Tom Trebisky  5-2-2024
 
@@ -534,7 +534,7 @@
 00000370:	e28dd00c 	add	sp, sp, #12
 00000374:	e8bd80f0 	pop	{r4, r5, r6, r7, pc}
 
-; subroutine - one call
+; subroutine - one call - big_init ()
 00000378:	e3000b0c	movw	r0, #0xb0c
 0000037c:	e3011166	movw	r1, #0x1166
 00000380:	e92d41f0 	push	{r4, r5, r6, r7, r8, lr}
@@ -786,7 +786,6 @@
 000006ac:	e5932000 	ldr	r2, [r3]
 000006b0:	e3520000 	cmp	r2, #0		; check flag
 000006b4:	18bd8010 	popne	{r4, pc}
-
 ; set up uart1
 ; 0xe0001018 is uart1 baud
 ; 0xe0001034 is uart1 baud div
@@ -799,42 +798,56 @@
 000006b8:	e3a0c001 	mov	ip, #1
 000006bc:	e3010018	movw	r0, #0x1018
 000006c0:	e583c000 	str	ip, [r3]	; set flag
-000006c4:	e3a01011 	mov	r1, #17
+000006c4:	e3a01011 	mov	r1, #0x11
 000006c8:	e34e0000	movt	r0, #0xe000
-000006cc:	eb002a4b 	bl	0xb000		; io_write
+000006cc:	eb002a4b 	bl	0xb000		; io_write ( 0xe000_1018, 0x11 )
 
 000006d0:	e3010034	movw	r0, #0x1034
 000006d4:	e3a01006 	mov	r1, #6
 000006d8:	e34e0000	movt	r0, #0xe000
-000006dc:	eb002a47 	bl	0xb000		; io_write
+000006dc:	eb002a47 	bl	0xb000		; io_write ( 0xe000_1034, 6 )
 
 000006e0:	e3010004	movw	r0, #0x1004
 000006e4:	e34e0000	movt	r0, #0xe000
-000006e8:	e3a01020 	mov	r1, #32
-000006ec:	eb002a43 	bl	0xb000		; io_write
+000006e8:	e3a01020 	mov	r1, #0x20
+000006ec:	eb002a43 	bl	0xb000		; io_write ( 0xe000_1004, 0x20 )
 
-000006f0:	e3a00a01 	mov	r0, #4096	@ 0x1000
+000006f0:	e3a00a01 	mov	r0, #0x1000
 000006f4:	e34e0000	movt	r0, #0xe000
-000006f8:	e3a01f45 	mov	r1, #276	@ 0x114
+000006f8:	e3a01f45 	mov	r1, #0x114
 000006fc:	e8bd4010 	pop	{r4, lr}
-00000700:	ea002a3e 	b	0xb000		; io_write
+00000700:	ea002a3e 	b	0xb000		; io_write ( 0xe000_1000, 0x114 )
+; END of 0x6a0
 
-00000704:	e3a00a05 	mov	r0, #20480	@ 0x5000
+; --------------------
+; 0xf800_5000 is system watchdog timer
+; page 241 and 1748 in the TRM.
+; It can interrupt or reset on timeout
+
+; subroutine wd_zero () - write to the zero access register
+00000704:	e3a00a05 	mov	r0, #0x5000
 00000708:	e30c11c0	movw	r1, #0xc1c0
 0000070c:	e34f0800	movt	r0, #0xf800
 00000710:	e34010ab	movt	r1, #0xab
-00000714:	ea002a39 	b	0xb000		; io_write
+00000714:	ea002a39 	b	0xb000		; io_write ( 0xf800_5000, 0x00ab_c1c0 )
+
+; subroutine wd_restart ()
 00000718:	e3050008	movw	r0, #0x5008
 0000071c:	e3011999	movw	r1, #0x1999
 00000720:	e34f0800	movt	r0, #0xf800
-00000724:	ea002a35 	b	0xb000		; io_write
+00000724:	ea002a35 	b	0xb000		; io_write ( 0xf800_5008, 0x1999 )
 
+; ----------------------------
+; 0xf8f0_xxxx is SCU control and status		L2 cache disable
 ; subroutine -- write 0 to 0xf8f02100
+; See TRM page 1394, this is the L2 cache control register
+; Writing a zero disables the L2 cache
+; (I don't see anywhere it gets enabled in the bootrom)
 
-00000728:	e3a00c21 	mov	r0, #8448	@ 0x2100
+00000728:	e3a00c21 	mov	r0, #0x2100
 0000072c:	e3a01000 	mov	r1, #0
 00000730:	e34f08f0	movt	r0, #0xf8f0
-00000734:	ea002a31 	b	0xb000		; io_write
+00000734:	ea002a31 	b	0xb000		; io_write ( 0xf8f02100, 0 )
 
 ; subroutine (part of error handling)
 ; fred ()
@@ -900,7 +913,7 @@
 00000804:	eb000580 	bl	0x1e0c
 00000808:	e3800101 	orr	r0, r0, #1073741824	@ 0x40000000
 0000080c:	eb000581 	bl	0x1e18
-00000810:	eb002993 	bl	0xae64
+00000810:	eb002993 	bl	0xae64		; gtimer_init ()
 00000814:	e1a0000d 	mov	r0, sp
 00000818:	e1a02004 	mov	r2, r4
 0000081c:	e1a03005 	mov	r3, r5
@@ -1459,6 +1472,8 @@
 00001020:	e3800a01 	orr	r0, r0, #4096	@ 0x1000
 00001024:	eb00037b 	bl	0x1e18
 00001028:	eafffff3 	b	0xffc
+
+; subroutine
 0000102c:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 00001030:	e3a00e25 	mov	r0, #592	@ 0x250
 00001034:	e24dd014 	sub	sp, sp, #20
@@ -1500,6 +1515,7 @@
 000010c4:	e49de004 	pop	{lr}		@ (ldr lr, [sp], #4)
 000010c8:	ea0027cc 	b	0xb000		; io_write
 
+; subroutine - never called
 000010cc:	e3002000 	movw	r2, #0
 000010d0:	e3070694	movw	r0, #0x7694
 000010d4:	e3402007 	movt	r2, #7
@@ -1535,7 +1551,7 @@
 0000113c:	e24dd00c 	sub	sp, sp, #12
 00001140:	e34f5800	movt	r5, #0xf800
 00001144:	e1a04000 	mov	r4, r0		; start_addr
-00001148:	ebfffd72 	bl	0x718
+00001148:	ebfffd72 	bl	0x718		; wd_restart
 0000114c:	e1a00005 	mov	r0, r5
 00001150:	eb002797 	bl	0xafb4		; io_read
 00001154:	e58d0004 	str	r0, [sp, #4]
@@ -1551,12 +1567,13 @@
 0000117c:	e59d1004 	ldr	r1, [sp, #4]
 00001180:	e34f0800	movt	r0, #0xf800
 00001184:	eb00279d 	bl	0xb000		; io_write
+; write to SLCR unlock register
 00001188:	e3a00008 	mov	r0, #8
 0000118c:	e30d1f0d	movw	r1, #0xdf0d
 00001190:	e34f0800	movt	r0, #0xf800
 00001194:	e34d1f0d	movt	r1, #0xdf0d
 00001198:	eb002798 	bl	0xb000		; io_write
-0000119c:	ebfffd5d 	bl	0x718
+0000119c:	ebfffd5d 	bl	0x718		; wd_restart
 
 ; We now have the image loaded, r0 = r4 = start address
 000011a0:	e1a00004 	mov	r0, r4
@@ -1572,13 +1589,16 @@
 000011b8:	e92d4010 	push	{r4, lr}
 000011bc:	e1a04000 	mov	r4, r0		; start_addr
 000011c0:	e24dd008 	sub	sp, sp, #8
-000011c4:	ebfffd53 	bl	0x718
+000011c4:	ebfffd53 	bl	0x718		; wd_restart
+; Write to the SCLR unlock register
+; really only the low 16 bits are needed
 000011c8:	e3a00008 	mov	r0, #8
 000011cc:	e30d1f0d	movw	r1, #0xdf0d
-000011d0:	e34f0800	movt	r0, #0xf800
-000011d4:	e34d1f0d	movt	r1, #0xdf0d
-000011d8:	eb002788 	bl	0xb000		; io_write
-000011dc:	ebfffd4d 	bl	0x718
+000011d0:	e34f0800	movt	r0, #0xf800	; 0xf800_0008
+000011d4:	e34d1f0d	movt	r1, #0xdf0d	; 0xdf0ddf0d
+000011d8:	eb002788 	bl	0xb000		; io_write ( r0 <- r1
+
+000011dc:	ebfffd4d 	bl	0x718		; wd_restart
 000011e0:	eb000309 	bl	0x1e0c
 000011e4:	e58d0004 	str	r0, [sp, #4]
 000011e8:	e59d0004 	ldr	r0, [sp, #4]
@@ -1600,13 +1620,15 @@
 00001214:	e92d4010 	push	{r4, lr}
 00001218:	e1a04000 	mov	r4, r0		; start_addr
 0000121c:	e24dd008 	sub	sp, sp, #8
-00001220:	ebfffd3c 	bl	0x718
+00001220:	ebfffd3c 	bl	0x718		; wd_restart
+; Write to SCLR unlock register
 00001224:	e3a00008 	mov	r0, #8
 00001228:	e30d1f0d	movw	r1, #0xdf0d
 0000122c:	e34f0800	movt	r0, #0xf800
 00001230:	e34d1f0d	movt	r1, #0xdf0d
 00001234:	eb002771 	bl	0xb000		; io_write
-00001238:	ebfffd36 	bl	0x718
+
+00001238:	ebfffd36 	bl	0x718		; wd_restart
 0000123c:	eb0002f2 	bl	0x1e0c
 00001240:	e58d0004 	str	r0, [sp, #4]
 00001244:	e59d0004 	ldr	r0, [sp, #4]
@@ -1623,6 +1645,7 @@
 00001268:	e8bd4010 	pop	{r4, lr}
 0000126c:	eafffe64 	b	0xc04		; boot_error ()
 
+; subroutine
 00001270:	e52de004 	push	{lr}
 00001274:	e24dd014 	sub	sp, sp, #20
 00001278:	eb0002e3 	bl	0x1e0c
@@ -1974,21 +1997,23 @@
 000016d4:	e58d9010 	str	r9, [sp, #16]
 000016d8:	e5c69000 	strb	r9, [r6]
 000016dc:	e5879000 	str	r9, [r7]
-000016e0:	eb001027 	bl	0x5784
-000016e4:	eb0025de 	bl	0xae64
+
+000016e0:	eb001027 	bl	0x5784		; slcr_unlock ()
+000016e4:	eb0025de 	bl	0xae64		; gtimer_init ()
 000016e8:	ebfffe4f 	bl	0x102c
 000016ec:	eb0023b4 	bl	0xa5c4
-000016f0:	e3a00f95 	mov	r0, #596	@ 0x254
+
+000016f0:	e3a00f95 	mov	r0, #0x254
 000016f4:	e3a01001 	mov	r1, #1
 000016f8:	e34f0800	movt	r0, #0xf800
-000016fc:	eb00263f 	bl	0xb000		; io_write
-00001700:	ebfffb1c 	bl	0x378
-00001704:	e3a00c05 	mov	r0, #1280	@ 0x500
+000016fc:	eb00263f 	bl	0xb000		; io_write ( 0xf800_0254, 1 )
+00001700:	ebfffb1c 	bl	0x378		; big_init ()
+00001704:	e3a00c05 	mov	r0, #0x500
 00001708:	e1a01009 	mov	r1, r9
 0000170c:	e34f0800	movt	r0, #0xf800
-00001710:	eb00263a 	bl	0xb000		; io_write
-00001714:	ebfffbff 	bl	0x718
-00001718:	ebfffbf9 	bl	0x704
+00001710:	eb00263a 	bl	0xb000		; io_write ( 0xf800_0500, r9 )
+00001714:	ebfffbff 	bl	0x718		; wd_restart
+00001718:	ebfffbf9 	bl	0x704		; wd_zero
 0000171c:	ebfffae1 	bl	0x2a8		; fuse_unlock
 00001720:	ebffffc7 	bl	0x1644		; fuse_fiddle
 00001724:	e307000c	movw	r0, #0x700c
@@ -2043,9 +2068,9 @@
 00001788:	e3a00f97 	mov	r0, #604	@ 0x25c
 0000178c:	e34f0800	movt	r0, #0xf800
 00001790:	eb002607 	bl	0xafb4		; io_read
-00001794:	e1a05000 	mov	r5, r0
+00001794:	e1a05000 	mov	r5, r0		; save boot-mode
 
-00001798:	ebfffbe2 	bl	0x728
+00001798:	ebfffbe2 	bl	0x728		; disable L2 cache
 
 ; write 0x20 to 0xe000d038
 ; 0xe000_d000 are the qspi registers
@@ -3360,6 +3385,7 @@
 00002974:	e307167b	movw	r1, #0x767b
 00002978:	e8bd4010 	pop	{r4, lr}
 0000297c:	ea00219f 	b	0xb000		; io_write
+
 00002980:	e92d4070 	push	{r4, r5, r6, lr}
 00002984:	e30d0004	movw	r0, #0xd004
 00002988:	e30d500c	movw	r5, #0xd00c
@@ -3381,6 +3407,7 @@
 000029c8:	e3c11001 	bic	r1, r1, #1
 000029cc:	e8bd4070 	pop	{r4, r5, r6, lr}
 000029d0:	ea00218a 	b	0xb000		; io_write
+
 000029d4:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
 000029d8:	e30e4080	movw	r4, #0xe080
 000029dc:	e24ddf51 	sub	sp, sp, #324	@ 0x144
@@ -6104,7 +6131,7 @@
 00005378:	e34f0800	movt	r0, #0xf800
 0000537c:	e3a01002 	mov	r1, #2
 00005380:	eb000107 	bl	0x57a4		; mio_pin()
-00005384:	e3000728	movw	r0, #0x728
+00005384:	e3000728	movw	r0, #0x728	
 00005388:	e34f0800	movt	r0, #0xf800
 0000538c:	e3011002	movw	r1, #0x1002
 00005390:	eb000103 	bl	0x57a4		; mio_pin()
@@ -6369,13 +6396,17 @@
 00005778:	3affffee 	bcc	0x5738
 0000577c:	e3a00000 	mov	r0, #0
 00005780:	e8bd81f0 	pop	{r4, r5, r6, r7, r8, pc}
+
+; subroutine - write to SLCR unlock register
 00005784:	e3a00008 	mov	r0, #8
 00005788:	e30d1f0d	movw	r1, #0xdf0d
 0000578c:	e34f0800	movt	r0, #0xf800
 00005790:	e34d1f0d	movt	r1, #0xdf0d
 00005794:	ea001619 	b	0xb000		; io_write
-00005798:	e280033e 	add	r0, r0, #-134217728	@ 0xf8000000
-0000579c:	e2800c07 	add	r0, r0, #1792	@ 0x700
+
+; subroutine - no calls
+00005798:	e280033e 	add	r0, r0, #0xf8000000
+0000579c:	e2800c07 	add	r0, r0, #0x700
 000057a0:	ea001603 	b	0xafb4		; io_read
 
 ; subroutine, many calls "mio_pin()"
@@ -6410,6 +6441,7 @@
 000057fc:	e34d1f0d	movt	r1, #0xdf0d
 00005800:	e3004724	movw	r4, #0x724
 00005804:	eb0015fd 	bl	0xb000		; io_write
+; the above is a write to the SLCR unlock register
 00005808:	e3a00c07 	mov	r0, #0x700
 0000580c:	e34f0800	movt	r0, #0xf800	; 0xf8000700
 00005810:	e3011601	movw	r1, #0x1601
@@ -12242,44 +12274,48 @@
 0000ae5c:	92800020 	addls	r0, r0, #32
 0000ae60:	e12fff1e 	bx	lr
 
+; subroutine - gtimer_init ()
 0000ae64:	e92d4010 	push	{r4, lr}
-0000ae68:	e3a04f82 	mov	r4, #520	@ 0x208
+0000ae68:	e3a04f82 	mov	r4, #0x208
 0000ae6c:	e34f48f0	movt	r4, #0xf8f0
 0000ae70:	e3a01000 	mov	r1, #0
 0000ae74:	e1a00004 	mov	r0, r4
-0000ae78:	eb000060 	bl	0xb000		; io_write
-0000ae7c:	e3a00c02 	mov	r0, #512	@ 0x200
+0000ae78:	eb000060 	bl	0xb000		; io_write ( 0xf8f0_0208, 0 )
+0000ae7c:	e3a00c02 	mov	r0, #0x200
 0000ae80:	e34f08f0	movt	r0, #0xf8f0
 0000ae84:	e3a01000 	mov	r1, #0
-0000ae88:	eb00005c 	bl	0xb000		; io_write
-0000ae8c:	e3a00f81 	mov	r0, #516	@ 0x204
+0000ae88:	eb00005c 	bl	0xb000		; io_write ( 0xf8f0_0200, 0 )
+0000ae8c:	e3a00f81 	mov	r0, #0x204
 0000ae90:	e3a01000 	mov	r1, #0
 0000ae94:	e34f08f0	movt	r0, #0xf8f0
-0000ae98:	eb000058 	bl	0xb000		; io_write
+0000ae98:	eb000058 	bl	0xb000		; io_write ( 0xf8f0_0204, 0 )
 0000ae9c:	e1a00004 	mov	r0, r4
 0000aea0:	e3a01001 	mov	r1, #1
 0000aea4:	e8bd4010 	pop	{r4, lr}
-0000aea8:	ea000054 	b	0xb000		; io_write
+0000aea8:	ea000054 	b	0xb000		; io_write ( 0xf8f0_0208, 1 )
 
-; subroutine
+; subroutine - gtimer_read
+; returns 64 bit value in r0 and r1
 0000aeac:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
 0000aeb0:	e24dd014 	sub	sp, sp, #20
-0000aeb4:	e3a00f81 	mov	r0, #516	@ 0x204
+
+0000aeb4:	e3a00f81 	mov	r0, #0x204
 0000aeb8:	e34f08f0	movt	r0, #0xf8f0
-0000aebc:	eb00003c 	bl	0xafb4		; io_read
+0000aebc:	eb00003c 	bl	0xafb4		; io_read ( 0xf8f0_0204 )
 0000aec0:	e1a02000 	mov	r2, r0
-0000aec4:	e3a00c02 	mov	r0, #512	@ 0x200
+0000aec4:	e3a00c02 	mov	r0, #0x200
 0000aec8:	e34f08f0	movt	r0, #0xf8f0
 0000aecc:	e58d200c 	str	r2, [sp, #12]
-0000aed0:	eb000037 	bl	0xafb4		; io_read
+0000aed0:	eb000037 	bl	0xafb4		; io_read ( 0xf8f0_0200 )
 0000aed4:	e1a01000 	mov	r1, r0
-0000aed8:	e3a00f81 	mov	r0, #516	@ 0x204
+0000aed8:	e3a00f81 	mov	r0, #0x204
 0000aedc:	e34f08f0	movt	r0, #0xf8f0
 0000aee0:	e58d1008 	str	r1, [sp, #8]
-0000aee4:	eb000032 	bl	0xafb4		; io_read
+0000aee4:	eb000032 	bl	0xafb4		; io_read ( 0xf8f0_0204 )
 0000aee8:	e59d300c 	ldr	r3, [sp, #12]
 0000aeec:	e1500003 	cmp	r0, r3
-0000aef0:	1affffef 	bne	0xaeb4
+0000aef0:	1affffef 	bne	0xaeb4		; loop
+
 0000aef4:	e59d100c 	ldr	r1, [sp, #12]
 0000aef8:	e3a02000 	mov	r2, #0
 0000aefc:	e1a03001 	mov	r3, r1
@@ -12298,7 +12334,7 @@
 0000af28:	e24dd00c 	sub	sp, sp, #12
 0000af2c:	e1a07003 	mov	r7, r3
 0000af30:	e1a06000 	mov	r6, r0
-0000af34:	ebffffdc 	bl	0xaeac
+0000af34:	ebffffdc 	bl	0xaeac		; gtimer_read ()
 0000af38:	e1cd00f0 	strd	r0, [sp]
 0000af3c:	e3a0c0c3 	mov	ip, #195	@ 0xc3
 0000af40:	e0832c94 	umull	r2, r3, r4, ip
@@ -12316,7 +12352,7 @@
 0000af68:	e92d4038 	push	{r3, r4, r5, lr}
 0000af6c:	e1a04000 	mov	r4, r0
 0000af70:	e1a05001 	mov	r5, r1
-0000af74:	ebffffcc 	bl	0xaeac
+0000af74:	ebffffcc 	bl	0xaeac		; gtimer_read ()
 0000af78:	e1510005 	cmp	r1, r5
 0000af7c:	01500004 	cmpeq	r0, r4
 0000af80:	33a00000 	movcc	r0, #0
