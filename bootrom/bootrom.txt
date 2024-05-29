@@ -847,7 +847,7 @@
 00000728:	e3a00c21 	mov	r0, #0x2100
 0000072c:	e3a01000 	mov	r1, #0
 00000730:	e34f08f0	movt	r0, #0xf8f0
-00000734:	ea002a31 	b	0xb000		; io_write ( 0xf8f02100, 0 )
+00000734:	ea002a31 	b	0xb000		; io_write ( 0xf8f0_2100, 0 )
 
 ; subroutine (part of error handling)
 ; fred ()
@@ -881,27 +881,42 @@
 0000079c:	e8bd4010 	pop	{r4, lr}
 000007a0:	ea00059c 	b	0x1e18
 
+; ----------------------
 ; subroutine -- never returns
+; bootrom_error ( code )
+; Note that we also have boot_error ()
+
 000007a4:	e92d4010 	push	{r4, lr}
-000007a8:	e1a04000 	mov	r4, r0
-000007ac:	e3a00f96 	mov	r0, #600	@ 0x258
+000007a8:	e1a04000 	mov	r4, r0		; r4 = arg
+000007ac:	e3a00f96 	mov	r0, #0x258
 000007b0:	e34f0800	movt	r0, #0xf800
-000007b4:	eb0029fe 	bl	0xafb4		; io_read
+000007b4:	eb0029fe 	bl	0xafb4		; io_read ( 0xf800_0258 )
+
+; 0258 is "reset status"
+; The low 16 bits are "bootrom error code"
+; The shift back and forth clears these bits, then
+; the OR instruction places the code
+
 000007b8:	e1a02820 	lsr	r2, r0, #16
-000007bc:	e3a00f96 	mov	r0, #600	@ 0x258
+000007bc:	e3a00f96 	mov	r0, #0x258	; ..
 000007c0:	e1a01802 	lsl	r1, r2, #16
-000007c4:	e34f0800	movt	r0, #0xf800
+000007c4:	e34f0800	movt	r0, #0xf800	; 0xf800_0258
 000007c8:	e1811004 	orr	r1, r1, r4
 000007cc:	eb002a0b 	bl	0xb000		; io_write
-000007d0:	e3a00a07 	mov	r0, #28672	@ 0x7000
-000007d4:	e3a01080 	mov	r1, #128	@ 0x80
+
+; Write to devconfig config register.
+; Among other things, setting bit 31 puts the processor in secure lockdown
+000007d0:	e3a00a07 	mov	r0, #0x7000
+000007d4:	e3a01080 	mov	r1, #0x80
 000007d8:	e34f0800	movt	r0, #0xf800
-000007dc:	e3481c80	movt	r1, #0x8c80
-000007e0:	eb002a06 	bl	0xb000		; io_write
+000007dc:	e3481c80	movt	r1, #0x8c80	; 0x8c80_0080
+000007e0:	eb002a06 	bl	0xb000		; io_write ( 0xf800_7000, 0x8c80_0080 )
 
 ; spin
 000007e4:	e320f002 	wfe
 000007e8:	eafffffd 	b	0x7e4
+
+; ----------------------
 
 ;subroutine
 000007ec:	e92d4030 	push	{r4, r5, lr}
@@ -1171,6 +1186,7 @@
 ; subroutine - many calls
 ;
 ; boot_error ( errno )
+; ( note that we also have bootrom_error () which is more bare-bones )
 ;
 ; argument (in r0) is an error number like 0x2501 or 0x2001
 ; it seems that all error numbers have 0x2xxx,
@@ -1473,9 +1489,14 @@
 00001024:	eb00037b 	bl	0x1e18
 00001028:	eafffff3 	b	0xffc
 
-; subroutine
+; -----------------------------------
+; subroutine - one call early in MAIN
+; call this "reboot_status ()"
+
 0000102c:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
-00001030:	e3a00e25 	mov	r0, #592	@ 0x250
+
+; 0xf800_0250 - undocumented SLCR register
+00001030:	e3a00e25 	mov	r0, #0x250
 00001034:	e24dd014 	sub	sp, sp, #20
 00001038:	e34f0800	movt	r0, #0xf800
 0000103c:	eb0027dc 	bl	0xafb4		; io_read
@@ -1484,17 +1505,23 @@
 00001048:	e59d300c 	ldr	r3, [sp, #12]
 0000104c:	e3530000 	cmp	r3, #0
 00001050:	1a000001 	bne	0x105c
+
 00001054:	e3020030	movw	r0, #0x2030
-00001058:	ebfffdd1 	bl	0x7a4
+00001058:	ebfffdd1 	bl	0x7a4		; bootrom_error ( 0x2030)
+; never returns
+
 0000105c:	e3002494	movw	r2, #0x494
 00001060:	e59de00c 	ldr	lr, [sp, #12]
 00001064:	e3402007 	movt	r2, #7
-00001068:	e3a00f96 	mov	r0, #600	@ 0x258
+
+; 0xf800_0258 is reboot status
+00001068:	e3a00f96 	mov	r0, #0x258
 0000106c:	e582e000 	str	lr, [r2]
 00001070:	e34f0800	movt	r0, #0xf800
 00001074:	eb0027ce 	bl	0xafb4		; io_read
+
 00001078:	e58d0008 	str	r0, [sp, #8]
-0000107c:	e3a00f96 	mov	r0, #600	@ 0x258
+0000107c:	e3a00f96 	mov	r0, #0x258
 00001080:	e59dc008 	ldr	ip, [sp, #8]
 00001084:	e34f0800	movt	r0, #0xf800
 00001088:	e58dc004 	str	ip, [sp, #4]
@@ -1513,7 +1540,7 @@
 000010bc:	e59d1008 	ldr	r1, [sp, #8]
 000010c0:	e28dd014 	add	sp, sp, #20
 000010c4:	e49de004 	pop	{lr}		@ (ldr lr, [sp], #4)
-000010c8:	ea0027cc 	b	0xb000		; io_write
+000010c8:	ea0027cc 	b	0xb000		; io_write ( 0xf800_0258, r1 )
 
 ; subroutine - never called
 000010cc:	e3002000 	movw	r2, #0
@@ -1680,7 +1707,7 @@
 000012ec:	e3500000 	cmp	r0, #0
 000012f0:	0afffff4 	beq	0x12c8
 000012f4:	e302001e	movw	r0, #0x201e
-000012f8:	ebfffd29 	bl	0x7a4
+000012f8:	ebfffd29 	bl	0x7a4		; bootrom_error ( 0x201e )
 000012fc:	e59dc00c 	ldr	ip, [sp, #12]
 00001300:	e31c0020 	tst	ip, #32
 00001304:	1afffff2 	bne	0x12d4
@@ -1709,7 +1736,7 @@
 00001360:	e3500000 	cmp	r0, #0
 00001364:	0afffff4 	beq	0x133c
 00001368:	e302001f	movw	r0, #0x201f
-0000136c:	ebfffd0c 	bl	0x7a4
+0000136c:	ebfffd0c 	bl	0x7a4		; bootrom_error ( xx )
 00001370:	e59de00c 	ldr	lr, [sp, #12]
 00001374:	e31e0020 	tst	lr, #32
 00001378:	0afffff2 	beq	0x1348
@@ -1731,7 +1758,7 @@
 000013b8:	e3500000 	cmp	r0, #0
 000013bc:	0afffff4 	beq	0x1394
 000013c0:	e3020020	movw	r0, #0x2020
-000013c4:	ebfffcf6 	bl	0x7a4
+000013c4:	ebfffcf6 	bl	0x7a4		; bootrom_error ( xx )
 000013c8:	e59d100c 	ldr	r1, [sp, #12]
 000013cc:	e3110010 	tst	r1, #16
 000013d0:	0afffff2 	beq	0x13a0
@@ -2000,22 +2027,31 @@
 
 000016e0:	eb001027 	bl	0x5784		; slcr_unlock ()
 000016e4:	eb0025de 	bl	0xae64		; gtimer_init ()
-000016e8:	ebfffe4f 	bl	0x102c
-000016ec:	eb0023b4 	bl	0xa5c4
+000016e8:	ebfffe4f 	bl	0x102c		; reboot_status ()
+000016ec:	eb0023b4 	bl	0xa5c4		; setup_clocks ()
 
+; 0xf800_0254 is undocumented
 000016f0:	e3a00f95 	mov	r0, #0x254
 000016f4:	e3a01001 	mov	r1, #1
 000016f8:	e34f0800	movt	r0, #0xf800
 000016fc:	eb00263f 	bl	0xb000		; io_write ( 0xf800_0254, 1 )
+
 00001700:	ebfffb1c 	bl	0x378		; big_init ()
+
+; 0xf800_0500 is undocumented
 00001704:	e3a00c05 	mov	r0, #0x500
 00001708:	e1a01009 	mov	r1, r9
 0000170c:	e34f0800	movt	r0, #0xf800
 00001710:	eb00263a 	bl	0xb000		; io_write ( 0xf800_0500, r9 )
+
 00001714:	ebfffbff 	bl	0x718		; wd_restart
 00001718:	ebfffbf9 	bl	0x704		; wd_zero
 0000171c:	ebfffae1 	bl	0x2a8		; fuse_unlock
 00001720:	ebffffc7 	bl	0x1644		; fuse_fiddle
+
+; 0xf800_700c
+; devconfig - interrupt status flags
+; write 1 to clear, this clears a PLL power related flag
 00001724:	e307000c	movw	r0, #0x700c
 00001728:	e3a01010 	mov	r1, #16
 0000172c:	e34f0800	movt	r0, #0xf800
@@ -2023,12 +2059,14 @@
 00001734:	e307000c	movw	r0, #0x700c
 00001738:	e34f0800	movt	r0, #0xf800
 0000173c:	eb00261c 	bl	0xafb4		; io_read
+
 00001740:	e58d0014 	str	r0, [sp, #20]
 00001744:	e3070080	movw	r0, #0x7080
 00001748:	e59d8014 	ldr	r8, [sp, #20]
 0000174c:	e34f0800	movt	r0, #0xf800
 00001750:	e7e05258 	ubfx	r5, r8, #4, #1
 00001754:	e58d5014 	str	r5, [sp, #20]
+
 ; read from 0xf8007080
 ; this is in devcfg - the misc. control register
 00001758:	eb002615 	bl	0xafb4		; io_read
@@ -2070,6 +2108,7 @@
 00001790:	eb002607 	bl	0xafb4		; io_read
 00001794:	e1a05000 	mov	r5, r0		; save boot-mode
 
+; A curious thing to do at this moment
 00001798:	ebfffbe2 	bl	0x728		; disable L2 cache
 
 ; write 0x20 to 0xe000d038
@@ -2084,10 +2123,11 @@
 000017a8:	e2055007 	and	r5, r5, #7	; mask to 3 bits
 000017ac:	eb002613 	bl	0xb000		; io_write
 
-; This must be checking the boot mode settings
-; and dispatching to whatever boot load routine handles it
-; We get 8 choices and all seem to do something
+; This checks the boot mode settings
+; and dispatches to whatever boot load routine handles it.
+; We get 8 choices and all seem to do something!
 ; Page 166 of the TRM has a table showing "boot mode strapping pins"
+;
 ; 0 = JTAG
 ; 1 = Quad-SPI
 ; 2 = NOR
@@ -2118,20 +2158,21 @@
 000017f0:	e3020009	movw	r0, #0x2009	; error 0x2009
 000017f4:	ebfffd02 	bl	0xc04		; boot_error ()
 
-; shared code for several boot modes (NAND and NOR)
-; they branch here -- when done
+; shared code for almost all boot modes (Uart, JTAG, SD, NAND and NOR)
+; they branch here -- when setup is done
 000017f8:	e307002c	movw	r0, #0x702c
-000017fc:	e30084a0	movw	r8, #0x4a0
-00001800:	e34f0800	movt	r0, #0xf800	; 0xf800702c
+000017fc:	e30084a0	movw	r8, #0x4a0	; r8 = 0x4a0
+00001800:	e34f0800	movt	r0, #0xf800	; 0xf800_702c
 00001804:	e58d8004 	str	r8, [sp, #4]
+
 ; read f800_702c (in devconfig)
 ; multiboot address (remembers address from prior boot)
 00001808:	eb0025e9 	bl	0xafb4		; io_read
 0000180c:	e3a0b902 	mov	fp, #32768	@ 0x8000
-00001810:	e1a0c980 	lsl	ip, r0, #19
+00001810:	e1a0c980 	lsl	ip, r0, #19	; ip = multiboot<<19
 00001814:	e59d1004 	ldr	r1, [sp, #4]
 00001818:	e1a08000 	mov	r8, r0
-0000181c:	e1a009ac 	lsr	r0, ip, #19
+0000181c:	e1a009ac 	lsr	r0, ip, #19	; r0 = multiboot>>19
 00001820:	e1a0900b 	mov	r9, fp
 00001824:	e3401007 	movt	r1, #7
 00001828:	e1a03780 	lsl	r3, r0, #15
@@ -2147,9 +2188,9 @@
 ; Note 0xe200_0000 is base for SMC NOR memory
 ; SMC is "static memory controller)
 
-00001840:	e353033f 	cmp	r3, #-67108864	@ 0xfc000000
+00001840:	e353033f 	cmp	r3, #0xfc000000
 00001844:	0a000022 	beq	0x18d4
-00001848:	e35304e1 	cmp	r3, #-520093696	@ 0xe1000000
+00001848:	e35304e1 	cmp	r3, #0xe1000000
 0000184c:	0a000028 	beq	0x18f4
 
 00001850:	eb001055 	bl	0x59ac
@@ -2180,8 +2221,10 @@
 000018b0:	e5942000 	ldr	r2, [r4]
 000018b4:	e1520009 	cmp	r2, r9
 000018b8:	9affffe4 	bls	0x1850
+
 000018bc:	e302000b	movw	r0, #0x200b
 000018c0:	ebfffccf 	bl	0xc04		; boot_error ()
+
 000018c4:	e59d3004 	ldr	r3, [sp, #4]
 000018c8:	e5933000 	ldr	r3, [r3]
 000018cc:	e353033f 	cmp	r3, #0xfc000000
@@ -2189,8 +2232,10 @@
 000018d4:	e594e000 	ldr	lr, [r4]
 000018d8:	e15e0009 	cmp	lr, r9
 000018dc:	9affffdb 	bls	0x1850
+
 000018e0:	e302000c	movw	r0, #0x200c
 000018e4:	ebfffcc6 	bl	0xc04		; boot_error ()
+
 000018e8:	e59a3000 	ldr	r3, [sl]
 000018ec:	e35304e1 	cmp	r3, #0xe1000000
 000018f0:	1affffd6 	bne	0x1850
@@ -2334,13 +2379,15 @@
 ; Handler for Uart boot ------
 00001a90:	e3a00701 	mov	r0, #262144	@ 0x40000
 00001a94:	eb0021ce 	bl	0xa1d4		; call uart-loader
+
 00001a98:	e3500000 	cmp	r0, #0
-00001a9c:	1a0000cb 	bne	0x1dd0
-00001aa0:	e300068c	movw	r0, #0x68c
+00001a9c:	1a0000cb 	bne	0x1dd0		; boot_error ( 0x2004)
+
+00001aa0:	e300068c	movw	r0, #0x68c	; ..
 00001aa4:	e30a2578	movw	r2, #0xa578	; callback routine
 00001aa8:	e3400007 	movt	r0, #7		; 0x7068c
-00001aac:	e3402000 	movt	r2, #0
-00001ab0:	e5802000 	str	r2, [r0]	; save callback addr
+00001aac:	e3402000 	movt	r2, #0		; 0xa578
+00001ab0:	e5802000 	str	r2, [r0]	; *7068c = 0xa578
 00001ab4:	eaffff4f 	b	0x17f8
 
 ; Handler for JTAG boot
@@ -2367,14 +2414,15 @@
 00001aec:	eb000d39 	bl	0x4fd8
 00001af0:	e3500001 	cmp	r0, #1
 00001af4:	0a0000b8 	beq	0x1ddc
-00001af8:	e300368c	movw	r3, #0x68c
+00001af8:	e300368c	movw	r3, #0x68c	; ..
 00001afc:	e305043c	movw	r0, #0x543c	; callback
 00001b00:	e3403007 	movt	r3, #7		; 0x7068c
 00001b04:	e3400000 	movt	r0, #0
 00001b08:	e5830000 	str	r0, [r3]
 00001b0c:	eaffff39 	b	0x17f8
+
 00001b10:	e3020021	movw	r0, #0x2021
-00001b14:	ebfffb22 	bl	0x7a4
+00001b14:	ebfffb22 	bl	0x7a4		; bootrom_error ( xx )
 ; never returns
 00001b18:	eaffff17 	b	0x177c
 
@@ -2382,7 +2430,7 @@
 00001b1c:	eb0012e7 	bl	0x66c0
 00001b20:	e3500001 	cmp	r0, #1
 00001b24:	0a0000af 	beq	0x1de8
-00001b28:	e300868c	movw	r8, #0x68c	; ---
+00001b28:	e300868c	movw	r8, #0x68c	; ..
 00001b2c:	e306142c	movw	r1, #0x642c	; callback
 00001b30:	e3408007 	movt	r8, #7		; 0x7068c
 00001b34:	e3401000 	movt	r1, #0
@@ -2393,7 +2441,7 @@
 00001b40:	eb000e86 	bl	0x5560
 00001b44:	e3500001 	cmp	r0, #1
 00001b48:	0a0000a9 	beq	0x1df4
-00001b4c:	e300b68c	movw	fp, #0x68c
+00001b4c:	e300b68c	movw	fp, #0x68c	; ..
 00001b50:	e30596ac	movw	r9, #0x56ac	; callback
 00001b54:	e340b007 	movt	fp, #7		; 0x7068c
 00001b58:	e3409000 	movt	r9, #0
@@ -2412,7 +2460,7 @@
 00001b78:	eb002131 	bl	0xa044
 00001b7c:	e3500000 	cmp	r0, #0
 00001b80:	1a00008f 	bne	0x1dc4
-00001b84:	e300e68c	movw	lr, #0x68c
+00001b84:	e300e68c	movw	lr, #0x68c	; ..
 00001b88:	e30ac104	movw	ip, #0xa104	; callback
 00001b8c:	e340e007 	movt	lr, #7		; 0x7068c
 00001b90:	e340c000 	movt	ip, #0		; 0x0a104
@@ -2599,18 +2647,23 @@
 00001db8:	e3020022	movw	r0, #0x2022
 00001dbc:	ebfffb90 	bl	0xc04		; boot_error ()
 00001dc0:	eaffff42 	b	0x1ad0
+
 00001dc4:	e3020003	movw	r0, #0x2003
 00001dc8:	ebfffb8d 	bl	0xc04		; boot_error ()
 00001dcc:	eaffff6c 	b	0x1b84
+
 00001dd0:	e3020004	movw	r0, #0x2004
 00001dd4:	ebfffb8a 	bl	0xc04		; boot_error ()
 00001dd8:	eaffff30 	b	0x1aa0
+
 00001ddc:	e3a00a02 	mov	r0, #0x2000
 00001de0:	ebfffb87 	bl	0xc04		; boot_error ()
 00001de4:	eaffff43 	b	0x1af8
+
 00001de8:	e3020001	movw	r0, #0x2001
 00001dec:	ebfffb84 	bl	0xc04		; boot_error ()
 00001df0:	eaffff4c 	b	0x1b28
+
 00001df4:	e3020002	movw	r0, #0x2002
 00001df8:	ebfffb81 	bl	0xc04		; boot_error ()
 00001dfc:	eaffff52 	b	0x1b4c
@@ -2648,7 +2701,7 @@
 00001e4c:	e1a04000 	mov	r4, r0
 00001e50:	0a000001 	beq	0x1e5c
 00001e54:	e3020201	movw	r0, #0x2201
-00001e58:	ebfffa51 	bl	0x7a4
+00001e58:	ebfffa51 	bl	0x7a4		; bootrom_error ( xx )
 00001e5c:	e3140001 	tst	r4, #1
 00001e60:	0a000003 	beq	0x1e74
 00001e64:	e3a00002 	mov	r0, #2
@@ -2687,7 +2740,7 @@
 00001edc:	e8bd8010 	pop	{r4, pc}
 
 00001ee0:	e3020029	movw	r0, #0x2029
-00001ee4:	ebfffa2e 	bl	0x7a4
+00001ee4:	ebfffa2e 	bl	0x7a4		; bootrom_error ( xx )
 00001ee8:	eaffffee 	b	0x1ea8
 00001eec:	e1a01000 	mov	r1, r0
 00001ef0:	e3070004	movw	r0, #0x7004
@@ -6496,37 +6549,51 @@
 000058d4:	1afffff2 	bne	0x58a4
 000058d8:	e8bd8070 	pop	{r4, r5, r6, pc}
 
+; -------------
 ; subroutine, one call from below
 000058dc:	e3520004 	cmp	r2, #4
 000058e0:	0a000001 	beq	0x58ec
-000058e4:	e3a00000 	mov	r0, #0
+000058e4:	e3a00000 	mov	r0, #0		; return 0
 000058e8:	e12fff1e 	bx	lr
 
-; branch from above
-000058ec:	e3003498	movw	r3, #0x498
-000058f0:	e30fcfe0	movw	ip, #0xffe0
-000058f4:	e3403007 	movt	r3, #7
-000058f8:	e34fcfff	movt	ip, #0xffff
+; branch from above when r2 != 4
+
+000058ec:	e3003498	movw	r3, #0x498	; ..
+000058f0:	e30fcfe0	movw	ip, #0xffe0	; ..
+000058f4:	e3403007 	movt	r3, #7		; 0x70498
+000058f8:	e34fcfff	movt	ip, #0xffff	; 0xffff_ffe0
+
 000058fc:	e5932000 	ldr	r2, [r3]
-00005900:	e062300c 	rsb	r3, r2, ip
-00005904:	e0830000 	add	r0, r3, r0
+00005900:	e062300c 	rsb	r3, r2, ip	; r3 = ip - r2
+00005904:	e0830000 	add	r0, r3, r0	; r0 += r3
+
+; Interesting conditional return.
+; the "hi" condition is an unsigned "gt"
+
 00005908:	e3500028 	cmp	r0, #40	@ 0x28
 0000590c:	83a00000 	movhi	r0, #0
 00005910:	812fff1e 	bxhi	lr
 
-00005914:	e3002e90	movw	r2, #0xe90
-00005918:	e1a03120 	lsr	r3, r0, #2
-0000591c:	e3402007 	movt	r2, #7
-00005920:	e3a00001 	mov	r0, #1
+00005914:	e3002e90	movw	r2, #0xe90	; ..
+00005918:	e1a03120 	lsr	r3, r0, #2	; r3 = r0 >> 2
+0000591c:	e3402007 	movt	r2, #7		; 0x70e90
+00005920:	e3a00001 	mov	r0, #1		; for the return
 00005924:	e792c103 	ldr	ip, [r2, r3, lsl #2]
-00005928:	e581c000 	str	ip, [r1]
-0000592c:	e12fff1e 	bx	lr
 
+; The store into r1 is interesting.
+; This is the "second argument" to the call.
+; The first argument (r0) is ignored and trashed.
+00005928:	e581c000 	str	ip, [r1]
+0000592c:	e12fff1e 	bx	lr		; return 1
+
+; subroutine, never called.
 ; how do we get here ??  No calls.
+; pretty much code from above with a tseak
 00005930:	e300c498	movw	ip, #0x498
 00005934:	e30f1fe0	movw	r1, #0xffe0
 00005938:	e340c007 	movt	ip, #7
 0000593c:	e34f1fff	movt	r1, #0xffff
+
 00005940:	e59c2000 	ldr	r2, [ip]
 00005944:	e0623001 	rsb	r3, r2, r1
 00005948:	e0830000 	add	r0, r3, r0
@@ -6557,7 +6624,8 @@
 00005984:	e3500001 	cmp	r0, #1
 00005988:	08bd8070 	popeq	{r4, r5, r6, pc}
 
-0000598c:	e300268c	movw	r2, #0x68c
+; Call the "copy_data" callback.
+0000598c:	e300268c	movw	r2, #0x68c	; ..
 00005990:	e1a00006 	mov	r0, r6
 00005994:	e3402007 	movt	r2, #7		; 0x7068c (callback)
 00005998:	e1a01005 	mov	r1, r5
@@ -11294,25 +11362,45 @@
 0000a1cc:	e6ef0070 	uxtb	r0, r0
 0000a1d0:	e8bd8010 	pop	{r4, pc}
 
+; ===================================
+; ===================================
+;
 ; subroutine (uart-loader)
+;
+; called with r0 = 0x40000, which is used as a buffer for data received
+
 0000a1d4:	e92d45f8 	push	{r3, r4, r5, r6, r7, r8, sl, lr}
-0000a1d8:	e30024a0	movw	r2, #0x4a0
-0000a1dc:	e3a0ca01 	mov	ip, #4096	@ 0x1000
-0000a1e0:	e3003498	movw	r3, #0x498
-0000a1e4:	e3402007 	movt	r2, #7
-0000a1e8:	e34ec000	movt	ip, #0xe000
-0000a1ec:	e3403007 	movt	r3, #7
-0000a1f0:	e1a07000 	mov	r7, r0
-0000a1f4:	e3a05000 	mov	r5, #0
-0000a1f8:	e3a00d1f 	mov	r0, #1984	@ 0x7c0
-0000a1fc:	e582c000 	str	ip, [r2]
-0000a200:	e5835000 	str	r5, [r3]
-0000a204:	e34f0800	movt	r0, #0xf800
-0000a208:	e3a010e0 	mov	r1, #224	@ 0xe0
-0000a20c:	ebffed64 	bl	0x57a4		; mio_pin()
+0000a1d8:	e30024a0	movw	r2, #0x4a0	; ..
+0000a1dc:	e3a0ca01 	mov	ip, #0x1000	; ..
+0000a1e0:	e3003498	movw	r3, #0x498	; ..
+0000a1e4:	e3402007 	movt	r2, #7		; r2 = 0x704a0
+0000a1e8:	e34ec000	movt	ip, #0xe000	; ip = 0xe000_1000
+0000a1ec:	e3403007 	movt	r3, #7		; r3 = 0x70498
+
+; Odd code, these registers are set here
+; and used various places down below
+0000a1f0:	e1a07000 	mov	r7, r0		; r7 = arg_buf
+0000a1f4:	e3a05000 	mov	r5, #0		; r5 = 0
+
+; Set MIO pins for uart
+; MIO pins are in the SLCR
+; see page 52 in the TRM for a cute table
+; page 1570 covers the SLCR, 
+; f800_07c0 is pin 48
+; f800_07c4 is pin 49
+; See page 1679, 1680 for these specific pins
+; as you might expect this sets pin 48 to TxD and 49 to RxD
+; (also some values get set in RAM here)
+
+0000a1f8:	e3a00d1f 	mov	r0, #0x7c0	; ..
+0000a1fc:	e582c000 	str	ip, [r2]	; *0x704a0 = 0xe000_1000
+0000a200:	e5835000 	str	r5, [r3]	; *0x70498 = 0
+0000a204:	e34f0800	movt	r0, #0xf800	; f800_07c0
+0000a208:	e3a010e0 	mov	r1, #0xe0
+0000a20c:	ebffed64 	bl	0x57a4		; mio_pin ()
 0000a210:	e30007c4	movw	r0, #0x7c4
-0000a214:	e3a010e0 	mov	r1, #224	@ 0xe0
-0000a218:	e34f0800	movt	r0, #0xf800
+0000a214:	e3a010e0 	mov	r1, #0xe0
+0000a218:	e34f0800	movt	r0, #0xf800	; f800_07c4
 0000a21c:	ebffed60 	bl	0x57a4		; mio_pin()
 
 ; the code here at "a220" is what tipped off 404 that there
@@ -11328,8 +11416,8 @@
 0000a224:	e3010030	movw	r0, #0x1030
 0000a228:	e3a01058 	mov	r1, #88	@ 0x58			'X'
 0000a22c:	e34e0000	movt	r0, #0xe000
-0000a230:	e3004488	movw	r4, #0x488
-0000a234:	eb000371 	bl	0xb000		; io_write
+0000a230:	e3004488	movw	r4, #0x488	; .. used down below
+0000a234:	eb000371 	bl	0xb000		; io_write ( 0xe0001030, 0x58 )
 0000a238:	e3010030	movw	r0, #0x1030
 0000a23c:	e34e0000	movt	r0, #0xe000
 0000a240:	e3a0104c 	mov	r1, #76	@ 0x4c			'L'
@@ -11359,10 +11447,10 @@
 0000a2a0:	e3a0104e 	mov	r1, #78	@ 0x4e			'N'
 0000a2a4:	eb000355 	bl	0xb000		; io_write
 0000a2a8:	e3010030	movw	r0, #0x1030
-0000a2ac:	e3404007 	movt	r4, #7
+0000a2ac:	e3404007 	movt	r4, #7		; 0x70488
 0000a2b0:	e34e0000	movt	r0, #0xe000
 0000a2b4:	e3a01051 	mov	r1, #81	@ 0x51			'Q'
-0000a2b8:	e3086748	movw	r6, #0x8748
+0000a2b8:	e3086748	movw	r6, #0x8748	; .. used down below
 0000a2bc:	eb00034f 	bl	0xb000		; io_write
 
 ; getc() returns the character in r0
@@ -11373,7 +11461,7 @@
 ; a4 = 0x70488
 
 0000a2c0:	e1a08005 	mov	r8, r5		; r8 = 0
-0000a2c4:	e5847000 	str	r7, [r4]	; (r7 holds 0)
+0000a2c4:	e5847000 	str	r7, [r4]	; *0x70488 = r7 = arg_buf
 0000a2c8:	e3406001 	movt	r6, #1		; r6 = 0x18748
 
 0000a2cc:	ebffffad 	bl	0xa188		; getc()
@@ -11394,51 +11482,51 @@
 
 ; we branch here once we find "B"
 
-; Some clumsy compiler finds a dozen ways to needlessly reconstruct
-;  the pointer 0x70488.
-; This address holds a pointer to the actual rbuf
-
 0000a2fc:	e2888001 	add	r8, r8, #1	; r8++
 0000a300:	e3580003 	cmp	r8, #3
 0000a304:	9afffff0 	bls	0xa2cc		; loop up to get "AUD"
 
 # Now get the first integer
+; The compiler needlessly reconstructs the pointer 0x70488 over and over
+; This address holds a pointer to the actual rbuf
 
-0000a308:	e594a000 	ldr	sl, [r4]	; sl = *(0x70488)
+0000a308:	e594a000 	ldr	sl, [r4]	; sl = *(0x70488) = &buf
 0000a30c:	ebffff9d 	bl	0xa188		; getc()
-0000a310:	e5ca0000 	strb	r0, [sl]
+0000a310:	e5ca0000 	strb	r0, [sl]	; buf[0] = char
+
 0000a314:	e300a488	movw	sl, #0x488
-0000a318:	e5946000 	ldr	r6, [r4]	; r6 = *(0x70488)
+0000a318:	e5946000 	ldr	r6, [r4]	; r6 = *(0x70488) = &buf
 0000a31c:	ebffff99 	bl	0xa188		; getc()
-0000a320:	e5c60001 	strb	r0, [r6, #1]
+0000a320:	e5c60001 	strb	r0, [r6, #1]	; buf[1] = char
+
 0000a324:	e340a007 	movt	sl, #7		; sl = 0x70488
-0000a328:	e5945000 	ldr	r5, [r4]	; r5 = *(0x70488)
+0000a328:	e5945000 	ldr	r5, [r4]	; r5 = *(0x70488) = &buf
 0000a32c:	ebffff95 	bl	0xa188		; getc()
-0000a330:	e5c50002 	strb	r0, [r5, #2]
-0000a334:	e5948000 	ldr	r8, [r4]	; why?
+0000a330:	e5c50002 	strb	r0, [r5, #2]	; buf[2] = char
+
+0000a334:	e5948000 	ldr	r8, [r4]	; r8 = &buf
 0000a338:	ebffff92 	bl	0xa188		; getc()
-0000a33c:	e5c80003 	strb	r0, [r8, #3]
+0000a33c:	e5c80003 	strb	r0, [r8, #3]	; buf[3] = char
 
 ; The above has placed a 4 byte value at *(0x70488).
-; note that r4 has held a pointer to this all along,
-; despite the compilers contortions
+; Fetch the 4 byte value into r8
 
-0000a340:	e5947000 	ldr	r7, [r4]	; r7 = *(0x70488)
+0000a340:	e5947000 	ldr	r7, [r4]	; r7 = &buf
 0000a344:	e5978000 	ldr	r8, [r7]	; r8 = *r7
 
-; We have now fetched that 4 byte value into r8 and will reuse
-; the buffer to get another
-;
 ; Now get the second integer
 
 0000a348:	ebffff8e 	bl	0xa188		; getc()
 0000a34c:	e5c70000 	strb	r0, [r7]
+
 0000a350:	e5946000 	ldr	r6, [r4]
 0000a354:	ebffff8b 	bl	0xa188		; getc()
 0000a358:	e5c60001 	strb	r0, [r6, #1]
+
 0000a35c:	e5945000 	ldr	r5, [r4]
 0000a360:	ebffff88 	bl	0xa188		; getc()
 0000a364:	e5c50002 	strb	r0, [r5, #2]
+
 0000a368:	e5947000 	ldr	r7, [r4]
 0000a36c:	ebffff85 	bl	0xa188		; getc()
 0000a370:	e5c70003 	strb	r0, [r7, #3]
@@ -11468,6 +11556,9 @@
 ; Finally, we have the third value in r5
 ; The third value is a "size".
 ; If it is too big, we call it error 2502
+; A note here on the size limit of 0x3_0000
+; This is based on the first 3 64K chunks of SRAM
+; being available for the image we will load
 ;
 ; Now get a fourth integer (the checksum)
 
@@ -11476,12 +11567,15 @@
 
 0000a3b8:	ebffff72 	bl	0xa188		; getc()
 0000a3bc:	e5c60000 	strb	r0, [r6]
+
 0000a3c0:	e5946000 	ldr	r6, [r4]
 0000a3c4:	ebffff6f 	bl	0xa188		; getc()
 0000a3c8:	e5c60001 	strb	r0, [r6, #1]
+
 0000a3cc:	e5946000 	ldr	r6, [r4]
 0000a3d0:	ebffff6c 	bl	0xa188		; getc()
 0000a3d4:	e5c60002 	strb	r0, [r6, #2]
+
 0000a3d8:	e5946000 	ldr	r6, [r4]
 0000a3dc:	ebffff69 	bl	0xa188		; getc()
 0000a3e0:	e5c60003 	strb	r0, [r6, #3]
@@ -11637,7 +11731,9 @@
 0000a574:	eaffff8f 	b	0xa3b8
 
 ; The following routine is a "callback" used by the uart loader
-; when it wants more data.
+; It is fundamentally a wrapper around memcpy that performs
+; various checks.
+
 ; Here are some notes on it from "404" --
 
 ; The intent of this routine is straightforward:
@@ -11661,67 +11757,82 @@
 0000a578:	e92d4008 	push	{r3, lr}
 0000a57c:	e3003488	movw	r3, #0x488
 0000a580:	e3403007 	movt	r3, #7		; 0x70488
-0000a584:	e3a0c001 	mov	ip, #1
-0000a588:	e5933000 	ldr	r3, [r3]
+0000a584:	e3a0c001 	mov	ip, #1		; ip = 1
+0000a588:	e5933000 	ldr	r3, [r3]	; r3 = *0x70488 = &buf
 0000a58c:	e340c007 	movt	ip, #7		; 0x70001
-0000a590:	e0833000 	add	r3, r3, r0
+0000a590:	e0833000 	add	r3, r3, r0	; r3 += r0 (arg1)
 0000a594:	e153000c 	cmp	r3, ip
 0000a598:	8a000007 	bhi	0xa5bc		; (return)
-0000a59c:	e243c807 	sub	ip, r3, #0x70000
-0000a5a0:	e24ce001 	sub	lr, ip, #1
-0000a5a4:	e08e0002 	add	r0, lr, r2
+
+0000a59c:	e243c807 	sub	ip, r3, #0x70000	; ip = r3 - 0x70000
+0000a5a0:	e24ce001 	sub	lr, ip, #1		; lr = ip - 1
+0000a5a4:	e08e0002 	add	r0, lr, r2		; r0 = lr + r2
 0000a5a8:	e3500000 	cmp	r0, #0
 0000a5ac:	c0602002 	rsbgt	r2, r0, r2
-0000a5b0:	e1a00001 	mov	r0, r1
+
+0000a5b0:	e1a00001 	mov	r0, r1		; r0 = r1
 0000a5b4:	e1a01003 	mov	r1, r3
 0000a5b8:	ebffdb9c 	bl	0x1430		; memcpy
-0000a5bc:	e3a00000 	mov	r0, #0
+
+0000a5bc:	e3a00000 	mov	r0, #0		; return 0
 0000a5c0:	e8bd8008 	pop	{r3, pc}
 
-; subroutine
-0000a5c4:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
+; ========================================================
+
+; subroutine - setup_clocks ()
+;  one call early in MAIN
+
+0000a5c4:	e52de004 	push	{lr}
 0000a5c8:	e24dd014 	sub	sp, sp, #20
 0000a5cc:	ebffda12 	bl	0xe1c
 0000a5d0:	e58d000c 	str	r0, [sp, #12]
 0000a5d4:	e59d300c 	ldr	r3, [sp, #12]
 0000a5d8:	e3530040 	cmp	r3, #64	@ 0x40
 0000a5dc:	0a00003f 	beq	0xa6e0
-0000a5e0:	e3a00e12 	mov	r0, #288	@ 0x120
+
+; read SLCR - ARM_CLK_CONTROL
+0000a5e0:	e3a00e12 	mov	r0, #0x120
 0000a5e4:	e34f0800	movt	r0, #0xf800
-0000a5e8:	eb000271 	bl	0xafb4		; io_read
+0000a5e8:	eb000271 	bl	0xafb4		; io_read ( 0xf800_0120)
+
 0000a5ec:	e58d0008 	str	r0, [sp, #8]
-0000a5f0:	e3a00e12 	mov	r0, #288	@ 0x120
+0000a5f0:	e3a00e12 	mov	r0, #0x120
 0000a5f4:	e59dc008 	ldr	ip, [sp, #8]
-0000a5f8:	e34f0800	movt	r0, #0xf800
+0000a5f8:	e34f0800	movt	r0, #0xf800	; 0xf800_0120
 0000a5fc:	e3cc2030 	bic	r2, ip, #48	@ 0x30
 0000a600:	e58d2008 	str	r2, [sp, #8]
 0000a604:	e59d1008 	ldr	r1, [sp, #8]
 0000a608:	e58d1008 	str	r1, [sp, #8]
 0000a60c:	e59d1008 	ldr	r1, [sp, #8]
-0000a610:	eb00027a 	bl	0xb000		; io_write
-0000a614:	e3a00c01 	mov	r0, #256	@ 0x100
+0000a610:	eb00027a 	bl	0xb000		; io_write ( 0xf800_0120, x )
+
+; ARM_PLL_CONTROL
+0000a614:	e3a00c01 	mov	r0, #0x100
 0000a618:	e34f0800	movt	r0, #0xf800
-0000a61c:	eb000264 	bl	0xafb4		; io_read
+0000a61c:	eb000264 	bl	0xafb4		; io_read ( 0xf800_0100 )
 0000a620:	e58d0008 	str	r0, [sp, #8]
-0000a624:	e3a00c01 	mov	r0, #256	@ 0x100
+0000a624:	e3a00c01 	mov	r0, #0x100
 0000a628:	e59d3008 	ldr	r3, [sp, #8]
 0000a62c:	e34f0800	movt	r0, #0xf800
 0000a630:	e383c001 	orr	ip, r3, #1
 0000a634:	e58dc008 	str	ip, [sp, #8]
 0000a638:	e59d1008 	ldr	r1, [sp, #8]
-0000a63c:	eb00026f 	bl	0xb000		; io_write
-0000a640:	e3a00c01 	mov	r0, #256	@ 0x100
+0000a63c:	eb00026f 	bl	0xb000		; io_write ( 0xf800_0100, x )
+
+0000a640:	e3a00c01 	mov	r0, #0x100
 0000a644:	e34f0800	movt	r0, #0xf800
 0000a648:	eb000259 	bl	0xafb4		; io_read
 0000a64c:	e58d0008 	str	r0, [sp, #8]
-0000a650:	e3a00c01 	mov	r0, #256	@ 0x100
+0000a650:	e3a00c01 	mov	r0, #0x100
 0000a654:	e59d2008 	ldr	r2, [sp, #8]
 0000a658:	e34f0800	movt	r0, #0xf800
 0000a65c:	e3c21001 	bic	r1, r2, #1
 0000a660:	e58d1008 	str	r1, [sp, #8]
 0000a664:	e59d1008 	ldr	r1, [sp, #8]
 0000a668:	eb000264 	bl	0xb000		; io_write
-0000a66c:	e3a00f42 	mov	r0, #264	@ 0x108
+
+; IO_PLL_CONTROL
+0000a66c:	e3a00f42 	mov	r0, #0x108
 0000a670:	e34f0800	movt	r0, #0xf800
 0000a674:	eb00024e 	bl	0xafb4		; io_read
 0000a678:	e58d0008 	str	r0, [sp, #8]
@@ -11732,6 +11843,7 @@
 0000a68c:	e58dc008 	str	ip, [sp, #8]
 0000a690:	e59d1008 	ldr	r1, [sp, #8]
 0000a694:	eb000259 	bl	0xb000		; io_write
+
 0000a698:	e3a00f42 	mov	r0, #264	@ 0x108
 0000a69c:	e34f0800	movt	r0, #0xf800
 0000a6a0:	eb000243 	bl	0xafb4		; io_read
@@ -11743,38 +11855,48 @@
 0000a6b8:	e58d1008 	str	r1, [sp, #8]
 0000a6bc:	e59d1008 	ldr	r1, [sp, #8]
 0000a6c0:	eb00024e 	bl	0xb000		; io_write
-0000a6c4:	e3a00f97 	mov	r0, #604	@ 0x25c
+
+; read boot mode
+0000a6c4:	e3a00f97 	mov	r0, #0x25c
 0000a6c8:	e34f0800	movt	r0, #0xf800
 0000a6cc:	eb000238 	bl	0xafb4		; io_read
+
 0000a6d0:	e58d0008 	str	r0, [sp, #8]
 0000a6d4:	e59d0008 	ldr	r0, [sp, #8]
-0000a6d8:	e3100010 	tst	r0, #16
+0000a6d8:	e3100010 	tst	r0, #0x10
 0000a6dc:	0a000001 	beq	0xa6e8
-0000a6e0:	e28dd014 	add	sp, sp, #20
-0000a6e4:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
 
-0000a6e8:	e3042240	movw	r2, #0x4240
+0000a6e0:	e28dd014 	add	sp, sp, #20
+0000a6e4:	e49df004 	pop	{pc}
+
+; from above
+0000a6e8:	e3042240	movw	r2, #0x4240	; ..
 0000a6ec:	e1a0000d 	mov	r0, sp
-0000a6f0:	e340200f 	movt	r2, #15
+0000a6f0:	e340200f 	movt	r2, #0xf	; 0xf_4240
 0000a6f4:	e3a03000 	mov	r3, #0
 0000a6f8:	eb000208 	bl	0xaf20
 0000a6fc:	ea000003 	b	0xa710
+
 0000a700:	e1cd00d0 	ldrd	r0, [sp]
 0000a704:	eb000217 	bl	0xaf68
 0000a708:	e3500000 	cmp	r0, #0
 0000a70c:	1a000008 	bne	0xa734
-0000a710:	e3a00f43 	mov	r0, #268	@ 0x10c
-0000a714:	e34f0800	movt	r0, #0xf800
+
+; read PLL status
+0000a710:	e3a00f43 	mov	r0, #0x10c
+0000a714:	e34f0800	movt	r0, #0xf800	; 0xf800_010c
 0000a718:	eb000225 	bl	0xafb4		; io_read
+
 0000a71c:	e58d0008 	str	r0, [sp, #8]
 0000a720:	e59d3008 	ldr	r3, [sp, #8]
 0000a724:	e2030005 	and	r0, r3, #5
 0000a728:	e3500005 	cmp	r0, #5
-0000a72c:	1afffff3 	bne	0xa700
+0000a72c:	1afffff3 	bne	0xa700		; loop
 0000a730:	eaffffea 	b	0xa6e0
+
 0000a734:	e3a00b09 	mov	r0, #9216	@ 0x2400
-0000a738:	ebffd819 	bl	0x7a4
-0000a73c:	eafffff3 	b	0xa710
+0000a738:	ebffd819 	bl	0x7a4		; bootrom_error ( xx )
+0000a73c:	eafffff3 	b	0xa710		; loop (fat chance)
 
 ; one line subroutine !
 0000a740:	e12fff1e 	bx	lr
@@ -11795,7 +11917,7 @@
 0000a770:	0007d4a0	; initial stack pointer
 
 ; Startup branches to here.
-0000a774:	ebfffff1 	bl	0xa740
+0000a774:	ebfffff1 	bl	0xa740			; null routine
 0000a778:	e51fd010 	ldr	sp, [pc, #-16]	@ 0xa770
 0000a77c:	ebffdbc1 	bl	0x1688	; (main)
 0000a780:	e3a00c27 	mov	r0, #9984	@ 0x2700
