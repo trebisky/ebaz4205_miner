@@ -2307,7 +2307,7 @@
 000019cc:	e3500001 	cmp	r0, #1
 000019d0:	0a000019 	beq	0x1a3c
 000019d4:	eb000161 	bl	0x1f60
-000019d8:	eb001196 	bl	0x6038
+000019d8:	eb001196 	bl	0x6038		; argon
 000019dc:	e3700001 	cmn	r0, #1
 000019e0:	e1a04000 	mov	r4, r0
 000019e4:	0a00001f 	beq	0x1a68
@@ -2340,7 +2340,7 @@
 00001a30:	eb001048 	bl	0x5b58
 00001a34:	e3500001 	cmp	r0, #1
 00001a38:	1affffe5 	bne	0x19d4
-00001a3c:	eb00117d 	bl	0x6038
+00001a3c:	eb00117d 	bl	0x6038		; argon
 
 ; r4 = r0 - 0 (and set flags)
 ; I am confused about the branch.
@@ -6552,7 +6552,7 @@
 000058d4:	1afffff2 	bne	0x58a4
 000058d8:	e8bd8070 	pop	{r4, r5, r6, pc}
 
-; -------------
+; ------------- -------------------- ---------------------
 ; subroutine, one call from below
 000058dc:	e3520004 	cmp	r2, #4
 000058e0:	0a000001 	beq	0x58ec
@@ -6590,8 +6590,7 @@
 0000592c:	e12fff1e 	bx	lr		; return 1
 
 ; subroutine, never called.
-; how do we get here ??  No calls.
-; pretty much code from above with a tseak
+; pretty much code from above with a tweak
 00005930:	e300c498	movw	ip, #0x498
 00005934:	e30f1fe0	movw	r1, #0xffe0
 00005938:	e340c007 	movt	ip, #7
@@ -6607,7 +6606,8 @@
 
 ; ----------------------------------------
 ; subroutine - MANY calls
-; boron ( a, b, N )
+; boron ( source, dest, N )
+;
 ; this calls a callback that has been registered
 ; by whatever boot method was selected
 ; 0x7049c is some one byte flag
@@ -6618,11 +6618,11 @@
 0000595c:	e92d4070 	push	{r4, r5, r6, lr}
 00005960:	e300449c	movw	r4, #0x49c	; ..
 00005964:	e3404007 	movt	r4, #7		; 0x7049c
-00005968:	e1a06000 	mov	r6, r0
-0000596c:	e5d43000 	ldrb	r3, [r4]
-00005970:	e1a05001 	mov	r5, r1
-00005974:	e3530000 	cmp	r3, #0
-00005978:	e1a04002 	mov	r4, r2
+00005968:	e1a06000 	mov	r6, r0		; r6 = source
+0000596c:	e5d43000 	ldrb	r3, [r4]	; flag byte
+00005970:	e1a05001 	mov	r5, r1		; r5 = dest
+00005974:	e3530000 	cmp	r3, #0		; test flag
+00005978:	e1a04002 	mov	r4, r2		; r4 = N = count
 0000597c:	0a000002 	beq	0x598c
 
 00005980:	ebffffd5 	bl	0x58dc
@@ -6653,7 +6653,7 @@
 000059c0:	e28d1004 	add	r1, sp, #4	; lbuf
 000059c4:	e28c0024 	add	r0, ip, #36	@ 0x24
 000059c8:	e3a02004 	mov	r2, #4		; r2 = 4
-000059cc:	ebffffe2 	bl	0x595c		; boron ( &buf[36], lbuf, 4 )
+000059cc:	ebffffe2 	bl	0x595c		; boron ( &buf[0x34], lbuf, 4 )
 000059d0:	e3043e58	movw	r3, #0x4e58
 000059d4:	e345384c	movt	r3, #0x584c	; 584c4e58 = "XLNX"
 000059d8:	e59d0004 	ldr	r0, [sp, #4]	; r0 = *lbuf
@@ -7080,7 +7080,9 @@
 00006030:	eaffffcd 	b	0x5f6c
 00006034:	00070698 	muleq	r7, r8, r6
 
-; subroutine
+; subroutine -- big
+; argon ()
+; 2 calls
 00006038:	e92d4010 	push	{r4, lr}
 0000603c:	e3e03000 	mvn	r3, #0
 00006040:	e24dd020 	sub	sp, sp, #32
@@ -7200,6 +7202,8 @@
 00006208:	e59d0014 	ldr	r0, [sp, #20]
 0000620c:	e28dd020 	add	sp, sp, #32
 00006210:	e8bd8010 	pop	{r4, pc}
+
+; branch from above
 00006214:	e59d3010 	ldr	r3, [sp, #16]
 00006218:	e3530000 	cmp	r3, #0
 0000621c:	1a00000e 	bne	0x625c
@@ -7341,6 +7345,7 @@
 00006420:	05863000 	streq	r3, [r6]
 00006424:	e28dd00c 	add	sp, sp, #12
 00006428:	e8bd85f0 	pop	{r4, r5, r6, r7, r8, sl, pc}
+; END of argon ()
 
 ; subroutine
 0000642c:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
