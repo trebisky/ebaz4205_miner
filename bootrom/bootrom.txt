@@ -6602,6 +6602,7 @@
 00005954:	93a00001 	movls	r0, #1
 00005958:	e12fff1e 	bx	lr
 
+; ----------------------------------------
 ; subroutine - many calls
 ; this calls a callback that has been registered
 ; by whatever boot method was selected
