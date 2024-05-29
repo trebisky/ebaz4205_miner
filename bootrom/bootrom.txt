@@ -1373,7 +1373,7 @@
 00000e58:	e28d100c 	add	r1, sp, #12
 00000e5c:	e3a02004 	mov	r2, #4
 00000e60:	e2800028 	add	r0, r0, #40	@ 0x28
-00000e64:	eb0012bc 	bl	0x595c
+00000e64:	eb0012bc 	bl	0x595c		; boron ()
 00000e68:	ebffffeb 	bl	0xe1c
 00000e6c:	e1a04000 	mov	r4, r0
 00000e70:	e3070014	movw	r0, #0x7014
@@ -2193,12 +2193,13 @@
 00001848:	e35304e1 	cmp	r3, #0xe1000000
 0000184c:	0a000028 	beq	0x18f4
 
-00001850:	eb001055 	bl	0x59ac
+00001850:	eb001055 	bl	0x59ac		; check_XLNX ()
 00001854:	e3500000 	cmp	r0, #0
 00001858:	1a000002 	bne	0x1868
 0000185c:	eb001062 	bl	0x59ec
 00001860:	e3500000 	cmp	r0, #0
 00001864:	0a00002b 	beq	0x1918
+
 00001868:	e5942000 	ldr	r2, [r4]
 0000186c:	e307002c	movw	r0, #0x702c
 00001870:	e282c902 	add	ip, r2, #32768	@ 0x8000
@@ -2251,20 +2252,22 @@
 0000190c:	e302000a	movw	r0, #0x200a
 00001910:	ebfffcbb 	bl	0xc04		; boot_error ()
 00001914:	eaffffe2 	b	0x18a4
+
 00001918:	e5943000 	ldr	r3, [r4]
 0000191c:	e3001e90	movw	r1, #0xe90
 00001920:	e2830020 	add	r0, r3, #32
 00001924:	e3401007 	movt	r1, #7
 00001928:	e3a0202c 	mov	r2, #44	@ 0x2c
 0000192c:	e3a08001 	mov	r8, #1
-00001930:	eb001009 	bl	0x595c
+00001930:	eb001009 	bl	0x595c		; boron ()
 00001934:	e5c68000 	strb	r8, [r6]
-00001938:	eb00101b 	bl	0x59ac
+00001938:	eb00101b 	bl	0x59ac		; check_XLNX ()
 0000193c:	e3500000 	cmp	r0, #0
-00001940:	1a000002 	bne	0x1950
+00001940:	1a000002 	bne	0x1950		; invalid
 00001944:	eb001028 	bl	0x59ec
 00001948:	e3500000 	cmp	r0, #0
 0000194c:	0a000001 	beq	0x1958
+
 00001950:	e3020023	movw	r0, #0x2023
 00001954:	ebfffcaa 	bl	0xc04		; boot_error ()
 ; Never returns -- this is where the flow in MAIN ends
@@ -2280,7 +2283,7 @@
 00001974:	e2820048 	add	r0, r2, #72	@ 0x48
 00001978:	e3a02004 	mov	r2, #4
 0000197c:	e5c6c000 	strb	ip, [r6]
-00001980:	eb000ff5 	bl	0x595c
+00001980:	eb000ff5 	bl	0x595c		; boron ()
 00001984:	e3001e90	movw	r1, #0xe90
 00001988:	e3401007 	movt	r1, #7
 0000198c:	e5974000 	ldr	r4, [r7]
@@ -3018,7 +3021,7 @@
 00002318:	e3a05001 	mov	r5, #1
 0000231c:	e1a0200a 	mov	r2, sl
 00002320:	e1844005 	orr	r4, r4, r5
-00002324:	eb000d8c 	bl	0x595c
+00002324:	eb000d8c 	bl	0x595c		; boron ()
 00002328:	e3405004 	movt	r5, #4
 0000232c:	eaffffc4 	b	0x2244
 00002330:	e59d0004 	ldr	r0, [sp, #4]
@@ -3907,7 +3910,7 @@
 000030ac:	e3a020a0 	mov	r2, #160	@ 0xa0
 000030b0:	e3406007 	movt	r6, #7
 000030b4:	e30044a0	movw	r4, #0x4a0
-000030b8:	eb000a27 	bl	0x595c
+000030b8:	eb000a27 	bl	0x595c		; boron ()
 000030bc:	e3404007 	movt	r4, #7
 000030c0:	e59f016c 	ldr	r0, [pc, #364]	@ 0x3234
 000030c4:	e1a01006 	mov	r1, r6
@@ -3957,7 +3960,7 @@
 00003170:	e0820005 	add	r0, r2, r5
 00003174:	e3a01701 	mov	r1, #262144	@ 0x40000
 00003178:	e1a02007 	mov	r2, r7
-0000317c:	eb0009f6 	bl	0x595c
+0000317c:	eb0009f6 	bl	0x595c		; boron ()
 00003180:	eaffffe8 	b	0x3128
 00003184:	e3a00f96 	mov	r0, #600	@ 0x258
 00003188:	e34f0800	movt	r0, #0xf800
@@ -6603,7 +6606,8 @@
 00005958:	e12fff1e 	bx	lr
 
 ; ----------------------------------------
-; subroutine - many calls
+; subroutine - MANY calls
+; boron ( a, b, N )
 ; this calls a callback that has been registered
 ; by whatever boot method was selected
 ; 0x7049c is some one byte flag
@@ -6612,8 +6616,8 @@
 ;  JTAG boot does not use this callback
 
 0000595c:	e92d4070 	push	{r4, r5, r6, lr}
-00005960:	e300449c	movw	r4, #0x49c
-00005964:	e3404007 	movt	r4, #7
+00005960:	e300449c	movw	r4, #0x49c	; ..
+00005964:	e3404007 	movt	r4, #7		; 0x7049c
 00005968:	e1a06000 	mov	r6, r0
 0000596c:	e5d43000 	ldrb	r3, [r4]
 00005970:	e1a05001 	mov	r5, r1
@@ -6635,23 +6639,29 @@
 000059a4:	e12fff3c 	blx	ip		; call the callback
 000059a8:	e8bd8070 	pop	{r4, r5, r6, pc}
 
-; subroutine
-000059ac:	e52de004 	push	{lr}		@ (str lr, [sp, #-4]!)
+; subroutine - 5 calls
+; check_XLNX ()
+; Offset 0x24 in the bootrom header is "image identification"
+; and must be XLNX for the header to be valid
+; returns 0 if it is, 1 if it ain't
+
+000059ac:	e52de004 	push	{lr}
 000059b0:	e300e498	movw	lr, #0x498
-000059b4:	e340e007 	movt	lr, #7
+000059b4:	e340e007 	movt	lr, #7		; 0x70498 = &buf
 000059b8:	e24dd00c 	sub	sp, sp, #12
-000059bc:	e59ec000 	ldr	ip, [lr]
-000059c0:	e28d1004 	add	r1, sp, #4
+000059bc:	e59ec000 	ldr	ip, [lr]	; buf = *0x70498
+000059c0:	e28d1004 	add	r1, sp, #4	; lbuf
 000059c4:	e28c0024 	add	r0, ip, #36	@ 0x24
-000059c8:	e3a02004 	mov	r2, #4
-000059cc:	ebffffe2 	bl	0x595c
+000059c8:	e3a02004 	mov	r2, #4		; r2 = 4
+000059cc:	ebffffe2 	bl	0x595c		; boron ( &buf[36], lbuf, 4 )
 000059d0:	e3043e58	movw	r3, #0x4e58
-000059d4:	e345384c	movt	r3, #0x584c
-000059d8:	e59d0004 	ldr	r0, [sp, #4]
-000059dc:	e0500003 	subs	r0, r0, r3
-000059e0:	13a00001 	movne	r0, #1
+000059d4:	e345384c	movt	r3, #0x584c	; 584c4e58 = "XLNX"
+000059d8:	e59d0004 	ldr	r0, [sp, #4]	; r0 = *lbuf
+
+000059dc:	e0500003 	subs	r0, r0, r3	; r0 -= r3
+000059e0:	13a00001 	movne	r0, #1		; return 0 or 1
 000059e4:	e28dd00c 	add	sp, sp, #12
-000059e8:	e49df004 	pop	{pc}		@ (ldr pc, [sp], #4)
+000059e8:	e49df004 	pop	{pc}
 
 ; subroutine
 000059ec:	e92d4ff0 	push	{r4, r5, r6, r7, r8, r9, sl, fp, lr}
@@ -6665,51 +6675,51 @@
 00005a0c:	e28e0020 	add	r0, lr, #32
 00005a10:	e1a01004 	mov	r1, r4
 00005a14:	e3a02004 	mov	r2, #4
-00005a18:	ebffffcf 	bl	0x595c
+00005a18:	ebffffcf 	bl	0x595c		; boron ()
 00005a1c:	e5957000 	ldr	r7, [r5]
 00005a20:	e59d600c 	ldr	r6, [sp, #12]
 00005a24:	e2870024 	add	r0, r7, #36	@ 0x24
 00005a28:	e1a01004 	mov	r1, r4
 00005a2c:	e3a02004 	mov	r2, #4
 00005a30:	e58d6000 	str	r6, [sp]
-00005a34:	ebffffc8 	bl	0x595c
+00005a34:	ebffffc8 	bl	0x595c		; boron ()
 00005a38:	e595c000 	ldr	ip, [r5]
 00005a3c:	e1a01004 	mov	r1, r4
 00005a40:	e28c0028 	add	r0, ip, #40	@ 0x28
 00005a44:	e3a02004 	mov	r2, #4
 00005a48:	e59d800c 	ldr	r8, [sp, #12]
-00005a4c:	ebffffc2 	bl	0x595c
+00005a4c:	ebffffc2 	bl	0x595c		; boron ()
 00005a50:	e595a000 	ldr	sl, [r5]
 00005a54:	e1a01004 	mov	r1, r4
 00005a58:	e28a002c 	add	r0, sl, #44	@ 0x2c
 00005a5c:	e3a02004 	mov	r2, #4
 00005a60:	e59da00c 	ldr	sl, [sp, #12]
-00005a64:	ebffffbc 	bl	0x595c
+00005a64:	ebffffbc 	bl	0x595c		; boron ()
 00005a68:	e5950000 	ldr	r0, [r5]
 00005a6c:	e1a01004 	mov	r1, r4
 00005a70:	e2800030 	add	r0, r0, #48	@ 0x30
 00005a74:	e3a02004 	mov	r2, #4
 00005a78:	e59d700c 	ldr	r7, [sp, #12]
-00005a7c:	ebffffb6 	bl	0x595c
+00005a7c:	ebffffb6 	bl	0x595c		; boron ()
 00005a80:	e5951000 	ldr	r1, [r5]
 00005a84:	e3a02004 	mov	r2, #4
 00005a88:	e2810034 	add	r0, r1, #52	@ 0x34
 00005a8c:	e1a01004 	mov	r1, r4
 00005a90:	e59d600c 	ldr	r6, [sp, #12]
-00005a94:	ebffffb0 	bl	0x595c
+00005a94:	ebffffb0 	bl	0x595c		; boron ()
 00005a98:	e5959000 	ldr	r9, [r5]
 00005a9c:	e1a01004 	mov	r1, r4
 00005aa0:	e2890038 	add	r0, r9, #56	@ 0x38
 00005aa4:	e3a02004 	mov	r2, #4
 00005aa8:	e59d900c 	ldr	r9, [sp, #12]
-00005aac:	ebffffaa 	bl	0x595c
+00005aac:	ebffffaa 	bl	0x595c		; boron ()
 00005ab0:	e595b000 	ldr	fp, [r5]
 00005ab4:	e1a01004 	mov	r1, r4
 00005ab8:	e28b003c 	add	r0, fp, #60	@ 0x3c
 00005abc:	e3a02004 	mov	r2, #4
 00005ac0:	e59db00c 	ldr	fp, [sp, #12]
 00005ac4:	e08a8008 	add	r8, sl, r8
-00005ac8:	ebffffa3 	bl	0x595c
+00005ac8:	ebffffa3 	bl	0x595c		; boron ()
 00005acc:	e5952000 	ldr	r2, [r5]
 00005ad0:	e59d300c 	ldr	r3, [sp, #12]
 00005ad4:	e2820040 	add	r0, r2, #64	@ 0x40
@@ -6717,7 +6727,7 @@
 00005adc:	e3a02004 	mov	r2, #4
 00005ae0:	e0887007 	add	r7, r8, r7
 00005ae4:	e58d3004 	str	r3, [sp, #4]
-00005ae8:	ebffff9b 	bl	0x595c
+00005ae8:	ebffff9b 	bl	0x595c		; boron ()
 00005aec:	e087c006 	add	ip, r7, r6
 00005af0:	e08c1009 	add	r1, ip, r9
 00005af4:	e59d6004 	ldr	r6, [sp, #4]
@@ -6731,14 +6741,14 @@
 00005b14:	e2800044 	add	r0, r0, #68	@ 0x44
 00005b18:	e3a02004 	mov	r2, #4
 00005b1c:	e08c6006 	add	r6, ip, r6
-00005b20:	ebffff8d 	bl	0x595c
+00005b20:	ebffff8d 	bl	0x595c		; boron ()
 00005b24:	e5951000 	ldr	r1, [r5]
 00005b28:	e59d500c 	ldr	r5, [sp, #12]
 00005b2c:	e2810048 	add	r0, r1, #72	@ 0x48
 00005b30:	e0865005 	add	r5, r6, r5
 00005b34:	e1a01004 	mov	r1, r4
 00005b38:	e3a02004 	mov	r2, #4
-00005b3c:	ebffff86 	bl	0x595c
+00005b3c:	ebffff86 	bl	0x595c		; boron ()
 00005b40:	e1e00005 	mvn	r0, r5
 00005b44:	e59d300c 	ldr	r3, [sp, #12]
 00005b48:	e0500003 	subs	r0, r0, r3
@@ -6751,7 +6761,7 @@
 00005b5c:	e3a04000 	mov	r4, #0
 00005b60:	e24dd008 	sub	sp, sp, #8
 00005b64:	e58d4004 	str	r4, [sp, #4]
-00005b68:	ebffff8f 	bl	0x59ac
+00005b68:	ebffff8f 	bl	0x59ac		; check_XLNX ()
 00005b6c:	e3500001 	cmp	r0, #1
 00005b70:	01a00004 	moveq	r0, r4
 00005b74:	0a00000f 	beq	0x5bb8
@@ -6762,7 +6772,7 @@
 00005b88:	e59c4000 	ldr	r4, [ip]
 00005b8c:	e2840028 	add	r0, r4, #40	@ 0x28
 00005b90:	e3034c5a	movw	r4, #0x3c5a
-00005b94:	ebffff70 	bl	0x595c
+00005b94:	ebffff70 	bl	0x595c		; boron ()
 00005b98:	e30c35a3	movw	r3, #0xc5a3
 00005b9c:	e59d0004 	ldr	r0, [sp, #4]
 00005ba0:	e3434a5c	movt	r4, #0x3a5c
@@ -6780,9 +6790,9 @@
 00005bc8:	ebffff87 	bl	0x59ec
 00005bcc:	e3500001 	cmp	r0, #1
 00005bd0:	0a000109 	beq	0x5ffc
-00005bd4:	ebffff74 	bl	0x59ac
+00005bd4:	ebffff74 	bl	0x59ac		; check_XLNX ()
 00005bd8:	e3500001 	cmp	r0, #1
-00005bdc:	0a000103 	beq	0x5ff0
+00005bdc:	0a000103 	beq	0x5ff0		; invalid 
 00005be0:	e3007498	movw	r7, #0x498
 00005be4:	ebffffdb 	bl	0x5b58
 00005be8:	e3407007 	movt	r7, #7
@@ -6801,7 +6811,7 @@
 00005c1c:	e34f6800	movt	r6, #0xf800
 00005c20:	11a0500c 	movne	r5, ip
 00005c24:	11a06004 	movne	r6, r4
-00005c28:	ebffff4b 	bl	0x595c
+00005c28:	ebffff4b 	bl	0x595c		; boron ()
 00005c2c:	e3004690	movw	r4, #0x690
 00005c30:	e59d2004 	ldr	r2, [sp, #4]
 00005c34:	e300389c	movw	r3, #0x89c
@@ -6814,7 +6824,7 @@
 00005c50:	e1a01004 	mov	r1, r4
 00005c54:	83a07c02 	movhi	r7, #512	@ 0x200
 00005c58:	93a07020 	movls	r7, #32
-00005c5c:	ebffff3e 	bl	0x595c
+00005c5c:	ebffff3e 	bl	0x595c		; boron ()
 00005c60:	e5940000 	ldr	r0, [r4]
 00005c64:	e3700001 	cmn	r0, #1
 00005c68:	0a00004e 	beq	0x5da8
@@ -7047,12 +7057,16 @@
 00005fe4:	e351008c 	cmp	r1, #140	@ 0x8c
 00005fe8:	9affff68 	bls	0x5d90
 00005fec:	eaffffa9 	b	0x5e98
+
+; here if we don't see XLNX in bootrom header
 00005ff0:	e3020110	movw	r0, #0x2110
 00005ff4:	ebffeb02 	bl	0xc04		; boot_error ()
-00005ff8:	eafffef8 	b	0x5be0
+00005ff8:	eafffef8 	b	0x5be0		; fat chance
+
 00005ffc:	e302010f	movw	r0, #0x210f
 00006000:	ebffeaff 	bl	0xc04		; boot_error ()
-00006004:	eafffef2 	b	0x5bd4
+00006004:	eafffef2 	b	0x5bd4		; fat chance
+
 00006008:	e3a0ef93 	mov	lr, #588	@ 0x24c
 0000600c:	e34fe800	movt	lr, #0xf800
 00006010:	e150000e 	cmp	r0, lr
@@ -7071,9 +7085,9 @@
 0000603c:	e3e03000 	mvn	r3, #0
 00006040:	e24dd020 	sub	sp, sp, #32
 00006044:	e58d3014 	str	r3, [sp, #20]
-00006048:	ebfffe57 	bl	0x59ac
+00006048:	ebfffe57 	bl	0x59ac		; check_XLNX ()
 0000604c:	e3500001 	cmp	r0, #1
-00006050:	0a0000c9 	beq	0x637c
+00006050:	0a0000c9 	beq	0x637c		; invalid
 00006054:	ebfffe64 	bl	0x59ec
 00006058:	e3500001 	cmp	r0, #1
 0000605c:	0a0000cb 	beq	0x6390
@@ -7083,32 +7097,32 @@
 0000606c:	e3a02004 	mov	r2, #4
 00006070:	e594e000 	ldr	lr, [r4]
 00006074:	e28e0030 	add	r0, lr, #48	@ 0x30
-00006078:	ebfffe37 	bl	0x595c
+00006078:	ebfffe37 	bl	0x595c		; boron ()
 0000607c:	e5942000 	ldr	r2, [r4]
 00006080:	e2820038 	add	r0, r2, #56	@ 0x38
 00006084:	e28d1018 	add	r1, sp, #24
 00006088:	e3a02004 	mov	r2, #4
-0000608c:	ebfffe32 	bl	0x595c
+0000608c:	ebfffe32 	bl	0x595c		; boron ()
 00006090:	e5943000 	ldr	r3, [r4]
 00006094:	e283003c 	add	r0, r3, #60	@ 0x3c
 00006098:	e28d1014 	add	r1, sp, #20
 0000609c:	e3a02004 	mov	r2, #4
-000060a0:	ebfffe2d 	bl	0x595c
+000060a0:	ebfffe2d 	bl	0x595c		; boron ()
 000060a4:	e594c000 	ldr	ip, [r4]
 000060a8:	e28c0034 	add	r0, ip, #52	@ 0x34
 000060ac:	e28d1010 	add	r1, sp, #16
 000060b0:	e3a02004 	mov	r2, #4
-000060b4:	ebfffe28 	bl	0x595c
+000060b4:	ebfffe28 	bl	0x595c		; boron ()
 000060b8:	e5941000 	ldr	r1, [r4]
 000060bc:	e2810028 	add	r0, r1, #40	@ 0x28
 000060c0:	e3a02004 	mov	r2, #4
 000060c4:	e28d1008 	add	r1, sp, #8
-000060c8:	ebfffe23 	bl	0x595c
+000060c8:	ebfffe23 	bl	0x595c		; boron ()
 000060cc:	e5940000 	ldr	r0, [r4]
 000060d0:	e3a02004 	mov	r2, #4
 000060d4:	e2800040 	add	r0, r0, #64	@ 0x40
 000060d8:	e28d100c 	add	r1, sp, #12
-000060dc:	ebfffe1e 	bl	0x595c
+000060dc:	ebfffe1e 	bl	0x595c		; boron ()
 000060e0:	e59d301c 	ldr	r3, [sp, #28]
 000060e4:	e300289c	movw	r2, #0x89c
 000060e8:	e1530002 	cmp	r3, r2
@@ -7276,20 +7290,25 @@
 00006370:	e302010b	movw	r0, #0x210b
 00006374:	ebffea22 	bl	0xc04		; boot_error ()
 00006378:	eaffffa2 	b	0x6208
+
 0000637c:	e3a00c21 	mov	r0, #8448	@ 0x2100
 00006380:	ebffea1f 	bl	0xc04		; boot_error ()
+; never returns
+
 00006384:	ebfffd98 	bl	0x59ec
 00006388:	e3500001 	cmp	r0, #1
 0000638c:	1affff33 	bne	0x6060
 00006390:	e3020101	movw	r0, #0x2101
+
 00006394:	ebffea1a 	bl	0xc04		; boot_error ()
-00006398:	eaffff30 	b	0x6060
+00006398:	eaffff30 	b	0x6060		; fat chance
+
 0000639c:	e5942000 	ldr	r2, [r4]
 000063a0:	e59dc01c 	ldr	ip, [sp, #28]
 000063a4:	e08c0002 	add	r0, ip, r2
 000063a8:	e59d1018 	ldr	r1, [sp, #24]
 000063ac:	e59d2010 	ldr	r2, [sp, #16]
-000063b0:	ebfffd69 	bl	0x595c
+000063b0:	ebfffd69 	bl	0x595c		; boron ()
 000063b4:	eaffff93 	b	0x6208
 
 ; subroutine - one call (from 0x65c4)
