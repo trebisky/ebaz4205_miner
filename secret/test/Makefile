@@ -1,0 +1,2 @@
+
+lots.bin:	lots.c

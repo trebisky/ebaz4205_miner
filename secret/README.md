@@ -13,6 +13,9 @@ of the boot mode options, making all of this relatively easy.
 1. e2501.py - provoke error 2501
 1. e2502.py - provoke error 2502
 1. e2503.py - provoke error 2503
+1. loader.py - load a binary file
+
+1. test - directory where I build some executables to load
 
 1. nand.dump - dump the FSBL from NAND and examine what the
 bootrom header looks like in something that actually boots.
