@@ -243,6 +243,22 @@
 ; details of the fuses and registers in the f800_d000 area
 ; is not present in the TRM.
 
+; ====================================================
+; Some notes on addresses in SRAM --
+; The 64K chunk at 0x70000 is used as private
+;  storage by the bootrom.  It places the stack here
+;  as well as a variety of pointers and variables.
+;
+; Here is what I know so far:
+;  0x70000 -- some kind of flag
+;  0x70004 -- ?
+;  0x70490 -- ?
+;  0x70498 -- &BUF (where incoming data accumulates)
+;  0x7068c -- pointer to data copy callback
+;  0x70e90 -- ?
+;  0x70ec0 -- ?
+;  0x7d4a0 -- stack (grows to lower addresses)
+;
 ; ---------------------------------------------
 ; ---------------------------------------------
 ;
@@ -2283,7 +2299,7 @@
 00001974:	e2820048 	add	r0, r2, #72	@ 0x48
 00001978:	e3a02004 	mov	r2, #4
 0000197c:	e5c6c000 	strb	ip, [r6]
-00001980:	eb000ff5 	bl	0x595c		; boron ( x, 0x70r90, 4 ))
+00001980:	eb000ff5 	bl	0x595c		; boron ( x, 0x70490, 4 ))
 00001984:	e3001e90	movw	r1, #0xe90
 00001988:	e3401007 	movt	r1, #7
 0000198c:	e5974000 	ldr	r4, [r7]
