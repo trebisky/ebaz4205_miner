@@ -1367,7 +1367,7 @@
 
 00000e44:	e92d4070 	push	{r4, r5, r6, lr}
 00000e48:	e3004498	movw	r4, #0x498	; ..
-00000e4c:	e3404007 	movt	r4, #7		; 0x70498
+00000e4c:	e3404007 	movt	r4, #7		; 0x70498	BUF
 00000e50:	e24dd010 	sub	sp, sp, #16
 00000e54:	e5940000 	ldr	r0, [r4]	; buf = *(0x70498)
 00000e58:	e28d100c 	add	r1, sp, #12	; dest on stack
@@ -2006,15 +2006,15 @@
 0000168c:	e300c668	movw	ip, #0x668
 00001690:	e3004498	movw	r4, #0x498
 00001694:	e300b000 	movw	fp, #0
-00001698:	e340c007 	movt	ip, #7
-0000169c:	e3a09000 	mov	r9, #0
+00001698:	e340c007 	movt	ip, #7		; 0x70498  BUF
+0000169c:	e3a09000 	mov	r9, #0		; r9 = 0
 000016a0:	e300a4a0	movw	sl, #0x4a0
 000016a4:	e300649c	movw	r6, #0x49c
 000016a8:	e3007490	movw	r7, #0x490
 000016ac:	e340b007 	movt	fp, #7
 000016b0:	e3404007 	movt	r4, #7
 000016b4:	e24dd01c 	sub	sp, sp, #28
-000016b8:	e58c9000 	str	r9, [ip]
+000016b8:	e58c9000 	str	r9, [ip]	; set buf to 0
 000016bc:	e340a007 	movt	sl, #7
 000016c0:	e3406007 	movt	r6, #7
 000016c4:	e3407007 	movt	r7, #7
@@ -3876,9 +3876,11 @@
 00003024:	13a00003 	movne	r0, #3
 00003028:	03a00000 	moveq	r0, #0
 0000302c:	eaffffc1 	b	0x2f38
+
+; subroutine
 00003030:	e92d40f0 	push	{r4, r5, r6, r7, lr}
 00003034:	e3004e90	movw	r4, #0xe90
-00003038:	e3404007 	movt	r4, #7
+00003038:	e3404007 	movt	r4, #7		; r4 = 0x70e90
 0000303c:	e24dd00c 	sub	sp, sp, #12
 00003040:	e5943014 	ldr	r3, [r4, #20]
 00003044:	e3530000 	cmp	r3, #0
@@ -3886,8 +3888,10 @@
 0000304c:	e5940020 	ldr	r0, [r4, #32]
 00003050:	e3500000 	cmp	r0, #0
 00003054:	1a000001 	bne	0x3060
+
 00003058:	e3020025	movw	r0, #0x2025
 0000305c:	ebfff6e8 	bl	0xc04		; boot_error ()
+
 00003060:	e5945020 	ldr	r5, [r4, #32]
 00003064:	e5946010 	ldr	r6, [r4, #16]
 00003068:	e0854006 	add	r4, r5, r6
@@ -3899,13 +3903,15 @@
 00003080:	e0877001 	add	r7, r7, r1
 00003084:	e3570803 	cmp	r7, #196608	@ 0x30000
 00003088:	9a000001 	bls	0x3094
+
 0000308c:	e3020026	movw	r0, #0x2026
 00003090:	ebfff6db 	bl	0xc04		; boot_error ()
+
 00003094:	e3005498	movw	r5, #0x498
 00003098:	e3001560	movw	r1, #0x560
-0000309c:	e3405007 	movt	r5, #7
+0000309c:	e3405007 	movt	r5, #7		; 0x70498  BUF
 000030a0:	e3006e90	movw	r6, #0xe90
-000030a4:	e5950000 	ldr	r0, [r5]
+000030a4:	e5950000 	ldr	r0, [r5]	; set buf to r0
 000030a8:	e3401007 	movt	r1, #7
 000030ac:	e3a020a0 	mov	r2, #160	@ 0xa0
 000030b0:	e3406007 	movt	r6, #7
@@ -6566,7 +6572,7 @@
 000058f4:	e3403007 	movt	r3, #7		; 0x70498
 000058f8:	e34fcfff	movt	ip, #0xffff	; 0xffff_ffe0
 
-000058fc:	e5932000 	ldr	r2, [r3]
+000058fc:	e5932000 	ldr	r2, [r3]	; r2 = buf
 00005900:	e062300c 	rsb	r3, r2, ip	; r3 = ip - r2
 00005904:	e0830000 	add	r0, r3, r0	; r0 += r3
 
@@ -6593,10 +6599,10 @@
 ; pretty much code from above with a tweak
 00005930:	e300c498	movw	ip, #0x498
 00005934:	e30f1fe0	movw	r1, #0xffe0
-00005938:	e340c007 	movt	ip, #7
+00005938:	e340c007 	movt	ip, #7		; 0x70498  BUF
 0000593c:	e34f1fff	movt	r1, #0xffff
 
-00005940:	e59c2000 	ldr	r2, [ip]
+00005940:	e59c2000 	ldr	r2, [ip]	; r2 = buf
 00005944:	e0623001 	rsb	r3, r2, r1
 00005948:	e0830000 	add	r0, r3, r0
 0000594c:	e3500028 	cmp	r0, #40	@ 0x28
@@ -6769,9 +6775,9 @@
 00005b74:	0a00000f 	beq	0x5bb8
 00005b78:	e300c498	movw	ip, #0x498
 00005b7c:	e28d1004 	add	r1, sp, #4
-00005b80:	e340c007 	movt	ip, #7
+00005b80:	e340c007 	movt	ip, #7		; 0x70498  BUF
 00005b84:	e3a02004 	mov	r2, #4
-00005b88:	e59c4000 	ldr	r4, [ip]
+00005b88:	e59c4000 	ldr	r4, [ip]	; buf
 00005b8c:	e2840028 	add	r0, r4, #40	@ 0x28
 00005b90:	e3034c5a	movw	r4, #0x3c5a
 00005b94:	ebffff70 	bl	0x595c		; boron ()
@@ -6797,9 +6803,9 @@
 00005bdc:	0a000103 	beq	0x5ff0		; invalid 
 00005be0:	e3007498	movw	r7, #0x498
 00005be4:	ebffffdb 	bl	0x5b58
-00005be8:	e3407007 	movt	r7, #7
+00005be8:	e3407007 	movt	r7, #7		; 0x70498  BUF
 00005bec:	e3a05c01 	mov	r5, #256	@ 0x100
-00005bf0:	e5971000 	ldr	r1, [r7]
+00005bf0:	e5971000 	ldr	r1, [r7]	; buf
 00005bf4:	e3a0ca01 	mov	ip, #4096	@ 0x1000
 00005bf8:	e3a06f6b 	mov	r6, #428	@ 0x1ac
 00005bfc:	e3064ffc	movw	r4, #0x6ffc
@@ -6834,7 +6840,7 @@
 00005c70:	e3a09058 	mov	r9, #0x58
 00005c74:	e3a0be1b 	mov	fp, #432	@ 0x1b0
 00005c78:	e1550000 	cmp	r5, r0
-00005c7c:	e34fa800	movt	sl, #0xf800	; 0xf800_7000
+00005c7c:	e34fa800	movt	sl, #0xf800	; 0xf800_7000 - devconfig control
 00005c80:	e34e9010	movt	r9, #0xe010	; 0xe010_0058
 00005c84:	e34fb800	movt	fp, #0xf800	; 0xf800_01b0
 00005c88:	8a000001 	bhi	0x5c94		; boot_error ( 0x2111 )
@@ -6992,8 +6998,9 @@
 00005ec0:	eaffffb4 	b	0x5d98		; fat change
 
 ; branch from way above
-00005ec4:	e3a0ca07 	mov	ip, #28672	@ 0x7000
-00005ec8:	e34fc800	movt	ip, #0xf800
+; read from 0xf800_7000, which is the devcfg control register
+00005ec4:	e3a0ca07 	mov	ip, #0x7000
+00005ec8:	e34fc800	movt	ip, #0xf800	; 0xf800_7000
 00005ecc:	e000800c 	and	r8, r0, ip
 00005ed0:	e158000a 	cmp	r8, sl
 00005ed4:	0affff6e 	beq	0x5c94		; boot_error ( 0x2111 )
@@ -7105,9 +7112,9 @@
 0000605c:	0a0000cb 	beq	0x6390
 00006060:	e3004498	movw	r4, #0x498
 00006064:	e28d101c 	add	r1, sp, #28
-00006068:	e3404007 	movt	r4, #7
+00006068:	e3404007 	movt	r4, #7		; 0x70498  BUF
 0000606c:	e3a02004 	mov	r2, #4
-00006070:	e594e000 	ldr	lr, [r4]
+00006070:	e594e000 	ldr	lr, [r4]	; buf
 00006074:	e28e0030 	add	r0, lr, #48	@ 0x30
 00006078:	ebfffe37 	bl	0x595c		; boron ()
 0000607c:	e5942000 	ldr	r2, [r4]
@@ -11410,7 +11417,7 @@
 0000a1e0:	e3003498	movw	r3, #0x498	; ..
 0000a1e4:	e3402007 	movt	r2, #7		; r2 = 0x704a0
 0000a1e8:	e34ec000	movt	ip, #0xe000	; ip = 0xe000_1000
-0000a1ec:	e3403007 	movt	r3, #7		; r3 = 0x70498
+0000a1ec:	e3403007 	movt	r3, #7		; r3 = 0x70498 (&buf)
 
 ; Odd code, these registers are set here
 ; and used various places down below
@@ -11698,15 +11705,16 @@
 0000a4a8:	e2888001 	add	r8, r8, #1	; r8 += 1
 0000a4ac:	da000009 	ble	0xa4d8
 
+; loop here reading entire image.
 0000a4b0:	e594a000 	ldr	sl, [r4]	; sl = &buf
 0000a4b4:	ebffff33 	bl	0xa188		; getc()
-0000a4b8:	e7ca0007 	strb	r0, [sl, r7]	; buf[2] = char
-0000a4bc:	e2878001 	add	r8, r7, #1	; r8 = r7 + 1 = 3
-0000a4c0:	e2877002 	add	r7, r7, #2	; r7 += 2 = 4
+0000a4b8:	e7ca0007 	strb	r0, [sl, r7]	; buf[r7] = char
+0000a4bc:	e2878001 	add	r8, r7, #1	; r8 = r7 + 1
+0000a4c0:	e2877002 	add	r7, r7, #2	; r7 += 2
 0000a4c4:	e594a000 	ldr	sl, [r4]	; sl = &buf
 0000a4c8:	ebffff2e 	bl	0xa188		; getc()
 0000a4cc:	e1550007 	cmp	r5, r7
-0000a4d0:	e7ca0008 	strb	r0, [sl, r8]	; buf[3] = char
+0000a4d0:	e7ca0008 	strb	r0, [sl, r8]	; buf[r8] = char
 0000a4d4:	cafffff5 	bgt	0xa4b0		; loop while r5 > r7
 
 ; check the checksum

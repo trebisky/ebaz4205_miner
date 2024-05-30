@@ -271,6 +271,8 @@ class Zynq () :
 
         ser.write ( self.image )
 
+    # This works nicely to show any errors coming
+    # from the bootrom.
     def listen ( self ) :
         num = 0
         for _ in range(20) :
