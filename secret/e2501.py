@@ -3,6 +3,9 @@
 # provoke error 0x2501 from the secret bootrom
 #  Tom Trebisky  5-19-2024
 
+# Error 0x2501 is when the secret loader does not see
+# the character "B" after 128 characters have been read.
+
 # On my Fedora 40 system, I needed:
 # dnf install python3-pyserial
 

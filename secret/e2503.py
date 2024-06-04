@@ -1,7 +1,10 @@
 #!/bin/env python3
 
-# provoke error 0x2502 from the secret bootrom
+# provoke error 0x2503 from the secret bootrom
 #  Tom Trebisky  5-19-2024
+
+# Error 0x2503 happens when the header checksum
+# is invalid.
 
 # On my Fedora 40 system, I needed:
 # dnf install python3-pyserial

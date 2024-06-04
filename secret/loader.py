@@ -20,8 +20,10 @@ class Zynq () :
         ser.port = "/dev/ttyUSB0"
         ser.baudrate = 115200
         ser.open()
+
         self.ser = ser
         self.size = 0
+        self.sum = None
 
     def wait ( self ) :
         print ( 'Waiting for XLNX-ZYNQ' )
@@ -142,13 +144,289 @@ class Zynq () :
 
         print ( "Binary image read: ", self.size, " bytes" )
 
+# original header checksum
+#def hdrchksum(data):
+#    chk = 0
+#    for i in range(0, len(data), 4):
+#        chk += up("<I", data[i:i+4])[0]
+#        chk &= 0xFFFF_FFFF
+#    return chk
+
     # Calculate header checksum
-    def hdrchksum ( self, data ):
+    # (word by word)
+    def hdrchksum ( self, data ) :
         chk = 0
         for i in range(0, len(data), 4):
             chk += up("<I", data[i:i+4])[0]
             chk &= 0xFFFF_FFFF
         return chk
+
+# original payload checksum
+#    def chksum(data):
+#        chk = 0
+#        for d in data:
+#            chk += d
+#            chk &= 0xFFFF_FFFF
+#        return chk
+
+    # Calculate payload checksum for uart loader
+    # ( byte by byte )
+    def chksum ( self, data ) :
+        chk = 0
+        for d in data:
+            chk += d
+            chk &= 0xFFFF_FFFF
+        return chk
+
+    # Add to payload checksum
+    def add_chksum ( self, data ) :
+        chk = self.sum
+        for d in data:
+            chk += d
+            chk &= 0xFFFF_FFFF
+        self.sum = chk
+
+    # Original hack
+    def gen_hdr ( self ):
+        # xip ivt
+        #hdr += p("<I", 0xeafffffe)
+        hdr = p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        # width detect
+        hdr += p("<I", 0xaa995566)
+        hdr += b'XNLX'
+        # encryption + misc
+        hdr += p("<II", 0, 0x01010000)
+        # :D ('source offset' - why yes, I'm like to boot the bootrom!)
+        hdr += p("<I", 0x1_0000_0000-0x40000)
+        # len
+        hdr += p("<I", 0x2_0000)
+        # load addr 0 or 0x4_0000 only...
+        hdr += p("<I", 0)
+        # entrypt (just a loop :))
+        hdr += p("<I", 0x0FCB4)
+        #"total image len" doesn't matter here
+        hdr += p("<I", 0x010014)
+        # QSPI something something
+        hdr += p("<I", 1)
+        # checksum
+        hdr += p("<I", 0xffff_ffff - self.hdrchksum(hdr[0x20:]))
+
+        # unused...
+        for _ in range(19):
+            hdr += p("<I", 0)
+        # not sure at allll:
+        hdr += p("<II", 0x8c0,0x8c0)
+        # init lists
+        for _ in range(0x100):
+            hdr += p("<II", 0xffff_ffff, 0)
+        return hdr
+
+    # This is the original "trick" that 404 discovered
+    # copied into this code framework.
+    #
+    # This should print:
+    # checksum: 0x425b9
+    # len: 2208
+    def the_hack ( self ) :
+
+        ser = self.ser
+
+        img = self.gen_hdr()
+
+        size = len(img)
+        ##checksum = self.chksum(img)
+        self.sum = 0
+        self.add_chksum ( img )
+        checksum = self.sum
+
+        print("checksum: "+hex(checksum))
+        print("len: "+str(size))
+
+        print ( 'Waiting for XLNX-ZYNQ' )
+        while ser.read(1) != b'X':
+            continue
+        assert ser.read(8) == b'LNX-ZYNQ'
+        print ( "Got it" );
+
+        n = ser.write(b"BAUD")
+
+        #print ( "Write 1", n );
+        baudgen = 0x11
+        n = ser.write(baudgen.to_bytes(4, 'little'))
+        #print ( "Write 2", n );
+        reg0 = 0x6
+        n = ser.write(reg0.to_bytes(4, 'little'))
+        #print ( "Write 3", n );
+        n = ser.write(size.to_bytes(4, 'little'))
+        #print ( "Write 4", n );
+        n = ser.write(checksum.to_bytes(4, 'little'))
+        #print ( "Write 5", n );
+        ser.flush ()
+
+        print ( "Baud set, now write header image" )
+        #print("writing image...")
+
+        # sleep here 'cause this is where they hit resets for the tx/rx logic,
+        # and anything in-flight when that happens is lost (it happens a fair bit)
+        time.sleep(0.1)
+        x = ser.write(img)
+        ser.flush ()
+
+        print ( "wrote header, byes: ", x )
+        # let any error logic propagate..
+        time.sleep(0.1)
+
+        n = ser.in_waiting
+        print ( n, " waiting" )
+
+        time.sleep(0.5)
+        n = ser.in_waiting
+        print ( n, " waiting" )
+
+        time.sleep(1.0)
+        n = ser.in_waiting
+        print ( n, " waiting" )
+
+        if ser.in_waiting == 0:
+            print("ok, i think we are done, ROM is 0x2_0000 bytes starting at 0 :)")
+        else:
+            print("something went wrong? bootrom says: " + str(ser.read(ser.in_waiting)))
+
+    # This is my mk_header from below that I am trying to make like the hack above.
+    def mk_hack ( self, im_size ) :
+        # First 8 words that would be interrupt vectors
+        # if we were doing execute in place (but we aren't)
+        hdr  = p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+        hdr += p("<I", 0xeafffffe)
+
+        # 0x20 - width detect, always these magic bytes
+        # that the bootrom uses to sort out how the qSPI
+        # ROM is connected -- if one is being used.
+        hdr += p("<I", 0xaa995566)
+
+        # 0x24 - "image identification"
+        # must always be these 4 magic characters
+        hdr += b'XNLX'
+
+        # 0x28 encryption status + misc
+        # Anything other than 0xA5C3C5A3 or 0x3A5C3C5A
+        # means we are not encrypted (so this might as well be zero)
+        hdr += p("<I", 0)
+
+        # 0x2c - stores bootrom version, but is ignored and could be anything.
+        hdr += p("<I", 0x01010000)
+
+        # 0x30 - source offset
+        # :D ('source offset' - why yes, I'm like to boot the bootrom!)
+        # hdr += p("<I", 0x1_0000_0000-0x40000)
+        # Offset in bytes from the beginning of the bootrom header
+        #  to where the FSBL (User code) starts.
+        # Must be on a 64 byte boundary (0, 0x40, 0x80, 0xc0)
+        #hdr += p("<I", im_offset)
+        #hdr += p("<I", 0x900)
+
+        # -- HACK --
+        # :D ('source offset' - why yes, I'm like to boot the bootrom!)
+        hdr += p("<I", 0x1_0000_0000-0x40000)
+
+        # 0x34 - length of image in bytes to go to OCM
+        # must be <= 3*64K = 192K
+        #hdr += p("<I", 0x2_0000)
+        #hdr += p("<I", im_size)
+
+        # -- HACK --
+        hdr += p("<I", 0x2_0000)
+
+        # 0x38 - load address, I will always use 0
+        hdr += p("<I", 0)
+
+        # 0x3c = start address
+        #hdr += p("<I", 0x0FCB4) -- spin loop in ROM
+        #hdr += p("<I", 0)
+
+        # -- HACK --
+        # entrypt (just a loop :))
+        hdr += p("<I", 0x0FCB4)
+
+        # 0x40 - total image length to copy to OCM
+        # The same as 0x34 for the unencrypted case
+        #hdr += p("<I", 0x010014)
+        #hdr += p("<I", im_size)
+
+        # -- HACK --
+        #"total image len" doesn't matter here
+        hdr += p("<I", 0x010014)
+
+        # 0x44 - qSPI config word (always 1)
+        hdr += p("<I", 1)
+
+        # 0x48 - header checksum (over 0x20 to 0x44)
+        # sum the words, then invert the result
+        hdr += p("<I", 0xffff_ffff - self.hdrchksum(hdr[0x20:]))
+
+        # 0x4c to 0x97 - 19 words of "user defined"
+        # stuff that the bootrom ignores.
+        for _ in range(19):
+            hdr += p("<I", 0)
+
+        # 0x98 -- boot header table offset
+        # pointer to image header table
+        # who knows what this is all about.
+        hdr += p("<I", 0x8c0)
+
+        # 0x9c -- qSPI config word
+        # pointer to partition header table
+        # who knows what this is all about.
+        hdr += p("<I", 0x8c0)
+
+        # 0xa0 to 0x89c - register initialization
+        # 512 words as 256 pairs
+        # address, data
+        # This could be used to instruct the bootrom
+        # to initialize device registers.
+        # An address of 0xffff_ffff ends the list
+        for _ in range(0x100):
+            hdr += p("<II", 0xffff_ffff, 0)
+
+        return hdr
+
+    def check_em ( self ) :
+
+        # original from 404
+        img = self.gen_hdr()
+        size = len(img)
+
+        self.sum = 0
+        self.add_chksum ( img )
+        checksum = self.sum
+
+        print("checksum: ", hex(checksum))
+        print("len: ", str(size))
+
+        # mine
+        im2 = self.mk_hack ( 0 )
+        size = len(im2)
+
+        self.sum = 0
+        self.add_chksum ( im2 )
+        checksum = self.sum
+
+        print("checksum: ", hex(checksum))
+        print("len: ", str(size))
 
     # This is copied from the code by "404" with my comments added
     # The header is described on pages 171 etc. in the TRM
@@ -159,6 +437,7 @@ class Zynq () :
         hdr += p("<I", 0xeafffffe)
         hdr += p("<I", 0xeafffffe)
         hdr += p("<I", 0xeafffffe)
+
         hdr += p("<I", 0xeafffffe)
         hdr += p("<I", 0xeafffffe)
         hdr += p("<I", 0xeafffffe)
@@ -238,6 +517,18 @@ class Zynq () :
         for _ in range(0x100):
             hdr += p("<II", 0xffff_ffff, 0)
 
+        # 0x8a0 to 0x8fc
+        # Pad so our image can follow
+        # at 0x900
+        for _ in range(6*4):
+            hdr += p("<I", 0xaaaa_aaaa)
+
+        # a Note on this padding.
+        # The code must start on a 64 byte boundary.
+        # We pad with 96 bytes
+        # We could pad with 32 bytes (to 0x8c0)
+        # and change the offset above.
+
         return hdr
 
     def load ( self ) :
@@ -250,12 +541,28 @@ class Zynq () :
         b_uart1 = uart1.to_bytes(4, 'little')
         b_uart2 = uart2.to_bytes(4, 'little')
 
-        size = self.size
-        b_size = size.to_bytes(4, 'little')
+        # We need the bootrom header in order
+        # to calculate the checksum.
+        header = self.mk_header ( self.size )
 
         # Tell it to skip the checksum check
-        cksum = 0
-        b_cksum = cksum.to_bytes(4, 'little')
+        # (just pass 0 as a checksum)
+        # skip_checksum = True
+        skip_checksum = False
+
+        # Here we have an overall checksum that is
+        # solely handled by the uart boot code.
+        self.sum = 0
+        if not skip_checksum :
+            self.add_chksum ( header )
+            if self.size > 0 :
+                self.add_chksum ( self.image )
+
+        b_cksum = self.sum.to_bytes(4, 'little')
+
+        # size is header plus image
+        size = len ( header ) + self.size
+        b_size = size.to_bytes(4, 'little')
 
         ser.write ( b"BAUD" )
         ser.write ( b_uart1 )
@@ -266,10 +573,23 @@ class Zynq () :
 
         time.sleep(0.01)
 
-        header = self.mk_header ( self.size )
+        print ( "Write header: ", len(header), " bytes" )
         ser.write ( header )
 
-        ser.write ( self.image )
+        if self.size > 0 :
+            print ( "Write image: ", self.size, " bytes" )
+            #print ( "Write image: ", len(self.image), " bytes" )
+            ser.write ( self.image )
+
+    def extra ( self, count ) :
+        for _ in range(count) :
+            self.ser.write(b"X")
+            time.sleep(0.2)
+            n = self.ser.in_waiting
+            if n != 0 :
+                break
+        if n != 0 :
+            self.show ( num, 999 )
 
     # This works nicely to show any errors coming
     # from the bootrom.
@@ -287,12 +607,30 @@ class Zynq () :
         else :
             print ( "Nothing" )
 
+# During debug, I got 0x2111 when I set the serial size to the header,
+# but had non-zero image size.
+# Then I sent a header with a zero image length, this gave
+# me error 0x201e.
+
+original = False
+check = False
+zero = False
+
+if original :
+    test = Zynq ()
+    test.the_hack ()
+    test.extra ( 20 )
+    test.listen ()
+    exit ()
+
+if check :
+    test = Zynq ()
+    test.check_em ()
+    exit ()
+
 test = Zynq ()
-#test.wait ()
-#test.e2501 ()
-#test.e2502 ()
-#test.e2503 ()
-test.read_image ()
+if not zero :
+    test.read_image ()
 test.wait ()
 test.load ()
 test.listen ()

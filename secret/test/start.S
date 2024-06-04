@@ -11,11 +11,24 @@
 
 	.globl startup
 startup:
+	ldr	sp, =0x38000
+loop:
+	mov r0, #0x1000
+	movt r0, #0xe000
+	mov ip, #0x4e
+	str ip, [r0, #0x30]
+	dsb sy
+	isb sy
+	b loop
+
+	.globl Xstartup
+Xstartup:
 
 #	movw	sp, #:lower16:cur_thread
 #	movt	sp, #:upper16:cur_thread
 #	ldr	sp, [sp, #0]
-	ldr	sp, =0x50000
+#	ldr	sp, =0x40000
+	ldr	sp, =0x38000
 
 	bl	main
 

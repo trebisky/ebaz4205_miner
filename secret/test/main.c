@@ -31,6 +31,15 @@ dork_around ( void )
 }
 
 void
+delay ( void )
+{
+	volatile int n = 99999;
+
+	while ( n-- )
+	    ;
+}
+
+void
 main ( void )
 {
 	vu32 *up = (vu32 *) UART_DATA;
@@ -38,6 +47,7 @@ main ( void )
 	for ( ;; ) {
 	    *up = 'N';
 	    dork_around ();
+	    delay ();
 	}
 }
 

@@ -3,6 +3,9 @@
 # provoke error 0x2502 from the secret bootrom
 #  Tom Trebisky  5-19-2024
 
+# error 0x2502 happens when we specify a size
+# greater than 192K (0x3_0000)
+
 # On my Fedora 40 system, I needed:
 # dnf install python3-pyserial
 
