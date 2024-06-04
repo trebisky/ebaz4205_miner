@@ -12,6 +12,34 @@
 	.globl startup
 startup:
 	ldr	sp, =0x38000
+xyz:	b	xyz
+
+	# The OCM_CFG register
+	mov	r0,#0x0910
+	movt	r0,#0xf800
+	mov	r1, #8
+
+	# Now pad to put the spin loop
+	# at the same address as the one in the bootrom
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+	# flip memory
+	str	r1, [r0]
+
+# bootrom has spin loop at 0x3c
+spin:	b	spin
+
+# This spews out endless 'N' characters
 loop:
 	mov r0, #0x1000
 	movt r0, #0xe000
@@ -32,8 +60,8 @@ Xstartup:
 
 	bl	main
 
-spin:
-        b      spin
+spin2:
+        b      spin2
 
 # Idiotic junk to avoid complaints from linker
 .section        .note.GNU-stack,"",%progbits

@@ -144,14 +144,6 @@ class Zynq () :
 
         print ( "Binary image read: ", self.size, " bytes" )
 
-# original header checksum
-#def hdrchksum(data):
-#    chk = 0
-#    for i in range(0, len(data), 4):
-#        chk += up("<I", data[i:i+4])[0]
-#        chk &= 0xFFFF_FFFF
-#    return chk
-
     # Calculate header checksum
     # (word by word)
     def hdrchksum ( self, data ) :
@@ -160,14 +152,6 @@ class Zynq () :
             chk += up("<I", data[i:i+4])[0]
             chk &= 0xFFFF_FFFF
         return chk
-
-# original payload checksum
-#    def chksum(data):
-#        chk = 0
-#        for d in data:
-#            chk += d
-#            chk &= 0xFFFF_FFFF
-#        return chk
 
     # Calculate payload checksum for uart loader
     # ( byte by byte )
@@ -299,135 +283,6 @@ class Zynq () :
         else:
             print("something went wrong? bootrom says: " + str(ser.read(ser.in_waiting)))
 
-    # This is my mk_header from below that I am trying to make like the hack above.
-    def mk_hack ( self, im_size ) :
-        # First 8 words that would be interrupt vectors
-        # if we were doing execute in place (but we aren't)
-        hdr  = p("<I", 0xeafffffe)
-        hdr += p("<I", 0xeafffffe)
-        hdr += p("<I", 0xeafffffe)
-        hdr += p("<I", 0xeafffffe)
-
-        hdr += p("<I", 0xeafffffe)
-        hdr += p("<I", 0xeafffffe)
-        hdr += p("<I", 0xeafffffe)
-        hdr += p("<I", 0xeafffffe)
-
-        # 0x20 - width detect, always these magic bytes
-        # that the bootrom uses to sort out how the qSPI
-        # ROM is connected -- if one is being used.
-        hdr += p("<I", 0xaa995566)
-
-        # 0x24 - "image identification"
-        # must always be these 4 magic characters
-        hdr += b'XNLX'
-
-        # 0x28 encryption status + misc
-        # Anything other than 0xA5C3C5A3 or 0x3A5C3C5A
-        # means we are not encrypted (so this might as well be zero)
-        hdr += p("<I", 0)
-
-        # 0x2c - stores bootrom version, but is ignored and could be anything.
-        hdr += p("<I", 0x01010000)
-
-        # 0x30 - source offset
-        # :D ('source offset' - why yes, I'm like to boot the bootrom!)
-        # hdr += p("<I", 0x1_0000_0000-0x40000)
-        # Offset in bytes from the beginning of the bootrom header
-        #  to where the FSBL (User code) starts.
-        # Must be on a 64 byte boundary (0, 0x40, 0x80, 0xc0)
-        #hdr += p("<I", im_offset)
-        #hdr += p("<I", 0x900)
-
-        # -- HACK --
-        # :D ('source offset' - why yes, I'm like to boot the bootrom!)
-        hdr += p("<I", 0x1_0000_0000-0x40000)
-
-        # 0x34 - length of image in bytes to go to OCM
-        # must be <= 3*64K = 192K
-        #hdr += p("<I", 0x2_0000)
-        #hdr += p("<I", im_size)
-
-        # -- HACK --
-        hdr += p("<I", 0x2_0000)
-
-        # 0x38 - load address, I will always use 0
-        hdr += p("<I", 0)
-
-        # 0x3c = start address
-        #hdr += p("<I", 0x0FCB4) -- spin loop in ROM
-        #hdr += p("<I", 0)
-
-        # -- HACK --
-        # entrypt (just a loop :))
-        hdr += p("<I", 0x0FCB4)
-
-        # 0x40 - total image length to copy to OCM
-        # The same as 0x34 for the unencrypted case
-        #hdr += p("<I", 0x010014)
-        #hdr += p("<I", im_size)
-
-        # -- HACK --
-        #"total image len" doesn't matter here
-        hdr += p("<I", 0x010014)
-
-        # 0x44 - qSPI config word (always 1)
-        hdr += p("<I", 1)
-
-        # 0x48 - header checksum (over 0x20 to 0x44)
-        # sum the words, then invert the result
-        hdr += p("<I", 0xffff_ffff - self.hdrchksum(hdr[0x20:]))
-
-        # 0x4c to 0x97 - 19 words of "user defined"
-        # stuff that the bootrom ignores.
-        for _ in range(19):
-            hdr += p("<I", 0)
-
-        # 0x98 -- boot header table offset
-        # pointer to image header table
-        # who knows what this is all about.
-        hdr += p("<I", 0x8c0)
-
-        # 0x9c -- qSPI config word
-        # pointer to partition header table
-        # who knows what this is all about.
-        hdr += p("<I", 0x8c0)
-
-        # 0xa0 to 0x89c - register initialization
-        # 512 words as 256 pairs
-        # address, data
-        # This could be used to instruct the bootrom
-        # to initialize device registers.
-        # An address of 0xffff_ffff ends the list
-        for _ in range(0x100):
-            hdr += p("<II", 0xffff_ffff, 0)
-
-        return hdr
-
-    def check_em ( self ) :
-
-        # original from 404
-        img = self.gen_hdr()
-        size = len(img)
-
-        self.sum = 0
-        self.add_chksum ( img )
-        checksum = self.sum
-
-        print("checksum: ", hex(checksum))
-        print("len: ", str(size))
-
-        # mine
-        im2 = self.mk_hack ( 0 )
-        size = len(im2)
-
-        self.sum = 0
-        self.add_chksum ( im2 )
-        checksum = self.sum
-
-        print("checksum: ", hex(checksum))
-        print("len: ", str(size))
-
     # This is copied from the code by "404" with my comments added
     # The header is described on pages 171 etc. in the TRM
     def mk_header ( self, im_size ) :
@@ -460,6 +315,11 @@ class Zynq () :
         # 0x2c - stores bootrom version, but is ignored and could be anything.
         hdr += p("<I", 0x01010000)
 
+        #src_offset = 0x900
+        #src_pad = 6*4
+        src_offset = 0x8c0
+        src_pad = 2*4
+
         # 0x30 - source offset
         # :D ('source offset' - why yes, I'm like to boot the bootrom!)
         # hdr += p("<I", 0x1_0000_0000-0x40000)
@@ -467,7 +327,7 @@ class Zynq () :
         #  to where the FSBL (User code) starts.
         # Must be on a 64 byte boundary (0, 0x40, 0x80, 0xc0)
         #hdr += p("<I", im_offset)
-        hdr += p("<I", 0x900)
+        hdr += p("<I", src_offset)
 
         # 0x34 - length of image in bytes to go to OCM
         # must be <= 3*64K = 192K
@@ -520,7 +380,7 @@ class Zynq () :
         # 0x8a0 to 0x8fc
         # Pad so our image can follow
         # at 0x900
-        for _ in range(6*4):
+        for _ in range(src_pad):
             hdr += p("<I", 0xaaaa_aaaa)
 
         # a Note on this padding.
@@ -613,7 +473,6 @@ class Zynq () :
 # me error 0x201e.
 
 original = False
-check = False
 zero = False
 
 if original :
@@ -621,11 +480,6 @@ if original :
     test.the_hack ()
     test.extra ( 20 )
     test.listen ()
-    exit ()
-
-if check :
-    test = Zynq ()
-    test.check_em ()
     exit ()
 
 test = Zynq ()
