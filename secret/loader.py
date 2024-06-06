@@ -11,6 +11,21 @@ import serial
 import time
 import sys
 
+# Every once in a while I see this:
+# To my eye, this looks like a bug in pyserial ...
+# 
+# Waiting for XLNX-ZYNQ
+# Traceback (most recent call last):
+#   File "/u1/Projects/FPGA/Ebaz/Github/secret/./loader.py", line 511, in <module>
+#     test.wait ()
+#   File "/u1/Projects/FPGA/Ebaz/Github/secret/./loader.py", line 30, in wait
+#     while self.ser.read(1) != b'X':
+#           ^^^^^^^^^^^^^^^^
+#   File "/usr/lib/python3.12/site-packages/serial/serialposix.py", line 595, in read
+#     raise SerialException(
+# serial.serialutil.SerialException: device reports readiness to read but returned no data (device disconnected or multiple access on port?)
+
+
 # =================================================
 
 class Zynq () :
@@ -135,12 +150,14 @@ class Zynq () :
         else :
             print ( "Trouble" )
 
-    def read_image ( self ) :
-        binfile = "lots.bin"
-
-        with open ( binfile, mode='rb') as file:
-            self.image = file.read()
-            self.size = len ( self.image )
+    def read_image ( self, binfile ) :
+        try:
+            with open ( binfile, mode='rb') as file:
+                self.image = file.read()
+                self.size = len ( self.image )
+        except IOError:
+            print ( "Trouble reading: ", binfile )
+            exit ()
 
         print ( "Binary image read: ", self.size, " bytes" )
 
@@ -467,10 +484,23 @@ class Zynq () :
         else :
             print ( "Nothing" )
 
+    # More persistent listening.
+    def listen2 ( self ) :
+        num = 0
+        for _ in range(10) :
+            num += 1
+            time.sleep(0.1)
+            n = self.ser.in_waiting
+            if n != 0 :
+                self.show ( num, n )
+            else :
+                print ( "-- Zip" )
+
 # During debug, I got 0x2111 when I set the serial size to the header,
 # but had non-zero image size.
 # Then I sent a header with a zero image length, this gave
 # me error 0x201e.
+# As of 6/2/2024 we got the loader working.
 
 original = False
 zero = False
@@ -480,14 +510,23 @@ if original :
     test.the_hack ()
     test.extra ( 20 )
     test.listen ()
+    print ( "Finished" )
     exit ()
+
+if len(sys.argv) < 2 :
+    print ( "Usage: loader xyz.bin" )
+    exit ()
+
+#binfile = "lots.bin"
+binfile = sys.argv[1]
 
 test = Zynq ()
 if not zero :
-    test.read_image ()
+    test.read_image ( binfile )
 test.wait ()
 test.load ()
-test.listen ()
+#test.listen ()
+test.listen2 ()
 
 print ( "Done" )
 

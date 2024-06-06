@@ -31,8 +31,9 @@ ARM_ELF_FLAGS += -Wno-implicit-function-declaration
 ARM_ELF_FLAGS += -Wno-unused-function $(ABI)
 
 OBJS = start.o main.o
+FOBJS = flood.o
 
-TARGET = lots.bin
+TARGET = lots.bin flood.bin
 
 %.bin: %.elf
 	$(CROSS)objcopy -O binary $< $@
@@ -44,11 +45,15 @@ TARGET = lots.bin
 	        $(CC) -o $@ -c $<
 
 # ==============================================================
-all: $(TARGET)
-#all: install
+#all: $(TARGET)
+all: install
 
-#install: $(TARGET)
-#	cp $(TARGET) /var/lib/tftpboot/bitcoin.bin
+test: lots.bin
+	../loader.py lots.bin
+
+install: $(TARGET)
+	cp flood.bin ..
+	cp lots.bin ..
 
 DUMP = arm-linux-gnu-objdump -d
 
@@ -69,3 +74,8 @@ LINKER = -Wl,--build-id=none -Wl,--no-warn-rwx-segments
 
 lots.elf: $(OBJS)
 	$(CC) -o $@ -nostdlib $(OBJS) -T fsbl.lds $(LINKER) $(LIBS)
+
+flood.elf: $(FOBJS)
+	$(CC) -o $@ -nostdlib $(FOBJS) -T fsbl.lds $(LINKER) $(LIBS)
+
+# THE END
