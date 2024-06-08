@@ -6,12 +6,16 @@
  * published by the Free Software Foundation. See README and COPYING for
  * more details.
  */
+
 /* start.S
+ *
+ * Putting the stack at 0x3_8000 won't work.
+ * That 64K chunk of memory is up at 0xffff_xxxx
  */
 
 	.globl startup
 startup:
-	ldr	sp, =0x38000
+	ldr	sp, =0x28000
 	bl	main
 
 spin:	b	spin

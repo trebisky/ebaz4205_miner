@@ -14,6 +14,7 @@ void main ( void );
 
 /* I don't expect it to work if we just pound
  * characters full tilt to the uart data register.
+ * But it does!  Although we lose characters.
  */
 void
 dork_around ( void )
@@ -35,7 +36,8 @@ delay ( void )
 {
 	// yields about 1 second deley
 	// volatile int n = 999999;
-	volatile int n = 99999;
+	volatile int n = 499999;
+	// volatile int n = 99999;
 	// volatile int n = 999;
 	// volatile int n = 99;
 
@@ -43,8 +45,8 @@ delay ( void )
 	    ;
 }
 
-/* Somehow the 'B' gets sent as a 00 byte.
- * which makes no sense.
+/* Works fine once I put the stack someplace
+ * where there is actually RAM.
  */
 void
 main ( void )
