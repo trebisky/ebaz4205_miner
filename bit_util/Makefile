@@ -9,7 +9,8 @@ verify_compression: verify_compression.o pl_data.o
 	cc -o verify_compression verify_compression.o pl_data.o
 
 install: bitread
-	cp bitread /usr/local/bin
+	#cp bitread /usr/local/bin
+	cp bitread /home/tom/bin
 
 # ---------
 

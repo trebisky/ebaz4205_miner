@@ -11,5 +11,7 @@ start:
 
 spin:	b		spin
 
+# Idiotic junk to avoid complaints from linker
+.section        .note.GNU-stack,"",%progbits
 
 // THE END
