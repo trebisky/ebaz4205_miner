@@ -3,8 +3,8 @@
 # tom@mmto.org
 
 BOARD = ebaz
-#CROSS_COMPILE = aarch64-linux-gnu-
-CROSS_COMPILE = arm-linux-gnu-
+#CROSS_COMPILE = arm-linux-gnu-
+CROSS_COMPILE = arm-none-eabi-
 
 # -------------------------------------
 
@@ -13,24 +13,20 @@ OBJS = start.o fish.o
 TARGET = $(BOARD).bin
 
 # CFLAGS		:=	-g -Wall -Wextra -ffreestanding -fno-builtin -mlittle-endian
-CFLAGS		:=	-g -Wall -ffreestanding -fno-builtin -mlittle-endian
+#CFLAGS		:=	-g -Wall -ffreestanding -fno-builtin -mlittle-endian
+CFLAGS		:=	-g -Wall -ffreestanding -fno-builtin
 CFLAGS		+= -march=armv7-a
-#CFLAGS		+= -mtune=cortex-a53
 CFLAGS		+= -I.
 
-LDFLAGS		:=	-Bstatic \
-			-Tspl.lds \
-			-Wl,--start-group \
-			-Wl,--end-group \
-			-Wl,--build-id=none \
-			-nostdlib
+LDFLAGS		:=	-T spl.lds \
+			-nostdlib \
+			-z noexecstack --no-warn-rwx-segments
 
 CC			=	$(CROSS_COMPILE)gcc $(CFLAGS)
-LD 			=	$(CROSS_COMPILE)gcc $(LDFLAGS)
+#LD 			=	$(CROSS_COMPILE)gcc $(LDFLAGS)
+LD 			=	$(CROSS_COMPILE)ld $(LDFLAGS)
 OBJCOPY			=	$(CROSS_COMPILE)objcopy
 DUMP			=	$(CROSS_COMPILE)objdump
-
-LOAD			=	tools/loader -h64
 
 # This gives us dependencies in .d files.
 # CFLAGS		+= -MMD
@@ -58,8 +54,7 @@ install: $(TARGET)
 
 
 $(BOARD).elf: $(OBJS)
-	@echo " [LD]   $(BOARD).elf"
-	@$(LD) $(OBJS) -o $(BOARD).elf
+	$(LD) $(OBJS) -o $(BOARD).elf
 
 $(TARGET): $(BOARD).elf
 	@#echo " [IMG]  $(TARGET)

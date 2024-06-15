@@ -135,7 +135,8 @@ uart_handler ( int xxx )
 
 	uart_character = c;
 
-	led_cmd ( c );
+	/* Stop all blinking */
+	// led_cmd ( c );
 }
 
 /* THE END */

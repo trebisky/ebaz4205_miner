@@ -1,4 +1,4 @@
-/* Drive for an axi gpio device that has been
+/* Driver for an axi gpio device that has been
  * established in the PL by downloading an appropriate
  * bitstream to the Zynq FPGA.
  *
@@ -87,12 +87,17 @@ axi_test ( void )
 	axi_gpio_dir ( 0 );
 
 	// Both LED blink slow and out of phase.
+	// Slow is about 1 hz
 	// axi_gpio_write ( 0x26 );
-	axi_gpio_write ( 0x22 );
-	axi_gpio_write ( 0x11 );
+
+	/* Both LED blink together, slow */
+	// axi_gpio_write ( 0x22 );
+
+	/* Both LED blink together, fast */
+	// axi_gpio_write ( 0x11 );
 
 	// Both LED blink fast and out of phase.
-	// axi_gpio_write ( 0x15 );
+	axi_gpio_write ( 0x15 );
 
 	// Controlled by user code.
 	// ps_blink ();
@@ -104,6 +109,9 @@ led_all_off ( void )
 	axi_gpio_write ( 0x88 );
 }
 
+/* At one time, when we got a uart interrupt, we called this
+ * to stop all LED blinking.
+ */
 void
 led_cmd ( int c )
 {

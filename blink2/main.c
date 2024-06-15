@@ -346,7 +346,7 @@ main ( void )
 	int cur_sp;
 	int x;
 #endif
-	int i;
+	// int i;
 
 	init_thread ();
 	gic_init ();

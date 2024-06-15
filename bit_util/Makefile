@@ -12,6 +12,11 @@ install: bitread
 	#cp bitread /usr/local/bin
 	cp bitread /home/tom/bin
 
+install2: bitread
+	cp bitread ../fabric
+	cp bitread ../blink1
+	cp bitread ../blink2
+
 # ---------
 
 # Just read and list information

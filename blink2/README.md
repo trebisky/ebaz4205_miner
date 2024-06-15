@@ -1,20 +1,17 @@
-blink1 project
+blink2 project
 
-6-3-2022, 6-6-2022
+6-3-2022, 6-6-2022 6-15-2024
 
-The idea is to take a bitstream file that runs entirely
-self contained in the PL and load and start it from
-the PS.
+Here we have a bitstream for the PL that implements a GPIO
+driven special blink function that can be controlled by
+the GPIO.  The blinking is entirely autonomous once it is
+started.
 
-As much as anything it is a driver for the devcfg section
-of the Zynq chip on the Ebaz board.
+As soon as a character is typed, blinking stops.
 
-I am using a tested bitstream that blinks the green LED at
-about 2 Hz (the red LED remains off).
-
-This began by copying the "timer" project.
+This was copied from "blink1", which was copied from "timer".
 
 The DMA loading of the PL is very fast.
 
-This now works with bit_read generating C source
+This works with bit_read generating C source
 from the bitstream file.

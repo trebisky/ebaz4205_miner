@@ -6,6 +6,8 @@ The idea is to take a bitstream file that runs entirely
 self contained in the PL and load and start it from
 the PS.
 
+The end result is the green LED on the EBAZ will blink.
+
 As much as anything it is a driver for the devcfg section
 of the Zynq chip on the Ebaz board.
 

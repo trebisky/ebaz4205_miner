@@ -49,7 +49,7 @@ TARGET = fabric.bin
 all: install
 
 pl_data.o:	clocks.bit
-	bitread -c clocks.bit >pl_data.c
+	./bitread -c clocks.bit >pl_data.c
 	$(CC) -c $(ARM_ELF_FLAGS) -nostdlib -c pl_data.c
 
 install: $(TARGET)
