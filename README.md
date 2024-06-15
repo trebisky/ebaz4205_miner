@@ -31,6 +31,8 @@ Here are the projects you will find here:
 Several projects (bootrom and secret) have been moved from here to
 my new Zynq repository.
 
+[Zynq](https://github.com/trebisky/Zynq)
+
 Some imporant notes about Compilers and Makefiles:
 
 [Compilers and Makefiles](Compiler.md)
