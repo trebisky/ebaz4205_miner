@@ -1,36 +1,19 @@
-Get timer and uart interrupts on the EBAZ4205
+Swap - experiment with the SWAP bit in the OCM_CFG register
 
-----
+5-2024
 
-Copied from /u1/Projects/OrangePi/Archive/inter_kyu
+An experiment after learning about some things in the bootrom.
+I wanted to see if flipping the SWAP bit would expose the bootrom.
+It turns out that there is more involved.  OCM is entirely hidden
+by the SCU (snoop control unit),  We could try to turn that off,
+which would involve flushing and invalidating caches and a lot
+more than I care to do.
 
-This was first made to work with a serial rcv interrupt,
-then a simple timer driver as added.
+So this is a "failed experiment".  It did prove somewhat educational.
+The way to investigate this is to perform an experiment where
+I let the bootrom load some experimental code in lieu of the FSBL.
+The SCU won't be enabled yet, so it won't interfere.
 
-This gets timer interrupts at 1000 Hz, reporting on them
-continuously at 1 Hz on the console.
-Keypresses generate interrupts which are reported.
-
-The Orange Pi version this was derived from was a
-quick hack pulling all kinds of stuff from Kyu.
-My comments on that from the Orange Pi archive follow:
-
-----
-
-After pulling my hair out with some simple code
-to demonstrate timer interrupts, I decided I could
-help troubleshoot things by pulling in a few modules
-from Kyu that would tell me about data aborts and give
-traceback on exceptions, and such things.
-
-So after a no holds barred hack-job editing session,
-lo and behold it all just works!
-
-So, we have here code that demonstrates using timer
-interrupts on the Allwinner H3 using the ARM GIC.
-
-This will be a useful stepping stone towards getting
-Kyu running on the Orange Pi.
-
-This code has no trouble with the timer running at
-    10,000 Hz
+I did this, and the SWAP bit still didn't do what I hoped.
+JTAG was a help in seeing what was going on, but that is well
+beyond what we have here.

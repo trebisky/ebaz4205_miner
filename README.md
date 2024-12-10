@@ -23,10 +23,12 @@ Here are the projects you will find here:
 1. printf - I add a little printf to the button demo
 1. timer - basic interrupts
 1. amp - asymmetric multiprocessing (get second core running)
+1. swap - useless experiment with the OCM swap bit
 
 1. bit_util - bitstream utilities
 1. blink1 - blink (test PL download)
 1. blink2 - blink (make an AXI gpio LED gadget and AXI gpio driver)
+1. fabric - investigate PL fabric clocks (fastest is 125 Mhz it seems)
 
 Several projects (bootrom and secret) have been moved from here to
 my new Zynq repository.

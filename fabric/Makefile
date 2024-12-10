@@ -10,21 +10,36 @@
 #
 # Tom Trebisky  2-28-2023
 
-CROSS = arm-linux-gnu-
+#CROSS = arm-linux-gnu-
+CROSS = arm-none-eabi-
 
-CC = $(CROSS)gcc
+#ABI = -isystem /usr/lib/gcc/arm-linux-gnueabi/$(GCCVERSION)/include
+#LIBS = -L /usr/lib/gcc/arm-linux-gnueabi/$(GCCVERSION) -lgcc
 
-GCCVERSION = `$(CC) -dumpversion`
+ABI = -isystem /usr/lib/gcc/arm-none-eabi/$(GCCVERSION)/include
+LIBS = -L /usr/lib/gcc/arm-none-eabi/$(GCCVERSION) -lgcc
 
-ABI = -isystem /usr/lib/gcc/arm-linux-gnueabi/$(GCCVERSION)/include
-LIBS = -L /usr/lib/gcc/arm-linux-gnueabi/$(GCCVERSION) -lgcc
+#CFLAGS          := -g -Wall
+CFLAGS          := -ffreestanding -fno-builtin
+CFLAGS          += -march=armv7-a
+CFLAGS          += -Wno-implicit-function-declaration
+CFLAGS          += -I.
+CFLAGS          += $(ABI)
 
+CC = $(CROSS)gcc $(CFLAGS)
+LD = $(CROSS)ld
+
+#GCCVERSION = `$(CC) -dumpversion`
+GCCVERSION = `$(CROSS)gcc -dumpversion`
+
+# Used with arm-linux-gnu
 #ARM_ELF_FLAGS = -Os -marm -fpic -Wall
 #ARM_ELF_FLAGS = -marm -fpic -Wall
 #ARM_ELF_FLAGS = -O2 -marm -fpic -Wall
 #ARM_ELF_FLAGS = -O2 -marm -Wall
 ARM_ELF_FLAGS = -O2 -marm
 
+# Used with arm-linux-gnu
 ARM_ELF_FLAGS += -fno-common -fno-builtin -ffreestanding -nostdinc -fno-strict-aliasing
 ARM_ELF_FLAGS += -mno-thumb-interwork -fno-stack-protector -fno-toplevel-reorder
 ARM_ELF_FLAGS += -Wstrict-prototypes -Wno-format-nonliteral -Wno-format-security
@@ -41,7 +56,7 @@ TARGET = fabric.bin
 	$(CROSS)objcopy -O binary $< $@
 
 %.o: %.c
-	$(CC) -c $(ARM_ELF_FLAGS) -nostdlib -c $<
+	$(CC) -c -nostdlib -c $<
 
 .S.o:
 	        $(CC) -o $@ -c $<
@@ -50,7 +65,7 @@ all: install
 
 pl_data.o:	clocks.bit
 	./bitread -c clocks.bit >pl_data.c
-	$(CC) -c $(ARM_ELF_FLAGS) -nostdlib -c pl_data.c
+	$(CC) -c -nostdlib -c pl_data.c
 
 install: $(TARGET)
 	cp $(TARGET) /var/lib/tftpboot/bitcoin.bin
@@ -106,7 +121,9 @@ version:
 	$(CC) --version
 
 #LINKER = -Wl,-N,--build-id=none
-LINKER = -Wl,--build-id=none
+#LINKER = -Wl,--build-id=none
+
+LDFLAGS = -nostdlib -z noexecstack --no-warn-rwx-segments
 
 fabric.elf: $(OBJS)
-	$(CC) -o $@ -nostdlib $(OBJS) -T basic.lds $(LINKER) $(LIBS)
+	$(LD) -o $@ $(LDFLAGS) $(OBJS) -T basic.lds $(LIBS)

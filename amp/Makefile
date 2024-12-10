@@ -7,6 +7,7 @@
 CROSS = arm-linux-gnu-
 
 CC = $(CROSS)gcc
+LD = $(CROSS)ld
 
 GCCVERSION = `$(CC) -dumpversion`
 
@@ -65,10 +66,15 @@ version:
 	$(CC) --version
 
 #LINKER = -Wl,-N,--build-id=none
-LINKER = -Wl,--build-id=none
+#LINKER = -Wl,--build-id=none
+#	$(CC) -o $@ -nostdlib $(OBJS) -T basic.lds $(LINKER) $(LIBS)
+
+LDFLAGS = -nostdlib -z noexecstack --no-warn-rwx-segments
 
 $(TARGET).elf: $(OBJS)
-	$(CC) -o $@ -nostdlib $(OBJS) -T basic.lds $(LINKER) $(LIBS)
+	$(LD) -o $@ $(LDFLAGS) $(OBJS) -T basic.lds $(LIBS)
 
 hack:	hack.c
 	cc -o hack hack.c
+
+# THE END

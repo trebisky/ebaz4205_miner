@@ -1,6 +1,9 @@
-Get the second core on the Zynq-7000 doing something.
+AMP - Asymmetric Multi Processing
 
-I am continuing my experiments with my EBAZ4205 board.
+A fancy way of saying,
+"let's get the second core on the Zynq-7000 doing something."
+
+I am continuing the experiments with my EBAZ4205 board.
 
 This now works!  Having the first core execute the SEV
 instruction to wake up the second was the key.
